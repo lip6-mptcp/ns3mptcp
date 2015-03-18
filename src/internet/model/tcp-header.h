@@ -176,6 +176,16 @@ public:
    */
   Ptr<TcpOption> GetOption (uint8_t kind) const;
 
+  typedef std::list< Ptr<TcpOption> > TcpOptionList; /**< List of TcpOption */
+
+  /**
+   * \brief Copy all options in a list
+   * \note The list should be empty
+   * \param options Return a copy of the options
+   */
+  void
+  GetOptions (TcpHeader::TcpOptionList& options) const;
+
   /**
    * \brief Check if the header has the option specified
    * \param kind Option to check for
@@ -204,7 +214,7 @@ public:
    *        IP packet.
    *
    */
-  void InitializeChecksum (Ipv4Address source, 
+  void InitializeChecksum (Ipv4Address source,
                            Ipv4Address destination,
                            uint8_t protocol);
 
@@ -222,7 +232,7 @@ public:
    *        IP packet.
    *
    */
-  void InitializeChecksum (Ipv6Address source, 
+  void InitializeChecksum (Ipv6Address source,
                            Ipv6Address destination,
                            uint8_t protocol);
 
@@ -240,7 +250,7 @@ public:
    *        IP packet.
    *
    */
-  void InitializeChecksum (Address source, 
+  void InitializeChecksum (Address source,
                            Address destination,
                            uint8_t protocol);
 
@@ -320,7 +330,6 @@ private:
   bool m_goodChecksum;    //!< Flag to indicate that checksum is correct
 
 
-  typedef std::list< Ptr<TcpOption> > TcpOptionList; //!< List of TcpOption
   TcpOptionList m_options; //!< TcpOption present in the header
   uint8_t m_optionsLen; //!< Tcp options length.
   static const uint8_t m_maxOptionsLen = 40; //!< Maximum options length
