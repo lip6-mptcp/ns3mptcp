@@ -30,7 +30,7 @@ examples_enabled = False
 tests_enabled    = False
 
 # Bug 1868:  be conservative about -Wstrict-overflow for optimized builds
-# on older compilers; it can generate spurious warnings.  
+# on older compilers; it can generate spurious warnings.
 cc_version_warn_strict_overflow = ('4', '8', '2')
 
 # Get the information out of the NS-3 configuration file.
@@ -262,7 +262,7 @@ def _check_compilation_flag(conf, flag, mode='cxx', linkflags=None):
     conf.end_msg(ok)
     return ok
 
-    
+
 def report_optional_feature(conf, name, caption, was_enabled, reason_not_enabled):
     conf.env.append_value('NS3_OPTIONAL_FEATURES', [(name, caption, was_enabled, reason_not_enabled)])
 
@@ -320,16 +320,16 @@ def configure(conf):
         env['BUILD_SUFFIX'] = ''
     else:
         env['BUILD_SUFFIX'] = '-'+Options.options.build_profile
-    
+
     env['APPNAME'] = wutils.APPNAME
     env['VERSION'] = wutils.VERSION
 
     if conf.env['CXX_NAME'] in ['gcc', 'icc']:
-        if Options.options.build_profile == 'release': 
-            env.append_value('CXXFLAGS', '-fomit-frame-pointer') 
-        if Options.options.build_profile == 'optimized': 
+        if Options.options.build_profile == 'release':
+            env.append_value('CXXFLAGS', '-fomit-frame-pointer')
+        if Options.options.build_profile == 'optimized':
             if conf.check_compilation_flag('-march=native'):
-                env.append_value('CXXFLAGS', '-march=native') 
+                env.append_value('CXXFLAGS', '-march=native')
             env.append_value('CXXFLAGS', '-fstrict-overflow')
             if conf.env['CC_VERSION'] == cc_version_warn_strict_overflow:
                 env.append_value('CXXFLAGS', '-Wstrict-overflow=5')
@@ -380,7 +380,7 @@ def configure(conf):
 
     # Set the list of enabled modules.
     if Options.options.enable_modules:
-        # Use the modules explicitly enabled. 
+        # Use the modules explicitly enabled.
         conf.env['NS3_ENABLED_MODULES'] = ['ns3-'+mod for mod in
                                            Options.options.enable_modules.split(',')]
     else:
@@ -430,11 +430,11 @@ def configure(conf):
 
     # Decide if tests will be built or not.
     if Options.options.enable_tests:
-        # Tests were explicitly enabled. 
+        # Tests were explicitly enabled.
         env['ENABLE_TESTS'] = True
         why_not_tests = "option --enable-tests selected"
     elif Options.options.disable_tests:
-        # Tests were explicitly disabled. 
+        # Tests were explicitly disabled.
         env['ENABLE_TESTS'] = False
         why_not_tests = "option --disable-tests selected"
     else:
@@ -451,11 +451,11 @@ def configure(conf):
 
     # Decide if examples will be built or not.
     if Options.options.enable_examples:
-        # Examples were explicitly enabled. 
+        # Examples were explicitly enabled.
         env['ENABLE_EXAMPLES'] = True
         why_not_examples = "option --enable-examples selected"
     elif Options.options.disable_examples:
-        # Examples were explicitly disabled. 
+        # Examples were explicitly disabled.
         env['ENABLE_EXAMPLES'] = False
         why_not_examples = "option --disable-examples selected"
     else:
@@ -475,7 +475,7 @@ def configure(conf):
         if os.path.isdir(os.path.join('examples', dir)):
             env['EXAMPLE_DIRECTORIES'].append(dir)
 
-    conf.report_optional_feature("ENABLE_EXAMPLES", "Build examples", env['ENABLE_EXAMPLES'], 
+    conf.report_optional_feature("ENABLE_EXAMPLES", "Build examples", env['ENABLE_EXAMPLES'],
                                  why_not_examples)
 
     env['VALGRIND_FOUND'] = False
@@ -500,6 +500,14 @@ def configure(conf):
     conf.report_optional_feature("GSL", "GNU Scientific Library (GSL)",
                                  conf.env['ENABLE_GSL'],
                                  "GSL not found")
+
+    have_crypto = conf.check_cfg(package='libcrypto', args=['--cflags', '--libs'],
+                              uselib_store='crypto', mandatory=False)
+    conf.env['ENABLE_CRYPTO'] = have_crypto
+    conf.report_optional_feature("libcrypto", "OpenSSL cryptographic library",
+                                 conf.env['ENABLE_CRYPTO'],
+                                 "libcrypto not found")
+
 
     # for compiling C code, copy over the CXX* flags
     conf.env.append_value('CCFLAGS', conf.env['CXXFLAGS'])
@@ -537,8 +545,8 @@ def configure(conf):
     bld = wutils.bld
     print "%-30s: %s%s%s" % ("Build directory", Logs.colors('GREEN'),
                              Options.options.out, Logs.colors('NORMAL'))
-    
-    
+
+
     for (name, caption, was_enabled, reason_not_enabled) in conf.env['NS3_OPTIONAL_FEATURES']:
         if was_enabled:
             status = 'enabled'
@@ -618,7 +626,7 @@ def create_ns3_program(bld, name, dependencies=('core',)):
     else:
         if program.env.DEST_BINFMT == 'elf':
             # All ELF platforms are impacted but only the gcc compiler has a flag to fix it.
-            if 'gcc' in (program.env.CXX_NAME, program.env.CC_NAME): 
+            if 'gcc' in (program.env.CXX_NAME, program.env.CC_NAME):
                 program.env.append_value ('SHLIB_MARKER', '-Wl,--no-as-needed')
 
     return program
@@ -781,7 +789,7 @@ def build(bld):
                 # Add this program to the list if all of its
                 # dependencies will be built.
                 if program_built:
-                    object_name = "%s%s-%s%s" % (wutils.APPNAME, wutils.VERSION, 
+                    object_name = "%s%s-%s%s" % (wutils.APPNAME, wutils.VERSION,
                                                   obj.name, bld.env.BUILD_SUFFIX)
 
                     # Get the relative path to the program from the
@@ -805,12 +813,12 @@ def build(bld):
             # disable the ns3header_taskgen
             if 'ns3header' in getattr(obj, "features", []):
                 if ("ns3-%s" % obj.module) not in modules:
-                    obj.mode = 'remove' # tell it to remove headers instead of installing 
+                    obj.mode = 'remove' # tell it to remove headers instead of installing
 
             # disable the ns3privateheader_taskgen
             if 'ns3privateheader' in getattr(obj, "features", []):
                 if ("ns3-%s" % obj.module) not in modules:
-                    obj.mode = 'remove' # tell it to remove headers instead of installing 
+                    obj.mode = 'remove' # tell it to remove headers instead of installing
 
             # disable pcfile taskgens for disabled modules
             if 'ns3pcfile' in getattr(obj, "features", []):
@@ -862,7 +870,7 @@ def build(bld):
         for gen in bld.all_task_gen:
             if type(gen).__name__ in ['ns3header_taskgen', 'ns3privateheader_taskgen', 'ns3moduleheader_taskgen']:
                 gen.post()
-        bld.env['PRINT_BUILT_MODULES_AT_END'] = False 
+        bld.env['PRINT_BUILT_MODULES_AT_END'] = False
 
     if Options.options.doxygen_no_build:
         _doxygen(bld)
@@ -980,7 +988,7 @@ class print_introspected_doxygen_task(Task.TaskBase):
     def __init__(self, bld):
         self.bld = bld
         super(print_introspected_doxygen_task, self).__init__(generator=self)
-        
+
     def __str__(self):
         return 'print-introspected-doxygen\n'
 
@@ -1005,7 +1013,7 @@ class print_introspected_doxygen_task(Task.TaskBase):
             if subprocess.Popen([prog], stdout=doxygen_out, env=proc_env).wait():
                 raise SystemExit(1)
             doxygen_out.close()
-        
+
             # Create a text file with the introspected information.
             text_out = open(os.path.join('doc', 'ns3-object.txt'), 'w')
             if subprocess.Popen([prog, '--output-text'], stdout=text_out, env=proc_env).wait():
@@ -1019,7 +1027,7 @@ class run_python_unit_tests_task(Task.TaskBase):
     def __init__(self, bld):
         self.bld = bld
         super(run_python_unit_tests_task, self).__init__(generator=self)
-        
+
     def __str__(self):
         return 'run-python-unit-tests\n'
 
@@ -1092,7 +1100,7 @@ def _doxygen(bld):
 
     try:
         program_obj = wutils.find_program('print-introspected-doxygen', env)
-    except ValueError: 
+    except ValueError:
         Logs.warn("print-introspected-doxygen does not exist")
         raise SystemExit(1)
         return
@@ -1145,7 +1153,7 @@ class Ns3DoxygenContext(Context.Context):
 
 class Ns3SphinxContext(Context.Context):
     """build the Sphinx documentation: manual, tutorial, models"""
-    
+
     cmd = 'sphinx'
 
     def sphinx_build(self, path):
@@ -1161,18 +1169,18 @@ class Ns3SphinxContext(Context.Context):
         _getVersion()
         for sphinxdir in ["manual", "models", "tutorial", "tutorial-pt-br"] :
             self.sphinx_build(os.path.join("doc", sphinxdir))
-     
+
 
 class Ns3DocContext(Context.Context):
     """build all the documentation: doxygen, manual, tutorial, models"""
-    
+
     cmd = 'docs'
 
     def execute(self):
         steps = ['doxygen', 'sphinx']
         Options.commands = steps + Options.commands
-        
-    
+
+
 def lcov_report(bld):
     env = bld.env
 
