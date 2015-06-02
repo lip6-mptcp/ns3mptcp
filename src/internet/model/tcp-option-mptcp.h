@@ -32,7 +32,7 @@
 /**
  * \ingroup mptcp
  *
- * Here are a few notations/acronyms
+ * Here are a few notations/acronyms used in the multipath tcp group
  * - 3WHS = three way handshake (SYN/SYN+ACK/ACK)
  * - DSN = Data Sequence Number
  * - DSS = Data Sequence Signaling
@@ -49,11 +49,11 @@ namespace ns3 {
 class TcpOptionMpTcpMain : public TcpOption
 {
 public:
-
   /**
    * List the different subtypes of MPTCP options
    */
-  enum SubType {
+  enum SubType
+  {
     MP_CAPABLE,
     MP_JOIN,
     MP_DSS,
@@ -65,8 +65,8 @@ public:
   };
 
 
-  TcpOptionMpTcpMain(void);
-  virtual ~TcpOptionMpTcpMain(void);
+  TcpOptionMpTcpMain (void);
+  virtual ~TcpOptionMpTcpMain (void);
 
   /**
    * \brief Get the type ID.
@@ -85,7 +85,7 @@ public:
    * \return Human readable string of subtypes
    */
   static std::string
-  SubTypeToString(const uint8_t& flags, const std::string& delimiter);
+  SubTypeToString (const uint8_t& flags, const std::string& delimiter);
 
 
   /**
@@ -96,7 +96,7 @@ public:
    * \return An allocated but unconfigured option
    */
   static Ptr<TcpOption>
-  CreateMpTcpOption(const uint8_t& kind);
+  CreateMpTcpOption (const uint8_t& kind);
 
   virtual uint32_t
   GetSerializedSize (void) const = 0;
@@ -142,14 +142,13 @@ template<unsigned int SUBTYPE>
 class TcpOptionMpTcp : public TcpOptionMpTcpMain
 {
 public:
-
   TcpOptionMpTcp () : TcpOptionMpTcpMain ()
   {
-  };
+  }
 
   virtual ~TcpOptionMpTcp (void)
   {
-  };
+  }
 
   /**
    * \return MPTCP option type
@@ -158,7 +157,7 @@ public:
   GetSubType (void) const
   {
     return SUBTYPE;
-  };
+  }
 };
 
 
@@ -204,7 +203,7 @@ Only sha1 is defined and supported in the standard (same for ns3).
 class TcpOptionMpTcpCapable : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_CAPABLE>
 {
 public:
-  TcpOptionMpTcpCapable(void);
+  TcpOptionMpTcpCapable (void);
   virtual ~TcpOptionMpTcpCapable (void);
 
   static TypeId GetTypeId (void);
@@ -215,53 +214,53 @@ public:
   enum CryptoAlgorithms
   {
     HMAC_SHA1 = 1 /**< Default choice */
-    /* more may come in the future depending on the standardization */
+      /* more may come in the future depending on the standardization */
   };
 
-  bool operator==(const TcpOptionMpTcpCapable&) const;
+  bool operator== (const TcpOptionMpTcpCapable&) const;
 
   /**
    * \brief Only version 0 is standardized so far
    * \return 0
    */
-  virtual uint8_t GetVersion(void) const;
+  virtual uint8_t GetVersion (void) const;
 
   /**
    * \note MPTCP Checksums are not used in ns3
    * \return True if checksum is required
    */
-  virtual bool IsChecksumRequired(void) const;
+  virtual bool IsChecksumRequired (void) const;
 
   /**
    * Set sender key. Useful for each step of the 3WHS
    *
    * \param senderKey sender key
    */
-  virtual void SetSenderKey(const uint64_t& senderKey);
+  virtual void SetSenderKey (const uint64_t& senderKey);
 
   /**
    * Set remote key. Useful only for the last ACK of the 3WHS.
    *
    * \param remoteKey remote key that was received in the SYN/ACK
    */
-  virtual void SetPeerKey(const uint64_t& remoteKey);
+  virtual void SetPeerKey (const uint64_t& remoteKey);
 
   /**
    * \brief Can tell if the option contain the peer key based on the option length
    * \return True if peer key available
    */
-  virtual bool HasReceiverKey(void) const;
+  virtual bool HasReceiverKey (void) const;
 
   /**
    * \return Sender's key
    */
-  virtual uint64_t GetSenderKey(void) const;
+  virtual uint64_t GetSenderKey (void) const;
 
   /**
    * \warn
    * \return Sender's key
    */
-  virtual uint64_t GetPeerKey(void) const;
+  virtual uint64_t GetPeerKey (void) const;
 
 
   //! Inherited
@@ -368,54 +367,55 @@ public:
    * not its current rank
    * The enum values match the size (in bytes) of the option.
   **/
-  enum Mode {
+  enum Mode
+  {
     Uninitialized = 0,
     Syn    = 12,  /**< peer token + nonce */
     SynAck = 16,  /**< peer truncated hmac + nonce */
     Ack    = 24   /**< Send sender full hmac */
   };
 
-  TcpOptionMpTcpJoin(void);
-  virtual ~TcpOptionMpTcpJoin(void);
+  TcpOptionMpTcpJoin (void);
+  virtual ~TcpOptionMpTcpJoin (void);
 
-  virtual bool operator==(const TcpOptionMpTcpJoin&) const;
+  virtual bool operator== (const TcpOptionMpTcpJoin&) const;
 
   /**
    * \return Mode (internal value) in which the option is configured
    */
   virtual Mode
-  GetMode(void) const;
+  GetMode (void) const;
 
   /**
    * \brief Available in Syn and SynAck modes
    * \return nonce
   **/
   virtual uint32_t
-  GetNonce(void) const;
+  GetNonce (void) const;
 
   /**
    * \param nonce Random number used to prevent malicious subflow establishement from
    * malicious nodes
    */
   virtual void
-  SetNonce(const uint32_t& nonce);
+  SetNonce (const uint32_t& nonce);
 
   /**
   * \note Available in SynAck mode only
   **/
-  virtual void SetTruncatedHmac(const uint64_t& ) ;
+  virtual void SetTruncatedHmac (const uint64_t& );
 
   /**
   * \note Available in SynAck mode
   **/
-  virtual uint64_t GetTruncatedHmac(void) const;
+  virtual uint64_t GetTruncatedHmac (void) const;
 
   /**
   * \brief Returns hmac generated by the peer.
   * \warning Available in Ack mode only
   * \return null for now (not implemented)
   */
-  virtual const uint8_t* GetHmac(void) const;
+  virtual const uint8_t* GetHmac (void) const;
 
   /**
   * \brief Available only in Ack mode. Sets Hmac computed from the nonce, tokens previously exchanged
@@ -423,27 +423,27 @@ public:
   * \param hmac
   * \todo not implemented
   */
-  virtual void SetHmac(uint8_t hmac[20]) ;
+  virtual void SetHmac (uint8_t hmac[20]);
 
 
   /**
    * \brief Set token computed from peer's key
    */
   virtual void
-  SetPeerToken(const uint32_t& token);
+  SetPeerToken (const uint32_t& token);
 
   /**
   * \return Peer token (the token being a hash of the key)
   */
   virtual uint32_t
-  GetPeerToken(void) const ;
+  GetPeerToken (void) const;
 
   /**
    * \brief Unique id assigned by the remote host to this subflow combination (ip,port).
    * \return Identifier of the subflow
    */
   virtual uint8_t
-  GetAddressId(void) const;
+  GetAddressId (void) const;
 
   /**
   * \brief When a subflow joins a connection, it should advertise a unique identifier
@@ -451,7 +451,7 @@ public:
   * \param addrId unique identifier associated with this very subflow
   */
   virtual void
-  SetAddressId(const uint8_t& addrId);
+  SetAddressId (const uint8_t& addrId);
 
 
   virtual void Print (std::ostream &os) const;
@@ -467,7 +467,7 @@ public:
    *
    * \param mode Mode in which we want to configure the option: Syn or SynAck or Ack
   **/
-  virtual void SetMode(Mode s);
+  virtual void SetMode (Mode s);
 
 protected:
   Mode m_mode;          /**<  3 typs of MP_JOIN. Members will throw an exception if used in wrong mode. */
@@ -527,7 +527,6 @@ class TcpOptionMpTcpDSS : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_DSS>
 {
 
 public:
-
   /**
    * Each value represents the offset of a flag in LSB order
    * \see TcpOptionMpTcpDSS
@@ -543,8 +542,8 @@ public:
 
   };
 
-  TcpOptionMpTcpDSS(void);
-  virtual ~TcpOptionMpTcpDSS(void);
+  TcpOptionMpTcpDSS (void);
+  virtual ~TcpOptionMpTcpDSS (void);
 
 
   /**
@@ -552,13 +551,13 @@ public:
    *
    * \return False (not implemented)
    */
-  virtual bool IsInfiniteMapping() const;
+  virtual bool IsInfiniteMapping () const;
 
   /**
    * \brief when DataFin is set, the data level length is increased by one.
    * \return True if the mapping present is just because of the datafin
    */
-  virtual bool DataFinMappingOnly() const;
+  virtual bool DataFinMappingOnly () const;
 
   /**
    * \brief This returns a copy
@@ -568,31 +567,30 @@ public:
   // Disabled to remove dependancy towards MpTcpMapping
   // ToDo prepare a wrapper to create mapping from that
 //  MpTcpMapping GetMapping(void) const;
-  void GetMapping(uint64_t& dsn, uint32_t& ssn, uint16_t& length) const;
+  void GetMapping (uint64_t& dsn, uint32_t& ssn, uint16_t& length) const;
 
   /**
    * \brief
    * \param trunc_to_32bits Set to true to send a 32bit DSN
    * \warn Mapping can be set only once, otherwise it will crash ns3
    */
-//  virtual void SetMapping(MpTcpMapping mapping);
-  virtual void SetMapping(uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
+  virtual void SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
 
   /**
    * \brief A DSS length depends on what content it embeds. This is defined by the flags.
    * \return All flags
    */
-  virtual uint8_t GetFlags(void) const;
+  virtual uint8_t GetFlags (void) const;
 
 
-  virtual bool operator==(const TcpOptionMpTcpDSS&) const;
+  virtual bool operator== (const TcpOptionMpTcpDSS&) const;
 
   /**
   * \brief Set seq nb of acked data at MPTP level
   * \param dack Sequence number of the dataack
   * \param send_as_32bits Decides if the DACK should be sent as a 32 bits number
   */
-  virtual void SetDataAck(const uint64_t& dack, const bool& send_as_32bits = true);
+  virtual void SetDataAck (const uint64_t& dack, const bool& send_as_32bits = true);
 
   /**
   * \brief Get data ack value
@@ -600,17 +598,17 @@ public:
   * \warning  check the flags to know if the returned value is a 32 or 64 bits DSN
   */
   virtual uint64_t
-  GetDataAck(void) const;
+  GetDataAck (void) const;
 
   /**
    * \brief Unimplemented
    */
-  virtual void SetChecksum(const uint16_t&);
+  virtual void SetChecksum (const uint16_t&);
 
   /**
    * \brief Unimplemented
    */
-  virtual uint16_t GetChecksum(void) const;
+  virtual uint16_t GetChecksum (void) const;
 
   /**
    * \brief Enable also a mapping flag
@@ -618,14 +616,14 @@ public:
    * \param send_as_32bits Set to true to truncate final_dsn to its 32 bits version
    *
    */
-  virtual void AddDataFin(const uint64_t& final_dsn, const bool& send_as_32bits = false);
+  virtual void AddDataFin (const uint64_t& final_dsn, const bool& send_as_32bits = false);
 
   /**
   * \return If DFIN is set, returns its associated DSN
   *
   * \warning check the flags to know if it returns a 32 or 64 bits DSN
   */
-  virtual uint64_t GetDataFinDSN() const;
+  virtual uint64_t GetDataFinDSN () const;
 
 
   virtual void Print (std::ostream &os) const;
@@ -641,7 +639,7 @@ public:
   *
   * \param flags flags of the DSS option
   */
-  static uint32_t GetSizeFromFlags(uint16_t flags) ;
+  static uint32_t GetSizeFromFlags (uint16_t flags);
 
 protected:
   /**
@@ -703,9 +701,8 @@ class TcpOptionMpTcpAddAddress : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_AD
 {
 
 public:
-
-  TcpOptionMpTcpAddAddress(void);
-  virtual ~TcpOptionMpTcpAddAddress(void);
+  TcpOptionMpTcpAddAddress (void);
+  virtual ~TcpOptionMpTcpAddAddress (void);
 
 
   static TypeId GetTypeId (void);
@@ -723,33 +720,33 @@ public:
   /**
    * \brief Expects InetXSocketAddress
    */
-  virtual void SetAddress(const Address& address, uint8_t addrId);
+  virtual void SetAddress (const Address& address, uint8_t addrId);
 
-  virtual bool operator==(const TcpOptionMpTcpAddAddress&) const;
+  virtual bool operator== (const TcpOptionMpTcpAddAddress&) const;
 
   /**
    * \note Only IPv4 is supported so far
    *
    * \return IP version (i.e., 4 or 6)
    */
-  virtual uint8_t GetAddressVersion(void) const;
+  virtual uint8_t GetAddressVersion (void) const;
 
   /**
    * \brief Return advertised InetSocketAddress.
    * If port unset, ns3 sets it to 0
    * \return
    */
-  virtual InetSocketAddress GetAddress(void) const;
+  virtual InetSocketAddress GetAddress (void) const;
 
   /**
    * \see GetAddress
    */
-  virtual Inet6SocketAddress GetAddress6(void) const;
+  virtual Inet6SocketAddress GetAddress6 (void) const;
 
   /**
    * \return Address id assigned to the combination
    */
-  virtual uint8_t GetAddressId(void) const;
+  virtual uint8_t GetAddressId (void) const;
 
   //! Inherited
   virtual void Print (std::ostream &os) const;
@@ -758,7 +755,6 @@ public:
   virtual uint32_t GetSerializedSize (void) const;
 
 protected:
-
   uint8_t m_addressVersion; /**< IPversion (4 or 6) */
   uint8_t m_addrId;
   uint8_t m_port; /**< Optional value */
@@ -804,16 +800,16 @@ public:
    * \param
    * \warn
    */
-  void GetAddresses(std::vector<uint8_t>& addresses);
+  void GetAddresses (std::vector<uint8_t>& addresses);
 
   /**
    * Add an association id to remove from peer memory
    * \param addressId The association (IP,port) id
    */
-  void AddAddressId(uint8_t addressId);
+  void AddAddressId (uint8_t addressId);
 
 
-  virtual bool operator==(const TcpOptionMpTcpRemoveAddress&) const;
+  virtual bool operator== (const TcpOptionMpTcpRemoveAddress&) const;
 
   //! Inherited
   virtual void Print (std::ostream &os) const;
@@ -861,12 +857,13 @@ public:
   /**
    * Only one flag standardized
    */
-  enum Flags {
+  enum Flags
+  {
     Backup = 0 /**< Set this flag if you prefer not to receive data on path addressId*/
   };
 
-  TcpOptionMpTcpChangePriority(void);
-  virtual ~TcpOptionMpTcpChangePriority(void);
+  TcpOptionMpTcpChangePriority (void);
+  virtual ~TcpOptionMpTcpChangePriority (void);
 
   /**
    * \brief All flags should be set at once.
@@ -875,32 +872,32 @@ public:
    *
    * \example SetFlags(TcpOptionMpTcpChangePriority::Backup);
    */
-  virtual void SetFlags(const uint8_t& flags);
+  virtual void SetFlags (const uint8_t& flags);
 
   /**
    * \brief Optional. If you don't set addrId, the receiver considers the subflow on which the
    * option was received
    */
-  virtual void SetAddressId(const uint8_t& addrId);
+  virtual void SetAddressId (const uint8_t& addrId);
 
   /**
    * \return True if an address id was set in the packet.
    * \note Result depends on length of the option
    */
-  virtual bool EmbeddedAddressId(void) const;
+  virtual bool EmbeddedAddressId (void) const;
 
   /**
    * \return association id
    * \warning will assert if addressId was not set. check it with \see EmbeddedAddressId
    */
-  virtual uint8_t GetAddressId() const;
+  virtual uint8_t GetAddressId () const;
 
   /**
    * \return flags, i.e., the 4 LSB
    */
-  virtual uint8_t GetFlags(void) const;
+  virtual uint8_t GetFlags (void) const;
 
-  virtual bool operator==(const TcpOptionMpTcpChangePriority& ) const;
+  virtual bool operator== (const TcpOptionMpTcpChangePriority& ) const;
 
 
   virtual void Print (std::ostream &os) const;
@@ -914,7 +911,6 @@ public:
 
 
 private:
-
   /**
    * \brief Copy constructor
    *
@@ -956,23 +952,23 @@ class TcpOptionMpTcpFastClose : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_PRI
 {
 
 public:
-  TcpOptionMpTcpFastClose(void);
-  virtual ~TcpOptionMpTcpFastClose(void);
+  TcpOptionMpTcpFastClose (void);
+  virtual ~TcpOptionMpTcpFastClose (void);
 
 
-  virtual bool operator==(const TcpOptionMpTcpFastClose&) const;
+  virtual bool operator== (const TcpOptionMpTcpFastClose&) const;
 
 
   /**
   * \brief Set peer key to prevent spoofing a MP_FastClose.
   * \param remoteKey key exchanged during the 3WHS.
   */
-  virtual void SetPeerKey(const uint64_t& remoteKey);
+  virtual void SetPeerKey (const uint64_t& remoteKey);
 
   /**
   * \return peer's key
   */
-  virtual uint64_t GetPeerKey(void) const;
+  virtual uint64_t GetPeerKey (void) const;
 
   //! Inherited
   virtual void Print (std::ostream &os) const;
@@ -1018,21 +1014,21 @@ class TcpOptionMpTcpFail : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_FAIL>
 {
 
 public:
-  TcpOptionMpTcpFail(void);
-  virtual ~TcpOptionMpTcpFail(void);
+  TcpOptionMpTcpFail (void);
+  virtual ~TcpOptionMpTcpFail (void);
 
-  virtual bool operator==(const TcpOptionMpTcpFail& ) const;
+  virtual bool operator== (const TcpOptionMpTcpFail& ) const;
 
   /**
    * \brief Set Data Sequence Number (DSN) until which the communication was fine
    * \param dsn Last in-order ACK-1 received
    */
-  virtual void SetDSN(const uint64_t& dsn);
+  virtual void SetDSN (const uint64_t& dsn);
 
   /**
    * \return DSN for which error was detected
    */
-  virtual uint64_t GetDSN(void) const;
+  virtual uint64_t GetDSN (void) const;
 
   //! Inherited
   virtual void Print (std::ostream &os) const;
@@ -1042,7 +1038,6 @@ public:
 
 
 private:
-
   //! Defined and unimplemented to avoid misuse
   TcpOptionMpTcpFail (const TcpOptionMpTcpFail&);
   TcpOptionMpTcpFail& operator= (const TcpOptionMpTcpFail&);
@@ -1059,24 +1054,24 @@ private:
 */
 template<class T>
 bool
-GetMpTcpOption(const TcpHeader& header, Ptr<T>& ret)
+GetMpTcpOption (const TcpHeader& header, Ptr<T>& ret)
 {
   TcpHeader::TcpOptionList l;
-  header.GetOptions(l);
-  for(TcpHeader::TcpOptionList::const_iterator it = l.begin(); it != l.end(); ++it)
-  {
-    if( (*it)->GetKind() == TcpOption::MPTCP)
+  header.GetOptions (l);
+  for (TcpHeader::TcpOptionList::const_iterator it = l.begin (); it != l.end (); ++it)
     {
-      Ptr<TcpOptionMpTcpMain> opt = DynamicCast<TcpOptionMpTcpMain>(*it);
-      NS_ASSERT(opt);
-      T temp;
-      if( opt->GetSubType() == temp.GetSubType()  )
-      {
-        ret = DynamicCast<T>(opt);
-        return true;
-      }
+      if ( (*it)->GetKind () == TcpOption::MPTCP)
+        {
+          Ptr<TcpOptionMpTcpMain> opt = DynamicCast<TcpOptionMpTcpMain> (*it);
+          NS_ASSERT (opt);
+          T temp;
+          if ( opt->GetSubType () == temp.GetSubType ()  )
+            {
+              ret = DynamicCast<T> (opt);
+              return true;
+            }
+        }
     }
-  }
   return false;
 }
 
@@ -1089,14 +1084,14 @@ GetMpTcpOption(const TcpHeader& header, Ptr<T>& ret)
 **/
 template<class T>
 bool
-GetOrCreateMpTcpOption(TcpHeader& header, Ptr<T>& ret)
+GetOrCreateMpTcpOption (TcpHeader& header, Ptr<T>& ret)
 {
-  if(!GetMpTcpOption(header,ret))
-  {
-    ret = Create<T>();
-    header.AppendOption(ret);
-    return false;
-  }
+  if (!GetMpTcpOption (header,ret))
+    {
+      ret = Create<T> ();
+      header.AppendOption (ret);
+      return false;
+    }
   return true;
 }
 

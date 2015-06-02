@@ -24,39 +24,39 @@
 
 #define TRUNC_TO_32(seq)  ((uint32_t)(seq))
 
-//NS_LOG_COMPONENT_DEFINE("TcpOptionMpTcpCapable");
 
 namespace ns3 {
-//
-//NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpCapable);
-//NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpAddAddress );
-//NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpRemoveAddress );
-//NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpJoinInitialSyn );
-//NS_OBJECT_ENSURE_REGISTERED ( TcpOptionMpTcpChangePriority );
-//NS_OBJECT_ENSURE_REGISTERED ( TcpOptionMpTcpMain );
-//NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcp<DSS> );
+
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpCapable);
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpAddAddress );
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpRemoveAddress );
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpJoin);
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpChangePriority );
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpDSS);
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpFail);
+NS_OBJECT_ENSURE_REGISTERED (TcpOptionMpTcpFastClose);
 
 
 
 /**
 \note This is a global MPTCP option logger
 */
-NS_LOG_COMPONENT_DEFINE("TcpOptionMpTcp");
+NS_LOG_COMPONENT_DEFINE ("TcpOptionMpTcp");
 
 
 /////////////////////////////////////////////////////////
 ////////  Base for MPTCP options
 /////////////////////////////////////////////////////////
-TcpOptionMpTcpMain::TcpOptionMpTcpMain() :
-  TcpOption()
+TcpOptionMpTcpMain::TcpOptionMpTcpMain ()
+  : TcpOption ()
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
-TcpOptionMpTcpMain::~TcpOptionMpTcpMain()
+TcpOptionMpTcpMain::~TcpOptionMpTcpMain ()
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 TypeId
@@ -84,14 +84,14 @@ TcpOptionMpTcpMain::GetTypeId (void)
 void
 TcpOptionMpTcpMain::Print (std::ostream &os) const
 {
-    NS_ASSERT_MSG(false, " You should override TcpOptionMpTcp::Print function");
+  NS_ASSERT_MSG (false, " You should override TcpOptionMpTcp::Print function");
 //    os << "MPTCP option. You should override";
 }
 
 
 
 std::string
-TcpOptionMpTcpMain::SubTypeToString(const uint8_t& flags, const std::string& delimiter)
+TcpOptionMpTcpMain::SubTypeToString (const uint8_t& flags, const std::string& delimiter)
 {
   static const char* flagNames[8] = {
     "CAPABLE",
@@ -106,24 +106,27 @@ TcpOptionMpTcpMain::SubTypeToString(const uint8_t& flags, const std::string& del
 
   std::string flagsDescription = "";
 
-  for(int i = 0; i < 8; ++i)
-  {
-    if( flags & (1 << i) )
+  for (int i = 0; i < 8; ++i)
     {
-      if(flagsDescription.length() > 0) flagsDescription += delimiter;
-      flagsDescription.append( flagNames[i] );
+      if ( flags & (1 << i) )
+        {
+          if (flagsDescription.length () > 0)
+            {
+              flagsDescription += delimiter;
+            }
+          flagsDescription.append ( flagNames[i] );
 
+        }
     }
-  }
   return flagsDescription;
 }
 
 
 Ptr<TcpOption>
-TcpOptionMpTcpMain::CreateMpTcpOption(const uint8_t& subtype)
+TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
 {
-  switch(subtype)
-  {
+  switch (subtype)
+    {
 //    case MP_CAPABLE:
 //      return CreateObject<TcpOptionMpTcpCapable>();
 //    case MP_JOIN:
@@ -140,9 +143,9 @@ TcpOptionMpTcpMain::CreateMpTcpOption(const uint8_t& subtype)
 //      return CreateObject<TcpOptionMpTcpRemoveAddress>();
     default:
       break;
-  };
+    }
 
-  NS_FATAL_ERROR("Unsupported MPTCP suboption" << subtype);
+  NS_FATAL_ERROR ("Unsupported MPTCP suboption" << subtype);
   return 0;
 }
 
@@ -150,47 +153,47 @@ void
 TcpOptionMpTcpMain::SerializeRef (Buffer::Iterator& i) const
 {
 //    Buffer::Iterator& i = start;
-    i.WriteU8 (GetKind ()); // Kind
-    i.WriteU8 (GetSerializedSize()); // Length
+  i.WriteU8 (GetKind ());   // Kind
+  i.WriteU8 (GetSerializedSize ());  // Length
 
 
-    // TODO may be an error otherwise here !
+  // TODO may be an error otherwise here !
 
 //    i.WriteU8 ( ( (GetSubType() << 4 ) && 0xf0) ); // Subtype TODO should write U4 only
-    //i.WriteU8 ( GetSerializedSize() ); // Subtype TODO should write U4 only
+//i.WriteU8 ( GetSerializedSize() ); // Subtype TODO should write U4 only
 
 }
 
 uint32_t
 TcpOptionMpTcpMain::DeserializeRef (Buffer::Iterator& i) const
 {
-    uint8_t kind = i.ReadU8();
-    uint32_t length = 0;
+  uint8_t kind = i.ReadU8 ();
+  uint32_t length = 0;
 
-    NS_ASSERT(kind == GetKind ());
+  NS_ASSERT (kind == GetKind ());
 
-    length = (uint32_t)i.ReadU8( );
-    return length;
+  length = (uint32_t)i.ReadU8 ( );
+  return length;
 }
 
 
 /////////////////////////////////////////////////////////
 ////////  MP_CAPABLE
 /////////////////////////////////////////////////////////
-TcpOptionMpTcpCapable::TcpOptionMpTcpCapable()
-    : TcpOptionMpTcp (),
-    m_version(0),
-    m_flags( HMAC_SHA1 ),
-    m_senderKey(0),
-    m_remoteKey(0),
-    m_length(12)
+TcpOptionMpTcpCapable::TcpOptionMpTcpCapable ()
+  : TcpOptionMpTcp (),
+    m_version (0),
+    m_flags ( HMAC_SHA1 ),
+    m_senderKey (0),
+    m_remoteKey (0),
+    m_length (12)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 TcpOptionMpTcpCapable::~TcpOptionMpTcpCapable ()
 {
-  NS_LOG_FUNCTION_NOARGS();
+  NS_LOG_FUNCTION_NOARGS ();
 }
 
 TypeId
@@ -204,23 +207,23 @@ TcpOptionMpTcpCapable::GetTypeId (void)
 }
 
 bool
-TcpOptionMpTcpCapable::operator==(const TcpOptionMpTcpCapable& opt) const
+TcpOptionMpTcpCapable::operator== (const TcpOptionMpTcpCapable& opt) const
 {
-  return (GetPeerKey() == opt.GetPeerKey() && GetSenderKey() == opt.GetSenderKey() );
+  return (GetPeerKey () == opt.GetPeerKey () && GetSenderKey () == opt.GetSenderKey () );
 }
 
 
 void
-TcpOptionMpTcpCapable::SetSenderKey(const uint64_t& senderKey)
+TcpOptionMpTcpCapable::SetSenderKey (const uint64_t& senderKey)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
   m_senderKey = senderKey;
 }
 
 void
-TcpOptionMpTcpCapable::SetPeerKey(const uint64_t& remoteKey)
+TcpOptionMpTcpCapable::SetPeerKey (const uint64_t& remoteKey)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
   m_length = 20;
   m_remoteKey = remoteKey;
 }
@@ -229,17 +232,17 @@ void
 TcpOptionMpTcpCapable::Print (std::ostream &os) const
 {
   os << "MP_CAPABLE:"
-    << " flags=" << (int)m_flags << "]"
-    << " Sender's Key :[" << GetSenderKey() << "]";
-  if( HasReceiverKey() )
-  {
-    os  << " Peer's Key [" << GetPeerKey() << "]";
-  }
+     << " flags=" << (int)m_flags << "]"
+     << " Sender's Key :[" << GetSenderKey () << "]";
+  if ( HasReceiverKey () )
+    {
+      os << " Peer's Key [" << GetPeerKey () << "]";
+    }
 
 }
 
 bool
-TcpOptionMpTcpCapable::IsChecksumRequired() const
+TcpOptionMpTcpCapable::IsChecksumRequired () const
 {
   return (m_flags >> 7);
 }
@@ -247,35 +250,35 @@ TcpOptionMpTcpCapable::IsChecksumRequired() const
 void
 TcpOptionMpTcpCapable::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
+  TcpOptionMpTcp::SerializeRef (i);
 
-  i.WriteU8 ( (GetSubType () << 4) + (0x0f & GetVersion()) ); // Kind
+  i.WriteU8 ( (GetSubType () << 4) + (0x0f & GetVersion ()) ); // Kind
   i.WriteU8 ( m_flags ); //
-  i.WriteHtonU64( GetSenderKey() );
-  if( HasReceiverKey() )
-  {
-    i.WriteHtonU64( GetPeerKey() );
-  }
+  i.WriteHtonU64 ( GetSenderKey () );
+  if ( HasReceiverKey () )
+    {
+      i.WriteHtonU64 ( GetPeerKey () );
+    }
 }
 
 
 uint32_t
 TcpOptionMpTcpCapable::Deserialize (Buffer::Iterator i)
 {
-  uint32_t length = TcpOptionMpTcpMain::DeserializeRef(i);
+  uint32_t length = TcpOptionMpTcpMain::DeserializeRef (i);
 
-  NS_ASSERT( length == 12 || length == 20 );
+  NS_ASSERT ( length == 12 || length == 20 );
 
-  uint8_t subtype_and_version = i.ReadU8();
-  NS_ASSERT( subtype_and_version >> 4 == GetSubType() );
-  m_flags = i.ReadU8();
+  uint8_t subtype_and_version = i.ReadU8 ();
+  NS_ASSERT ( subtype_and_version >> 4 == GetSubType () );
+  m_flags = i.ReadU8 ();
 
-  SetSenderKey( i.ReadNtohU64() );
+  SetSenderKey ( i.ReadNtohU64 () );
 
-  if(length == 20)
-  {
-    SetPeerKey( i.ReadNtohU64() );
-  }
+  if (length == 20)
+    {
+      SetPeerKey ( i.ReadNtohU64 () );
+    }
   return length;
 }
 
@@ -288,56 +291,56 @@ TcpOptionMpTcpCapable::GetSerializedSize (void) const
 
 
 uint8_t
-TcpOptionMpTcpCapable::GetVersion(void) const
+TcpOptionMpTcpCapable::GetVersion (void) const
 {
   return 0;
 }
 
 
 uint64_t
-TcpOptionMpTcpCapable::GetSenderKey(void) const
+TcpOptionMpTcpCapable::GetSenderKey (void) const
 {
   return m_senderKey;
 }
 
 uint64_t
-TcpOptionMpTcpCapable::GetPeerKey(void) const
+TcpOptionMpTcpCapable::GetPeerKey (void) const
 {
   return m_remoteKey;
 }
 
 
 bool
-TcpOptionMpTcpCapable::HasReceiverKey(void) const
+TcpOptionMpTcpCapable::HasReceiverKey (void) const
 {
-  return GetSerializedSize() == 20;
-};
+  return GetSerializedSize () == 20;
+}
 
 
 
 /////////////////////////////////////////////////////////
 ////////  MP_JOIN Initial SYN
 /////////////////////////////////////////////////////////
-TcpOptionMpTcpJoin::TcpOptionMpTcpJoin()
-    : TcpOptionMpTcp (),
-    m_mode(Uninitialized),
-    m_addressId(0),
-    m_flags(0)
+TcpOptionMpTcpJoin::TcpOptionMpTcpJoin ()
+  : TcpOptionMpTcp (),
+    m_mode (Uninitialized),
+    m_addressId (0),
+    m_flags (0)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
 TcpOptionMpTcpJoin::~TcpOptionMpTcpJoin ()
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
 void
-TcpOptionMpTcpJoin::SetPeerToken(const uint32_t& token)
+TcpOptionMpTcpJoin::SetPeerToken (const uint32_t& token)
 {
-  NS_ASSERT( m_mode & Syn);
+  NS_ASSERT ( m_mode & Syn);
   m_buffer[0] = token;
 }
 
@@ -345,218 +348,227 @@ TcpOptionMpTcpJoin::SetPeerToken(const uint32_t& token)
 void
 TcpOptionMpTcpJoin::Print (std::ostream &os) const
 {
-  os << "MP_JOIN: " ;
-  switch(m_mode)
-  {
+  os << "MP_JOIN: ";
+  switch (m_mode)
+    {
     case Uninitialized:
       os << "Uninitialized";
-      return ;
+      return;
     case Syn:
-      os << "[Syn] with token=" << GetPeerToken() << ", nonce=" << GetNonce();
+      os << "[Syn] with token=" << GetPeerToken () << ", nonce=" << GetNonce ();
       return;
     case SynAck:
-      os << "[SynAck] with nonce=" << GetNonce();
+      os << "[SynAck] with nonce=" << GetNonce ();
       return;
     case Ack:
       //TODO compare hash etc..
       os << "[Ack] with hash=TODO";
       return;
-  };
+    }
 }
 
 
 void
-TcpOptionMpTcpJoin::SetAddressId(const uint8_t& addrId)
+TcpOptionMpTcpJoin::SetAddressId (const uint8_t& addrId)
 {
-  NS_ASSERT(m_mode & (SynAck | Ack) );
+  NS_ASSERT (m_mode & (SynAck | Ack) );
   m_addressId =  addrId;
 }
 
 
 uint32_t
-TcpOptionMpTcpJoin::GetPeerToken() const
+TcpOptionMpTcpJoin::GetPeerToken () const
 {
-  NS_ASSERT(m_mode & Syn );
+  NS_ASSERT (m_mode & Syn );
   return m_buffer[0];
 }
 
 
 void
-TcpOptionMpTcpJoin::SetMode(Mode s)
+TcpOptionMpTcpJoin::SetMode (Mode s)
 {
-  NS_ASSERT_MSG(m_mode == Uninitialized, "Can't change state once initialized.");
+  NS_ASSERT_MSG (m_mode == Uninitialized, "Can't change state once initialized.");
   m_mode = s;
 }
 
 
 uint8_t
-TcpOptionMpTcpJoin::GetAddressId() const
+TcpOptionMpTcpJoin::GetAddressId () const
 {
-  NS_ASSERT_MSG(m_mode & (SynAck | Ack), "AddressId only available in states SynAck and Ack");
+  NS_ASSERT_MSG (m_mode & (SynAck | Ack), "AddressId only available in states SynAck and Ack");
   return m_addressId;
 }
 
 
 bool
-TcpOptionMpTcpJoin::operator==(const TcpOptionMpTcpJoin& opt) const
+TcpOptionMpTcpJoin::operator== (const TcpOptionMpTcpJoin& opt) const
 {
 
-  if( m_mode != opt.m_mode) return false;
+  if ( m_mode != opt.m_mode)
+    {
+      return false;
+    }
 
   /* depending on mode, operator does not check same fields */
-  switch(m_mode)
-  {
+  switch (m_mode)
+    {
     case Uninitialized:
       return true;
 
     case Syn:
       return (
-        GetPeerToken() == opt.GetPeerToken()
-        && GetNonce() == opt.GetNonce()
-        && GetAddressId() == opt.GetAddressId()
-        );
+               GetPeerToken () == opt.GetPeerToken ()
+               && GetNonce () == opt.GetNonce ()
+               && GetAddressId () == opt.GetAddressId ()
+               );
 
     case SynAck:
       return (
-        GetNonce() == opt.GetNonce()
+               GetNonce () == opt.GetNonce ()
 //          && GetTruncatedHmac() == opt.GetTruncatedHmac()
-        && GetAddressId()  == opt.GetAddressId()
-        );
+               && GetAddressId ()  == opt.GetAddressId ()
+               );
 
     case Ack:
       //TODO compare hash etc..
       return true;
-  };
+    }
 
-  NS_FATAL_ERROR( "This should never trigger. Contact ns3 team");
+  NS_FATAL_ERROR ( "This should never trigger. Contact ns3 team");
   return false;
 }
 
 
 TcpOptionMpTcpJoin::Mode
-TcpOptionMpTcpJoin::GetMode(void) const
+TcpOptionMpTcpJoin::GetMode (void) const
 {
   return m_mode;
 }
 
 
 uint32_t
-TcpOptionMpTcpJoin::GetNonce() const
+TcpOptionMpTcpJoin::GetNonce () const
 {
-  NS_ASSERT_MSG(m_mode & (Syn | SynAck), "Nonce only available in Syn and SynAck modes");
+  NS_ASSERT_MSG (m_mode & (Syn | SynAck), "Nonce only available in Syn and SynAck modes");
   return m_buffer[0];
 }
 
 
 void
-TcpOptionMpTcpJoin::SetNonce(const uint32_t& nonce)
+TcpOptionMpTcpJoin::SetNonce (const uint32_t& nonce)
 {
 
-  if(m_mode == Syn)
-    m_buffer[1] = nonce;
-  else if(m_mode == SynAck)
-    m_buffer[2] = nonce;
+  if (m_mode == Syn)
+    {
+      m_buffer[1] = nonce;
+    }
+  else if (m_mode == SynAck)
+    {
+      m_buffer[2] = nonce;
+    }
   else
-    NS_FATAL_ERROR("Unavailable command in this mode");
+    {
+      NS_FATAL_ERROR ("Unavailable command in this mode");
+    }
 }
 
 
 void
 TcpOptionMpTcpJoin::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
-  i.WriteU8( GetSubType() << 4 );
-  if(m_mode & (Syn | SynAck))
-  {
-    i.WriteU8(GetAddressId());
-  }
+  TcpOptionMpTcp::SerializeRef (i);
+  i.WriteU8 ( GetSubType () << 4 );
+  if (m_mode & (Syn | SynAck))
+    {
+      i.WriteU8 (GetAddressId ());
+    }
   else
-  {
-    i.WriteU8( 0 );
-  }
+    {
+      i.WriteU8 ( 0 );
+    }
 
-  switch( m_mode )
-  {
+  switch ( m_mode )
+    {
     case Uninitialized:
-      NS_FATAL_ERROR("Uninitialized option");
+      NS_FATAL_ERROR ("Uninitialized option");
 
     case Syn:
-      i.WriteHtonU32( GetPeerToken() );
-      i.WriteHtonU32( GetNonce() );
+      i.WriteHtonU32 ( GetPeerToken () );
+      i.WriteHtonU32 ( GetNonce () );
       break;
 
     case SynAck:
       {
-        uint64_t hmac = GetTruncatedHmac();
-        i.WriteHtonU64(hmac);
+        uint64_t hmac = GetTruncatedHmac ();
+        i.WriteHtonU64 (hmac);
       }
-      i.WriteHtonU32( GetNonce() );
+      i.WriteHtonU32 ( GetNonce () );
       break;
 
     case Ack:
       // +=4 cos' amount of bytes we write
-      for(int j = 0; j < m_mode/4-1; j++)
-      {
-        i.WriteHtonU32( m_buffer[j]);
-      }
+      for (int j = 0; j < m_mode / 4 - 1; j++)
+        {
+          i.WriteHtonU32 ( m_buffer[j]);
+        }
       break;
-  }
+    }
 }
 
 const uint8_t*
-TcpOptionMpTcpJoin::GetHmac() const
+TcpOptionMpTcpJoin::GetHmac () const
 {
-  NS_ASSERT_MSG(m_mode == Ack, "Only available in Ack mode");
+  NS_ASSERT_MSG (m_mode == Ack, "Only available in Ack mode");
 //  i.Read( &m_hmac[0], 20);
 //  m_buffer.Read();
 //  return &m_hmac[0];
   return 0;
-};
+}
 
 
 uint32_t
 TcpOptionMpTcpJoin::Deserialize (Buffer::Iterator i)
 {
-  NS_ASSERT(m_mode == Uninitialized);
+  NS_ASSERT (m_mode == Uninitialized);
 
-  uint32_t length = TcpOptionMpTcpMain::DeserializeRef(i);
+  uint32_t length = TcpOptionMpTcpMain::DeserializeRef (i);
 
 
-  uint8_t subtype_and_flags = i.ReadU8()  ;
-  NS_ASSERT( (subtype_and_flags >> 4) == GetSubType() );
+  uint8_t subtype_and_flags = i.ReadU8 ();
+  NS_ASSERT ( (subtype_and_flags >> 4) == GetSubType () );
 
-  m_mode = static_cast<Mode>( length );
+  m_mode = static_cast<Mode> ( length );
 
-  m_addressId = i.ReadU8();
+  m_addressId = i.ReadU8 ();
 
-  switch( m_mode )
-  {
+  switch ( m_mode )
+    {
     case Uninitialized:
-      NS_FATAL_ERROR("Unitialized option, this case should not happen." );
+      NS_FATAL_ERROR ("Unitialized option, this case should not happen." );
 
     case Syn:
-      SetPeerToken( i.ReadNtohU32() );
-      SetNonce( i.ReadNtohU32() );
+      SetPeerToken ( i.ReadNtohU32 () );
+      SetNonce ( i.ReadNtohU32 () );
       break;
 
     case SynAck:
-      SetTruncatedHmac( i.ReadNtohU64() );
-      SetNonce( i.ReadNtohU32() );  // read nonce
+      SetTruncatedHmac ( i.ReadNtohU64 () );
+      SetNonce ( i.ReadNtohU32 () );  // read nonce
       break;
 
     case Ack:
-      i.Read( (uint8_t*)&m_buffer, 20);
+      i.Read ( (uint8_t*)&m_buffer, 20);
       break;
-  };
+    }
 
   return m_mode;
 }
 
 
 void
-TcpOptionMpTcpJoin::SetHmac(uint8_t hmac[20])
+TcpOptionMpTcpJoin::SetHmac (uint8_t hmac[20])
 {
-  NS_LOG_ERROR("Not implemented");
+  NS_LOG_ERROR ("Not implemented");
 //  std::copy(hmac, hmac+20,m_hmac);
 }
 
@@ -564,30 +576,30 @@ TcpOptionMpTcpJoin::SetHmac(uint8_t hmac[20])
 uint32_t
 TcpOptionMpTcpJoin::GetSerializedSize (void) const
 {
-  NS_ASSERT(m_mode != Uninitialized);
+  NS_ASSERT (m_mode != Uninitialized);
 
   return (m_mode);
 }
 
 void
-TcpOptionMpTcpJoin::SetTruncatedHmac(const uint64_t& hmac)
+TcpOptionMpTcpJoin::SetTruncatedHmac (const uint64_t& hmac)
 {
-  NS_ASSERT_MSG(m_mode == SynAck, "Wrong mode");
+  NS_ASSERT_MSG (m_mode == SynAck, "Wrong mode");
   m_buffer[0] = hmac >> 32;
   m_buffer[1] = (hmac);
 }
 
 uint64_t
-TcpOptionMpTcpJoin::GetTruncatedHmac() const
+TcpOptionMpTcpJoin::GetTruncatedHmac () const
 {
-  NS_ASSERT_MSG(m_mode == SynAck, "Wrong mode");
+  NS_ASSERT_MSG (m_mode == SynAck, "Wrong mode");
   uint64_t temp = 0;
-  temp = m_buffer[0] ;
+  temp = m_buffer[0];
   temp = temp << 32;
-  temp |= m_buffer[1] ;
+  temp |= m_buffer[1];
 
   return temp;
-};
+}
 
 
 
@@ -597,47 +609,46 @@ TcpOptionMpTcpJoin::GetTruncatedHmac() const
 ///////////////////////////////////////:
 //// MP_DSS
 ////
-TcpOptionMpTcpDSS::TcpOptionMpTcpDSS() :
-  TcpOptionMpTcp(),
-  m_hasChecksum(false),
-  m_checksum(0),
-  m_flags(0),
-  m_dataAck(0),
-  m_dsn(0),
-  m_ssn(0),
-  m_dataLevelLength(0)
+TcpOptionMpTcpDSS::TcpOptionMpTcpDSS ()
+  : TcpOptionMpTcp (),
+    m_hasChecksum (false),
+    m_checksum (0),
+    m_flags (0),
+    m_dataAck (0),
+    m_dsn (0),
+    m_ssn (0),
+    m_dataLevelLength (0)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
-TcpOptionMpTcpDSS::~TcpOptionMpTcpDSS()
+TcpOptionMpTcpDSS::~TcpOptionMpTcpDSS ()
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
 void
-TcpOptionMpTcpDSS::AddDataFin(const uint64_t& dfin, const bool& send_as_32bits)
+TcpOptionMpTcpDSS::AddDataFin (const uint64_t& dfin, const bool& send_as_32bits)
 {
-  NS_ASSERT_MSG( (GetFlags() & DataFin ) == 0, "You already set a DATA FIN");
-  NS_LOG_LOGIC("Setting datafin to " << dfin);
+  NS_ASSERT_MSG ( (GetFlags () & DataFin ) == 0, "You already set a DATA FIN");
+  NS_LOG_LOGIC ("Setting datafin to " << dfin);
 
   //! If already a mapping registered
-  if( m_flags & DSNMappingPresent)
-  {
-    // check we can increment length without wrapping
-    uint16_t temp = 0;
-    temp = ~temp;
-    NS_LOG_DEBUG("TEMP => " << temp); //~(uint16_t) 0
-    NS_ASSERT_MSG( (m_dataLevelLength < temp ), "Datafin increments DSS length by 1");
-    //.GetValue()
-    NS_ASSERT_MSG( m_dsn + m_dataLevelLength + 1 == dfin, "DFIN dsn does not match already registered mapping data");
-  }
+  if ( m_flags & DSNMappingPresent)
+    {
+      // check we can increment length without wrapping
+      uint16_t temp = 0;
+      temp = ~temp;
+      NS_LOG_DEBUG ("TEMP => " << temp); //~(uint16_t) 0
+      NS_ASSERT_MSG ( (m_dataLevelLength < temp ), "Datafin increments DSS length by 1");
+      NS_ASSERT_MSG ( m_dsn + m_dataLevelLength + 1 == dfin, "DFIN dsn does not match already registered mapping data");
+    }
   else
-  {
-    m_dsn = dfin;
-  }
+    {
+      m_dsn = dfin;
+    }
 
   m_dataLevelLength++;
   m_flags |=  DataFin | DSNMappingPresent;
@@ -645,18 +656,20 @@ TcpOptionMpTcpDSS::AddDataFin(const uint64_t& dfin, const bool& send_as_32bits)
 
 
 void
-TcpOptionMpTcpDSS::SetMapping(uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits)
+TcpOptionMpTcpDSS::SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits)
 {
-  NS_ASSERT_MSG( !(m_flags & DataFin), "For now you can't set mapping after enabling datafin");
-  NS_ASSERT_MSG( !(m_flags & DSNMappingPresent), "You already set a mapping");
+  NS_ASSERT_MSG ( !(m_flags & DataFin), "For now you can't set mapping after enabling datafin");
+  NS_ASSERT_MSG ( !(m_flags & DSNMappingPresent), "You already set a mapping");
 
   m_dsn = headDsn;
-  if(trunc_to_32bits) {
-    m_dsn = TRUNC_TO_32(m_dsn);
-  }
-  else {
-    m_flags |= DSNOfEightBytes;
-  }
+  if (trunc_to_32bits)
+    {
+      m_dsn = TRUNC_TO_32 (m_dsn);
+    }
+  else
+    {
+      m_flags |= DSNOfEightBytes;
+    }
   m_ssn = headSsn;
   // += in case there is a datafin
   m_dataLevelLength += length;
@@ -664,188 +677,149 @@ TcpOptionMpTcpDSS::SetMapping(uint64_t& headDsn, uint32_t& headSsn, uint16_t& le
 }
 
 
-#if 0
 void
-TcpOptionMpTcpDSS::SetMapping(MpTcpMapping mapping)
+TcpOptionMpTcpDSS::GetMapping (uint64_t& dsn, uint32_t& ssn, uint16_t& length) const
 {
-  NS_ASSERT_MSG( !(m_flags & DataFin), "For now you can't set mapping after enabling datafin");
-
-//  m_mapping = mapping;
-
-  m_dsn= mapping.HeadDSN().GetValue();
-  m_ssn= mapping.HeadSSN().GetValue();
-  m_dataLevelLength = mapping.GetLength();
-  m_flags |= DSNMappingPresent;
-}
-
-
-// TODO move to a wrapper function
-MpTcpMapping
-TcpOptionMpTcpDSS::GetMapping(void) const
-{
-  NS_ASSERT( (m_flags & DSNMappingPresent) && !IsInfiniteMapping() );
-
-  MpTcpMapping mapping;
-  uint16_t length = GetDataLevelLength();
-  if(GetFlags() & DataFin)
-    length--;
-
-  mapping.MapToSSN( SequenceNumber32(m_ssn)  );
-  mapping.Configure( SequenceNumber32(m_dsn), length);
-  return mapping;
-}
-#endif
-void
-TcpOptionMpTcpDSS::GetMapping(uint64_t& dsn, uint32_t& ssn, uint16_t& length) const
-{
-  NS_ASSERT( (m_flags & DSNMappingPresent) && !IsInfiniteMapping() );
+  NS_ASSERT ( (m_flags & DSNMappingPresent) && !IsInfiniteMapping () );
   ssn = m_ssn;
   dsn = m_dsn;
   length = m_dataLevelLength;
-  if(GetFlags() & DataFin)
-    length--;
+  if (GetFlags () & DataFin)
+    {
+      length--;
+    }
 }
 
 uint32_t
-TcpOptionMpTcpDSS::GetSerializedSize(void) const
+TcpOptionMpTcpDSS::GetSerializedSize (void) const
 {
-  uint32_t len = GetSizeFromFlags(m_flags) + ((m_hasChecksum) ? 2 : 0);
+  uint32_t len = GetSizeFromFlags (m_flags) + ((m_hasChecksum) ? 2 : 0);
   return len;
 }
 
 uint64_t
-TcpOptionMpTcpDSS::GetDataAck(void) const
+TcpOptionMpTcpDSS::GetDataAck (void) const
 {
-  NS_ASSERT_MSG( m_flags & DataAckPresent, "Can't request DataAck value when DataAck flag was not set. Check for its presence first" );
+  NS_ASSERT_MSG ( m_flags & DataAckPresent, "Can't request DataAck value when DataAck flag was not set. Check for its presence first" );
   return m_dataAck;
-};
+}
 
 
 void
-TcpOptionMpTcpDSS::SetChecksum(const uint16_t& checksum)
+TcpOptionMpTcpDSS::SetChecksum (const uint16_t& checksum)
 {
   m_hasChecksum = checksum;
 }
 
 
 uint16_t
-TcpOptionMpTcpDSS::GetChecksum(void) const
+TcpOptionMpTcpDSS::GetChecksum (void) const
 {
-  NS_ASSERT(m_hasChecksum);
+  NS_ASSERT (m_hasChecksum);
   return m_checksum;
 }
 
-
-//uint16_t
-//TcpOptionMpTcpDSS::GetDataLevelLength() const
-//{
-//  NS_ASSERT( m_flags & DSNMappingPresent);
-//  return m_dataLevelLength;
-//    /* when there is a data fin in a DSS, it adds 1 to the mapping length */
-////    if(flags & DataFin) {
-////
-////      return( GetMapping().GetLength() + 1 );
-////    }
-////    else {
-////      return( GetMapping().GetLength() );
-////    }
-//}
-
 void
-TcpOptionMpTcpDSS::Print(std::ostream& os) const
+TcpOptionMpTcpDSS::Print (std::ostream& os) const
 {
 
   os << " MP_DSS: ";
-  if(GetFlags() & DataAckPresent)
-  {
-    os << "Acknowledges [" << GetDataAck() << "] ";
-    if(GetFlags() & DataAckOf8Bytes)
+  if (GetFlags () & DataAckPresent)
     {
-      os << "(8bytes DACK)";
-    }
-  }
-
-  if(GetFlags() & DSNMappingPresent)
-  {
-
-    if(IsInfiniteMapping())
-    {
-      os << " Infinite Mapping";
-    }
-    else if(GetFlags() & DataFin)
-    {
-      os << "Has datafin for seq [" << GetDataFinDSN() << "]";
+      os << "Acknowledges [" << GetDataAck () << "] ";
+      if (GetFlags () & DataAckOf8Bytes)
+        {
+          os << "(8bytes DACK)";
+        }
     }
 
-    os << " DSN:" << m_dsn << " length=" << m_dataLevelLength;
-    if(GetFlags() & DSNOfEightBytes)
+  if (GetFlags () & DSNMappingPresent)
     {
-      os << "(8bytes mapping)";
+
+      if (IsInfiniteMapping ())
+        {
+          os << " Infinite Mapping";
+        }
+      else if (GetFlags () & DataFin)
+        {
+          os << "Has datafin for seq [" << GetDataFinDSN () << "]";
+        }
+
+      os << " DSN:" << m_dsn << " length=" << m_dataLevelLength;
+      if (GetFlags () & DSNOfEightBytes)
+        {
+          os << "(8bytes mapping)";
+        }
     }
-  }
 }
 
 
 void
 TcpOptionMpTcpDSS::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
-  i.WriteU8( GetSubType() << 4);
-  i.WriteU8( m_flags );
+  TcpOptionMpTcp::SerializeRef (i);
+  i.WriteU8 ( GetSubType () << 4);
+  i.WriteU8 ( m_flags );
 
-  if( m_flags & DataAckPresent)
-  {
-    if( m_flags & DataAckOf8Bytes)
+  if ( m_flags & DataAckPresent)
     {
-      i.WriteHtonU64( m_dataAck );
-    }
-    else
-    {
-      i.WriteHtonU32( (uint32_t)m_dataAck );
-    }
-  }
-
-  if(m_flags & DSNMappingPresent)
-  {
-
-    if( m_flags & DSNOfEightBytes)
-    {
-       i.WriteHtonU64( m_dsn );
-    }
-    else
-    {
-      i.WriteHtonU32( m_dsn );
+      if ( m_flags & DataAckOf8Bytes)
+        {
+          i.WriteHtonU64 ( m_dataAck );
+        }
+      else
+        {
+          i.WriteHtonU32 ( (uint32_t)m_dataAck );
+        }
     }
 
-    // Write relative SSN
-    i.WriteHtonU32( m_ssn );
-    i.WriteHtonU16( m_dataLevelLength );
-  }
+  if (m_flags & DSNMappingPresent)
+    {
 
-  if(m_hasChecksum)
-  {
-    i.WriteHtonU16( m_checksum );
-  }
+      if ( m_flags & DSNOfEightBytes)
+        {
+          i.WriteHtonU64 ( m_dsn );
+        }
+      else
+        {
+          i.WriteHtonU32 ( m_dsn );
+        }
+
+      // Write relative SSN
+      i.WriteHtonU32 ( m_ssn );
+      i.WriteHtonU16 ( m_dataLevelLength );
+    }
+
+  if (m_hasChecksum)
+    {
+      i.WriteHtonU16 ( m_checksum );
+    }
 }
 
 uint32_t
-TcpOptionMpTcpDSS::GetSizeFromFlags(uint16_t flags)
+TcpOptionMpTcpDSS::GetSizeFromFlags (uint16_t flags)
 {
 
   uint32_t length = 4;
 
-  if( flags & DataAckPresent)
-  {
-    length += 4;
-    if( flags & DataAckOf8Bytes)  length += 4;
-  }
+  if ( flags & DataAckPresent)
+    {
+      length += 4;
+      if ( flags & DataAckOf8Bytes)
+        {
+          length += 4;
+        }
+    }
 
 
-  if( flags & DSNMappingPresent)
-  {
-    length += 10; /* data length (2) + ssn (4) + DSN min size (4) */
-    if( flags & DSNOfEightBytes)  length += 4;
-  }
+  if ( flags & DSNMappingPresent)
+    {
+      length += 10; /* data length (2) + ssn (4) + DSN min size (4) */
+      if ( flags & DSNOfEightBytes)
+        {
+          length += 4;
+        }
+    }
 
   return length;
 }
@@ -854,73 +828,73 @@ uint32_t
 TcpOptionMpTcpDSS::Deserialize (Buffer::Iterator i)
 {
 
-  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef(i);
+  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef (i);
 
-  uint8_t subtype_and_reserved = i.ReadU8();
+  uint8_t subtype_and_reserved = i.ReadU8 ();
 
-  NS_ASSERT( (subtype_and_reserved >> 4) == GetSubType()  );
-  m_flags = i.ReadU8();
+  NS_ASSERT ( (subtype_and_reserved >> 4) == GetSubType ()  );
+  m_flags = i.ReadU8 ();
 
-  uint32_t shouldBeLength = GetSizeFromFlags(m_flags);
+  uint32_t shouldBeLength = GetSizeFromFlags (m_flags);
 
-  NS_ASSERT(shouldBeLength == length || shouldBeLength + 2 == length);
+  NS_ASSERT (shouldBeLength == length || shouldBeLength + 2 == length);
 
-  if(shouldBeLength + 2 == length)
-  {
-    m_hasChecksum = true;
-  }
-
-  if( m_flags & DataAckPresent)
-  {
-    if( m_flags & DataAckOf8Bytes)
+  if (shouldBeLength + 2 == length)
     {
-       m_dataAck = i.ReadNtohU64();
+      m_hasChecksum = true;
     }
-    else
+
+  if ( m_flags & DataAckPresent)
     {
-      m_dataAck = i.ReadNtohU32();
+      if ( m_flags & DataAckOf8Bytes)
+        {
+          m_dataAck = i.ReadNtohU64 ();
+        }
+      else
+        {
+          m_dataAck = i.ReadNtohU32 ();
+        }
     }
-  }
 
   // Read mapping
-  if(m_flags & DSNMappingPresent)
-  {
-
-    if( m_flags & DSNOfEightBytes)
+  if (m_flags & DSNMappingPresent)
     {
-      m_dsn = i.ReadNtohU64();
-    }
-    else
-    {
-       m_dsn = i.ReadNtohU32();
-    }
 
-    m_ssn = i.ReadNtohU32();
-    m_dataLevelLength = i.ReadNtohU16();
+      if ( m_flags & DSNOfEightBytes)
+        {
+          m_dsn = i.ReadNtohU64 ();
+        }
+      else
+        {
+          m_dsn = i.ReadNtohU32 ();
+        }
 
-    // TODO
+      m_ssn = i.ReadNtohU32 ();
+      m_dataLevelLength = i.ReadNtohU16 ();
+
+      // TODO
 //    if( (m_flags & DataFin) )
 //    {
 //        --dataLevelLength;
 //    }
 //
 //    m_mapping.Configure( SequenceNumber32(dataSeqNb ), dataLevelLength);
-  }
+    }
 
 
-  if(m_hasChecksum)
-  {
-    m_checksum = i.ReadNtohU16 ( );
-  }
+  if (m_hasChecksum)
+    {
+      m_checksum = i.ReadNtohU16 ( );
+    }
 
   return length;
 }
 
 uint8_t
-TcpOptionMpTcpDSS::GetFlags(void) const
+TcpOptionMpTcpDSS::GetFlags (void) const
 {
   return m_flags;
-};
+}
 
 /*
 Note that when the DATA_FIN is not attached to a TCP segment
@@ -929,56 +903,56 @@ sequence number of 0, a Data-Level Length of 1, and the data sequence
 number that corresponds with the DATA_FIN itself
 */
 bool
-TcpOptionMpTcpDSS::DataFinMappingOnly() const
+TcpOptionMpTcpDSS::DataFinMappingOnly () const
 {
   return (m_flags & DataFin) && m_dataLevelLength == 1 && m_ssn == 0;
 }
 
 bool
-TcpOptionMpTcpDSS::IsInfiniteMapping() const
+TcpOptionMpTcpDSS::IsInfiniteMapping () const
 {
   //  The checksum, in such a case, will also be set to zero
-  return (GetFlags() & DSNMappingPresent) && m_dataLevelLength == 0;
+  return (GetFlags () & DSNMappingPresent) && m_dataLevelLength == 0;
 }
 
 uint64_t
-TcpOptionMpTcpDSS::GetDataFinDSN() const
+TcpOptionMpTcpDSS::GetDataFinDSN () const
 {
-  NS_ASSERT( GetFlags() & DataFin);
+  NS_ASSERT ( GetFlags () & DataFin);
 
-  if(DataFinMappingOnly())
-  {
-    return m_dsn;
-  }
+  if (DataFinMappingOnly ())
+    {
+      return m_dsn;
+    }
   else
-  {
-    return m_dsn + m_dataLevelLength;
-  }
+    {
+      return m_dsn + m_dataLevelLength;
+    }
 }
 
 
 
 void
-TcpOptionMpTcpDSS::SetDataAck(const uint64_t& dack, const bool& send_as_32bits)
+TcpOptionMpTcpDSS::SetDataAck (const uint64_t& dack, const bool& send_as_32bits)
 {
-  NS_LOG_LOGIC(this << dack);
+  NS_LOG_LOGIC (this << dack);
 
   m_dataAck = dack;
   m_flags |= DataAckPresent;
 
-  if(send_as_32bits)
-  {
-    m_dataAck = TRUNC_TO_32(m_dataAck);
-  }
+  if (send_as_32bits)
+    {
+      m_dataAck = TRUNC_TO_32 (m_dataAck);
+    }
   else
-  {
-    m_flags |= DataAckOf8Bytes;
-  }
+    {
+      m_flags |= DataAckOf8Bytes;
+    }
 
 }
 
 bool
-TcpOptionMpTcpDSS::operator==(const TcpOptionMpTcpDSS& opt) const
+TcpOptionMpTcpDSS::operator== (const TcpOptionMpTcpDSS& opt) const
 {
 
   bool ret = m_flags == opt.m_flags;
@@ -993,17 +967,17 @@ TcpOptionMpTcpDSS::operator==(const TcpOptionMpTcpDSS& opt) const
 ///////////////////////////////////////:
 //// ADD_ADDR
 ////
-TcpOptionMpTcpAddAddress::TcpOptionMpTcpAddAddress() :
-  TcpOptionMpTcp(),
-  m_addressVersion(0),
-  m_addrId(0)
+TcpOptionMpTcpAddAddress::TcpOptionMpTcpAddAddress ()
+  : TcpOptionMpTcp (),
+    m_addressVersion (0),
+    m_addrId (0)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
-TcpOptionMpTcpAddAddress::~TcpOptionMpTcpAddAddress()
+TcpOptionMpTcpAddAddress::~TcpOptionMpTcpAddAddress ()
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 
 }
 
@@ -1018,25 +992,25 @@ TcpOptionMpTcpAddAddress::GetTypeId (void)
 }
 
 void
-TcpOptionMpTcpAddAddress::SetAddress(const Address& _address, uint8_t addrId
+TcpOptionMpTcpAddAddress::SetAddress (const Address& _address, uint8_t addrId
 //, bool advertise_port
-)
+                                      )
 {
-  if(InetSocketAddress::IsMatchingType(_address) )
-  {
-    m_addressVersion = 4;
-    InetSocketAddress address =  InetSocketAddress::ConvertFrom(_address);
-    m_address = address.GetIpv4();
-    m_port = address.GetPort();
-  }
+  if (InetSocketAddress::IsMatchingType (_address) )
+    {
+      m_addressVersion = 4;
+      InetSocketAddress address =  InetSocketAddress::ConvertFrom (_address);
+      m_address = address.GetIpv4 ();
+      m_port = address.GetPort ();
+    }
   else
-  {
-    NS_ASSERT_MSG(Inet6SocketAddress::IsMatchingType(_address), "Address of unsupported type");
-    m_addressVersion = 6;
-    Inet6SocketAddress address6 =  Inet6SocketAddress::ConvertFrom(_address);
-    m_address6 = address6.GetIpv6();
-    m_port = address6.GetPort();
-  }
+    {
+      NS_ASSERT_MSG (Inet6SocketAddress::IsMatchingType (_address), "Address of unsupported type");
+      m_addressVersion = 6;
+      Inet6SocketAddress address6 =  Inet6SocketAddress::ConvertFrom (_address);
+      m_address6 = address6.GetIpv6 ();
+      m_port = address6.GetPort ();
+    }
 
   m_addrId  = addrId;
 }
@@ -1045,38 +1019,38 @@ TcpOptionMpTcpAddAddress::SetAddress(const Address& _address, uint8_t addrId
 void
 TcpOptionMpTcpAddAddress::Print (std::ostream &os) const
 {
-  os << "ADD_ADDR: address id=" << GetAddressId()
-    << " associated to IP [";
-  if(m_addressVersion == 4)
-  {
-    os << m_address;
-  }
+  os << "ADD_ADDR: address id=" << GetAddressId ()
+     << " associated to IP [";
+  if (m_addressVersion == 4)
+    {
+      os << m_address;
+    }
   else
-  {
-    os << m_address6;
-  }
+    {
+      os << m_address6;
+    }
   os << "]";
 }
 
 InetSocketAddress
-TcpOptionMpTcpAddAddress::GetAddress() const
+TcpOptionMpTcpAddAddress::GetAddress () const
 {
-  NS_ASSERT(m_addressVersion == 4);
-  return InetSocketAddress(m_address, m_port);
+  NS_ASSERT (m_addressVersion == 4);
+  return InetSocketAddress (m_address, m_port);
 }
 
 
 Inet6SocketAddress
-TcpOptionMpTcpAddAddress::GetAddress6() const
+TcpOptionMpTcpAddAddress::GetAddress6 () const
 {
-  NS_ASSERT(m_addressVersion == 6);
-  return Inet6SocketAddress(m_address6,m_port);
+  NS_ASSERT (m_addressVersion == 6);
+  return Inet6SocketAddress (m_address6,m_port);
 }
 
 
 
 uint8_t
-TcpOptionMpTcpAddAddress::GetAddressId() const
+TcpOptionMpTcpAddAddress::GetAddressId () const
 {
   return m_addrId;
 }
@@ -1084,9 +1058,9 @@ TcpOptionMpTcpAddAddress::GetAddressId() const
 void
 TcpOptionMpTcpAddAddress::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
+  TcpOptionMpTcp::SerializeRef (i);
 
-  NS_ASSERT_MSG(m_addressVersion == 4 || m_addressVersion == 6, "Set an IP before serializing");
+  NS_ASSERT_MSG (m_addressVersion == 4 || m_addressVersion == 6, "Set an IP before serializing");
 
 //  uint8_t addressVersion = 0;
 //  InetSocketAddress address;
@@ -1107,32 +1081,32 @@ TcpOptionMpTcpAddAddress::Serialize (Buffer::Iterator i) const
 //    NS_ABORT_MSG("Address of wrong type");
 //  }
 
-  i.WriteU8( (GetSubType() << 4) + (uint8_t) m_addressVersion );
-  i.WriteU8( GetAddressId() );
+  i.WriteU8 ( (GetSubType () << 4) + (uint8_t) m_addressVersion );
+  i.WriteU8 ( GetAddressId () );
 
 
-  if(m_addressVersion == 4)
-  {
-//    i.WriteHtonU32( m_address.GetIpv4().Get() );
-    i.WriteHtonU32( m_address.Get() );
-//    i.WriteU8(m_address.GetPort());
-  }
-  else
-  {
-    NS_ASSERT_MSG(m_addressVersion==6, "You should set an IP address before serializing MPTCP option ADD_ADDR");
-
-    uint8_t  	buf[16];
-//    m_address6.GetIpv6().GetBytes( buf );
-    m_address6.GetBytes( buf );
-    for(int j = 0; j < 16; ++j)
+  if (m_addressVersion == 4)
     {
-      i.WriteU8( buf[j] );
+//    i.WriteHtonU32( m_address.GetIpv4().Get() );
+      i.WriteHtonU32 ( m_address.Get () );
+//    i.WriteU8(m_address.GetPort());
     }
+  else
+    {
+      NS_ASSERT_MSG (m_addressVersion == 6, "You should set an IP address before serializing MPTCP option ADD_ADDR");
+
+      uint8_t     buf[16];
+//    m_address6.GetIpv6().GetBytes( buf );
+      m_address6.GetBytes ( buf );
+      for (int j = 0; j < 16; ++j)
+        {
+          i.WriteU8 ( buf[j] );
+        }
 //    NS_LOG_INFO(this <<  "Got bytes from ipv6");
 //    i.WriteU8(m_address.GetPort());
-  }
+    }
 
-  i.WriteU8(m_port);
+  i.WriteU8 (m_port);
 }
 
 
@@ -1140,32 +1114,32 @@ TcpOptionMpTcpAddAddress::Serialize (Buffer::Iterator i) const
 uint32_t
 TcpOptionMpTcpAddAddress::Deserialize (Buffer::Iterator i)
 {
-  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef(i);
-  NS_ASSERT( length == 10 || length == 22 );
+  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef (i);
+  NS_ASSERT ( length == 10 || length == 22 );
 
-  uint8_t subtype_and_ipversion = i.ReadU8();
-  NS_ASSERT( subtype_and_ipversion >> 4 == GetSubType()  );
+  uint8_t subtype_and_ipversion = i.ReadU8 ();
+  NS_ASSERT ( subtype_and_ipversion >> 4 == GetSubType ()  );
 
   m_addressVersion = subtype_and_ipversion  & 0x0f;
-  NS_ASSERT_MSG(m_addressVersion == 4 || m_addressVersion == 6, "Unsupported address version");
+  NS_ASSERT_MSG (m_addressVersion == 4 || m_addressVersion == 6, "Unsupported address version");
 
-  m_addrId =  i.ReadU8();
+  m_addrId =  i.ReadU8 ();
 
-  if( m_addressVersion == 4)
-  {
-    m_address.Set ( i.ReadNtohU32() );
-  }
+  if ( m_addressVersion == 4)
+    {
+      m_address.Set ( i.ReadNtohU32 () );
+    }
   else
-  {
-    // ipv6
-    NS_FATAL_ERROR("IPv6 not supported yet");
-    //m_address6.Set( );
-  }
+    {
+      // ipv6
+      NS_FATAL_ERROR ("IPv6 not supported yet");
+      //m_address6.Set( );
+    }
   return length;
 }
 
 uint8_t
-TcpOptionMpTcpAddAddress::GetAddressVersion(void) const
+TcpOptionMpTcpAddAddress::GetAddressVersion (void) const
 {
   return m_addressVersion;
 }
@@ -1173,25 +1147,25 @@ TcpOptionMpTcpAddAddress::GetAddressVersion(void) const
 uint32_t
 TcpOptionMpTcpAddAddress::GetSerializedSize (void) const
 {
-  if( GetAddressVersion() == 4)
-  {
-    return  10;
-  }
+  if ( GetAddressVersion () == 4)
+    {
+      return 10;
+    }
 
-  NS_ASSERT_MSG( GetAddressVersion()  == 6,"Wrong IP version. Maybe you didn't set an address to the MPTCP ADD_ADDR option ?");
+  NS_ASSERT_MSG ( GetAddressVersion ()  == 6,"Wrong IP version. Maybe you didn't set an address to the MPTCP ADD_ADDR option ?");
   return 22;
 }
 
 
 bool
-TcpOptionMpTcpAddAddress::operator==(const TcpOptionMpTcpAddAddress& opt) const
+TcpOptionMpTcpAddAddress::operator== (const TcpOptionMpTcpAddAddress& opt) const
 {
-  return (GetAddressId() == opt.GetAddressId()
-    && m_address == opt.m_address
-    && m_address6 == opt.m_address6
+  return (GetAddressId () == opt.GetAddressId ()
+          && m_address == opt.m_address
+          && m_address6 == opt.m_address6
 //    && m_port == opt.m_port
 
-  );
+          );
 }
 
 
@@ -1199,70 +1173,70 @@ TcpOptionMpTcpAddAddress::operator==(const TcpOptionMpTcpAddAddress& opt) const
 //// DEL_ADDR Remove address
 ////
 
-TcpOptionMpTcpRemoveAddress::TcpOptionMpTcpRemoveAddress() :
-  TcpOptionMpTcp()
+TcpOptionMpTcpRemoveAddress::TcpOptionMpTcpRemoveAddress ()
+  : TcpOptionMpTcp ()
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
-TcpOptionMpTcpRemoveAddress::~TcpOptionMpTcpRemoveAddress()
+TcpOptionMpTcpRemoveAddress::~TcpOptionMpTcpRemoveAddress ()
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
 void
-TcpOptionMpTcpRemoveAddress::GetAddresses(std::vector<uint8_t>& addresses)
+TcpOptionMpTcpRemoveAddress::GetAddresses (std::vector<uint8_t>& addresses)
 {
   addresses = m_addressesId;
 }
 
 
 void
-TcpOptionMpTcpRemoveAddress::AddAddressId( uint8_t addrId )
+TcpOptionMpTcpRemoveAddress::AddAddressId ( uint8_t addrId )
 {
-  NS_ASSERT_MSG(m_addressesId.size() < 5, "5 is a random limit but it \
+  NS_ASSERT_MSG (m_addressesId.size () < 5, "5 is a random limit but it \
             should be weird that you remove more than 5 addresses at once. \
                   Maybe increase it");
 
-  m_addressesId.push_back( addrId );
+  m_addressesId.push_back ( addrId );
 }
 
 
 void
 TcpOptionMpTcpRemoveAddress::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
+  TcpOptionMpTcp::SerializeRef (i);
 
-  i.WriteU8( (GetSubType() << 4) );
-  for(
-    std::vector<uint8_t>::const_iterator it = m_addressesId.begin();
-    it != m_addressesId.end();
+  i.WriteU8 ( (GetSubType () << 4) );
+  for (
+    std::vector<uint8_t>::const_iterator it = m_addressesId.begin ();
+    it != m_addressesId.end ();
     it++
     )
-  {
-    i.WriteU8( *it );
-  }
+    {
+      i.WriteU8 ( *it );
+    }
 }
 
 uint32_t
 TcpOptionMpTcpRemoveAddress::Deserialize (Buffer::Iterator i)
 {
-  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef(i);
+  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef (i);
 
-  NS_ASSERT_MSG( length > 3, "You probably forgot to add AddrId to the MPTCP Remove option");
+  NS_ASSERT_MSG ( length > 3, "You probably forgot to add AddrId to the MPTCP Remove option");
 
-  uint8_t subtype_and_resvd = i.ReadU8();
-  NS_ASSERT( subtype_and_resvd >> 4 == GetSubType()  );
+  uint8_t subtype_and_resvd = i.ReadU8 ();
+  NS_ASSERT ( subtype_and_resvd >> 4 == GetSubType ()  );
 //  m_flags = i.ReadU8();
 //
 //  SetSenderKey( i.ReadNtohU64() );
-  m_addressesId.clear();
-  for(uint32_t j = 3; j < length; ++j)
-  {
-    m_addressesId.push_back( i.ReadU8() );
-  }
+  m_addressesId.clear ();
+  for (uint32_t j = 3; j < length; ++j)
+    {
+      m_addressesId.push_back ( i.ReadU8 () );
+    }
 
   return length;
 
@@ -1271,25 +1245,25 @@ TcpOptionMpTcpRemoveAddress::Deserialize (Buffer::Iterator i)
 uint32_t
 TcpOptionMpTcpRemoveAddress::GetSerializedSize (void) const
 {
-  return ( 3 + m_addressesId.size() );
+  return ( 3 + m_addressesId.size () );
 }
 
 void
 TcpOptionMpTcpRemoveAddress::Print (std::ostream &os) const
 {
   os << "REMOVE_ADDR. Removing addresses:";
-  for(
-      std::vector<uint8_t>::const_iterator it = m_addressesId.begin();
-        it != m_addressesId.end();
-        it++
-        )
-  {
-    os << *it << "/";
-  }
+  for (
+    std::vector<uint8_t>::const_iterator it = m_addressesId.begin ();
+    it != m_addressesId.end ();
+    it++
+    )
+    {
+      os << *it << "/";
+    }
 }
 
 bool
-TcpOptionMpTcpRemoveAddress::operator==(const TcpOptionMpTcpRemoveAddress& opt) const
+TcpOptionMpTcpRemoveAddress::operator== (const TcpOptionMpTcpRemoveAddress& opt) const
 {
   return (m_addressesId == opt.m_addressesId);
 
@@ -1300,20 +1274,20 @@ TcpOptionMpTcpRemoveAddress::operator==(const TcpOptionMpTcpRemoveAddress& opt) 
 ///////////////////////////////////////:
 //// MP_PRIO change priority
 ////
-TcpOptionMpTcpChangePriority::TcpOptionMpTcpChangePriority() :
-  TcpOptionMpTcp(),
-  m_length(3),
-  m_addrId(0),
-  m_flags(false)
+TcpOptionMpTcpChangePriority::TcpOptionMpTcpChangePriority ()
+  : TcpOptionMpTcp (),
+    m_length (3),
+    m_addrId (0),
+    m_flags (false)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
-TcpOptionMpTcpChangePriority::~TcpOptionMpTcpChangePriority(void)
+TcpOptionMpTcpChangePriority::~TcpOptionMpTcpChangePriority (void)
 {
-  NS_LOG_FUNCTION(this);
-};
+  NS_LOG_FUNCTION (this);
+}
 
 
 void
@@ -1321,19 +1295,19 @@ TcpOptionMpTcpChangePriority::Print (std::ostream &os) const
 {
   os << "MP_Prio: address with id [";
 
-  if( EmbeddedAddressId() )
-  {
-    os << m_addrId;
-  }
+  if ( EmbeddedAddressId () )
+    {
+      os << m_addrId;
+    }
   else
-  {
-    os << "Not set";
-  }
-  os << "] to flags ["  << (int)GetFlags() << "]";
+    {
+      os << "Not set";
+    }
+  os << "] to flags ["  << (int)GetFlags () << "]";
 }
 
 void
-TcpOptionMpTcpChangePriority::SetAddressId(const uint8_t& addrId)
+TcpOptionMpTcpChangePriority::SetAddressId (const uint8_t& addrId)
 {
   m_addrId = addrId;
   m_length = 4;
@@ -1341,9 +1315,9 @@ TcpOptionMpTcpChangePriority::SetAddressId(const uint8_t& addrId)
 
 
 uint8_t
-TcpOptionMpTcpChangePriority::GetAddressId() const
+TcpOptionMpTcpChangePriority::GetAddressId () const
 {
-  NS_ASSERT_MSG(EmbeddedAddressId(),"Use EmbeddedAddressId to check beforehand if this option carries an id");
+  NS_ASSERT_MSG (EmbeddedAddressId (),"Use EmbeddedAddressId to check beforehand if this option carries an id");
   return m_addrId;
 }
 
@@ -1351,13 +1325,13 @@ TcpOptionMpTcpChangePriority::GetAddressId() const
 void
 TcpOptionMpTcpChangePriority::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
+  TcpOptionMpTcp::SerializeRef (i);
 
-  i.WriteU8( (GetSubType() << 4) + (uint8_t)m_flags );
-  if( EmbeddedAddressId() )
-  {
-    i.WriteU8( m_addrId );
-  }
+  i.WriteU8 ( (GetSubType () << 4) + (uint8_t)m_flags );
+  if ( EmbeddedAddressId () )
+    {
+      i.WriteU8 ( m_addrId );
+    }
 }
 
 
@@ -1365,18 +1339,18 @@ uint32_t
 TcpOptionMpTcpChangePriority::Deserialize (Buffer::Iterator i)
 {
 
-  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef(i);
+  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef (i);
 
-  NS_ASSERT( length == 3 || length == 4 );
+  NS_ASSERT ( length == 3 || length == 4 );
 
-  uint8_t subtype_and_flags = i.ReadU8();
-  NS_ASSERT( subtype_and_flags >> 4 == GetSubType()  );
-  SetFlags(subtype_and_flags);
+  uint8_t subtype_and_flags = i.ReadU8 ();
+  NS_ASSERT ( subtype_and_flags >> 4 == GetSubType ()  );
+  SetFlags (subtype_and_flags);
 
-  if(length == 4)
-  {
-    SetAddressId(i.ReadU8());
-  }
+  if (length == 4)
+    {
+      SetAddressId (i.ReadU8 ());
+    }
 
   return m_length;
 }
@@ -1388,9 +1362,9 @@ TcpOptionMpTcpChangePriority::GetSerializedSize (void) const
 }
 
 void
-TcpOptionMpTcpChangePriority::SetFlags(const uint8_t& flags)
+TcpOptionMpTcpChangePriority::SetFlags (const uint8_t& flags)
 {
-  NS_LOG_FUNCTION(flags);
+  NS_LOG_FUNCTION (flags);
 
   /* only save the right bits */
   m_flags = 0x0f & flags;
@@ -1398,25 +1372,25 @@ TcpOptionMpTcpChangePriority::SetFlags(const uint8_t& flags)
 
 
 uint8_t
-TcpOptionMpTcpChangePriority::GetFlags(void) const
+TcpOptionMpTcpChangePriority::GetFlags (void) const
 {
   return m_flags & 0x0f;
 }
 
 bool
-TcpOptionMpTcpChangePriority::EmbeddedAddressId() const
+TcpOptionMpTcpChangePriority::EmbeddedAddressId () const
 {
-  return (GetSerializedSize() == 4);
+  return (GetSerializedSize () == 4);
 }
 
 bool
-TcpOptionMpTcpChangePriority::operator==(const TcpOptionMpTcpChangePriority& opt) const
+TcpOptionMpTcpChangePriority::operator== (const TcpOptionMpTcpChangePriority& opt) const
 {
 
   return (
-    GetFlags() == opt.GetFlags()
-    && m_addrId == opt.m_addrId
-    );
+           GetFlags () == opt.GetFlags ()
+           && m_addrId == opt.m_addrId
+           );
 }
 
 
@@ -1425,28 +1399,28 @@ TcpOptionMpTcpChangePriority::operator==(const TcpOptionMpTcpChangePriority& opt
 ///////////////////////////////////////////////////
 //// MP_FASTCLOSE to totally stop a flow of data
 ////
-TcpOptionMpTcpFastClose::TcpOptionMpTcpFastClose() :
-  TcpOptionMpTcp(),
-  m_peerKey(0)
+TcpOptionMpTcpFastClose::TcpOptionMpTcpFastClose ()
+  : TcpOptionMpTcp (),
+    m_peerKey (0)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
-TcpOptionMpTcpFastClose::~TcpOptionMpTcpFastClose(void)
+TcpOptionMpTcpFastClose::~TcpOptionMpTcpFastClose (void)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
 void
-TcpOptionMpTcpFastClose::SetPeerKey(const uint64_t& remoteKey)
+TcpOptionMpTcpFastClose::SetPeerKey (const uint64_t& remoteKey)
 {
   m_peerKey = remoteKey;
 }
 
 uint64_t
-TcpOptionMpTcpFastClose::GetPeerKey(void) const
+TcpOptionMpTcpFastClose::GetPeerKey (void) const
 {
   return m_peerKey;
 }
@@ -1455,24 +1429,24 @@ void
 TcpOptionMpTcpFastClose::Print (std::ostream &os) const
 {
   os << "MP_FastClose: Receiver key set to ["
-    << GetPeerKey() << "]";
+     << GetPeerKey () << "]";
 }
 
 bool
-TcpOptionMpTcpFastClose::operator==(const TcpOptionMpTcpFastClose& opt) const
+TcpOptionMpTcpFastClose::operator== (const TcpOptionMpTcpFastClose& opt) const
 {
 
-  return ( GetPeerKey() == opt.GetPeerKey() );
+  return ( GetPeerKey () == opt.GetPeerKey () );
 }
 
 
 void
 TcpOptionMpTcpFastClose::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
+  TcpOptionMpTcp::SerializeRef (i);
 
-  i.WriteU8( (GetSubType() << 4) + (uint8_t)0 );
-  i.WriteHtonU64( GetPeerKey() );
+  i.WriteU8 ( (GetSubType () << 4) + (uint8_t)0 );
+  i.WriteHtonU64 ( GetPeerKey () );
 }
 
 
@@ -1480,15 +1454,15 @@ uint32_t
 TcpOptionMpTcpFastClose::Deserialize (Buffer::Iterator i)
 {
 
-  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef(i);
+  uint32_t length =  TcpOptionMpTcpMain::DeserializeRef (i);
 
-  NS_ASSERT( length == 12 );
+  NS_ASSERT ( length == 12 );
 
-  uint8_t subtype_and_flags = i.ReadU8();
-  NS_ASSERT( subtype_and_flags >> 4 == GetSubType()  );
+  uint8_t subtype_and_flags = i.ReadU8 ();
+  NS_ASSERT ( subtype_and_flags >> 4 == GetSubType ()  );
 //  m_backupFlag = subtype_and_flags & 0x0f;
 
-  SetPeerKey( i.ReadNtohU64() );
+  SetPeerKey ( i.ReadNtohU64 () );
 
   return 12;
 }
@@ -1502,29 +1476,29 @@ TcpOptionMpTcpFastClose::GetSerializedSize (void) const
 ///////////////////////////////////////////////////
 //// MP_FAIL to totally stop a flow of data
 ////
-TcpOptionMpTcpFail::TcpOptionMpTcpFail() :
-  TcpOptionMpTcp(),
-  m_dsn(0)
+TcpOptionMpTcpFail::TcpOptionMpTcpFail ()
+  : TcpOptionMpTcp (),
+    m_dsn (0)
 {
-  NS_LOG_FUNCTION(this);
+  NS_LOG_FUNCTION (this);
 }
 
 
-TcpOptionMpTcpFail::~TcpOptionMpTcpFail(void)
+TcpOptionMpTcpFail::~TcpOptionMpTcpFail (void)
 {
-  NS_LOG_FUNCTION(this);
-};
+  NS_LOG_FUNCTION (this);
+}
 
 void
-TcpOptionMpTcpFail::SetDSN(const uint64_t& dsn)
+TcpOptionMpTcpFail::SetDSN (const uint64_t& dsn)
 {
-  NS_LOG_FUNCTION(dsn);
+  NS_LOG_FUNCTION (dsn);
   m_dsn = dsn;
 }
 
 
 uint64_t
-TcpOptionMpTcpFail::GetDSN(void) const
+TcpOptionMpTcpFail::GetDSN (void) const
 {
   return m_dsn;
 }
@@ -1533,24 +1507,24 @@ TcpOptionMpTcpFail::GetDSN(void) const
 void
 TcpOptionMpTcpFail::Print (std::ostream &os) const
 {
-  os << "MP_FAIL for DSN=" << GetDSN();
+  os << "MP_FAIL for DSN=" << GetDSN ();
 }
 
 
 bool
-TcpOptionMpTcpFail::operator==(const TcpOptionMpTcpFail& opt) const
+TcpOptionMpTcpFail::operator== (const TcpOptionMpTcpFail& opt) const
 {
-  return (GetDSN() == opt.GetDSN());
+  return (GetDSN () == opt.GetDSN ());
 }
 
 
 void
 TcpOptionMpTcpFail::Serialize (Buffer::Iterator i) const
 {
-  TcpOptionMpTcp::SerializeRef(i);
+  TcpOptionMpTcp::SerializeRef (i);
 
-  i.WriteU8( (GetSubType() << 4) + (uint8_t)0 );
-  i.WriteHtonU64( GetDSN() );
+  i.WriteU8 ( (GetSubType () << 4) + (uint8_t)0 );
+  i.WriteHtonU64 ( GetDSN () );
 }
 
 
@@ -1558,13 +1532,13 @@ uint32_t
 TcpOptionMpTcpFail::Deserialize (Buffer::Iterator i)
 {
 
-  uint32_t length = TcpOptionMpTcpMain::DeserializeRef(i);
-  NS_ASSERT( length == 12 );
+  uint32_t length = TcpOptionMpTcpMain::DeserializeRef (i);
+  NS_ASSERT ( length == 12 );
 
-  uint8_t subtype_and_flags = i.ReadU8();
-  NS_ASSERT( subtype_and_flags >> 4 == GetSubType()  );
+  uint8_t subtype_and_flags = i.ReadU8 ();
+  NS_ASSERT ( subtype_and_flags >> 4 == GetSubType ()  );
 
-  SetDSN( i.ReadNtohU64() );
+  SetDSN ( i.ReadNtohU64 () );
 
   return 12;
 }
