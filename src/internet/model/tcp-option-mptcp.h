@@ -27,6 +27,7 @@
 #include "ns3/address.h"
 #include "ns3/inet-socket-address.h"
 #include "ns3/inet6-socket-address.h"
+#include "ns3/mptcp-crypto.h"
 #include <vector>
 
 /**
@@ -208,14 +209,7 @@ public:
 
   static TypeId GetTypeId (void);
 
-  /**
-   * \brief Only SHA1 is defined in the RFC up to now.
-   */
-  enum CryptoAlgorithms
-  {
-    HMAC_SHA1 = 1 /**< Default choice */
-      /* more may come in the future depending on the standardization */
-  };
+
 
   bool operator== (const TcpOptionMpTcpCapable&) const;
 
