@@ -19,9 +19,15 @@
  */
 
 #include "ns3/log.h"
+#include "ns3/test.h"
 #include "ns3/mptcp-crypto.h"
 
-#ifdef ENABLE_CRYPTO
+NS_LOG_COMPONENT_DEFINE ("MpTcpCryptoTest");
+
+#ifdef HAVE_CRYPTO
+
+
+namespace ns3 {
 
 /* client initiates connection => SYN */
 typedef struct _crypto_material {
@@ -58,12 +64,12 @@ public:
 
   virtual void DoRun(void)
   {
-    const mptcp_crypto_t algo = MPTCP_SHA1;
+    const mptcp_crypto_alg_t algo = HMAC_SHA1;
     uint32_t tokenClient = 0, tokenServer = 0;
     uint64_t idsnClient = 0, idsnServer = 0;
 
-    MpTcpSocketBase::GenerateTokenForKey( algo, m_c.keyServer, tokenServer, idsnServer);
-    MpTcpSocketBase::GenerateTokenForKey( algo, m_c.keyClient, tokenClient, idsnClient);
+    GenerateTokenForKey( algo, m_c.keyServer, tokenServer, idsnServer);
+    GenerateTokenForKey( algo, m_c.keyClient, tokenClient, idsnClient);
     NS_LOG_INFO( "Client: Generated token "<< tokenClient << ". Expected "<< m_c.expectedTokenClient);
     NS_LOG_INFO( "Client: Generated idsn "<< idsnClient << ". Expected "<< m_c.expectedIdsnClient);
 
@@ -79,8 +85,6 @@ public:
 
 protected:
   crypto_materials_t m_c;
-
-
 };
 
 
@@ -117,4 +121,6 @@ public:
 
 } g_TcpOptionTestSuite;
 
-#endif // ENABLE_CRYPTO
+}
+
+#endif // HAVE_CRYPTO

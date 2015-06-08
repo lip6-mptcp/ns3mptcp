@@ -24,20 +24,24 @@
 #include "ns3/mptcp-crypto.h"
 #include "ns3/log.h"
 #include "ns3/node.h"
+#include "ns3/buffer.h"
 #include "ns3/assert.h"
 #include <cstddef> // for size_t
 
-#ifdef ENABLE_CRYPTO
+#ifdef HAVE_CRYPTO
     #include <gcrypt.h> // for the sha1 hash
 #else
     #include <functional> // to emulate some hash function
     #include <iostream>
     #include <string>
-    #include "ns3/hash.h"
+//    #include "ns3/hash.h"
 //    Create<Hash::Function::Fnv1a> ()
 #endif
 
+NS_LOG_COMPONENT_DEFINE ("MpTcpCrypto");
+
 namespace ns3 {
+
 
 //#include <openssl/sha.h>
 
@@ -51,10 +55,10 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
 
 
 //  uint8_t digest[DIGEST_SIZE_IN_BYTES];
-  #ifdef ENABLE_CRYPTO
+  #ifdef HAVE_CRYPTO
   NS_LOG_UNCOND("Used algorithm [" << gcry_md_algo_name(alg) << "]");
 
-
+  static const int KEY_SIZE_IN_BYTES = 8;
   /* converts the key into a buffer */
   Buffer keyBuff;
 
@@ -64,8 +68,6 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
 
 
 
-  Buffer digestBuf; /* to store the generated hash */
-  digestBuf.AddAtStart(DIGEST_SIZE_IN_BYTES);
 
 
   switch(alg)
@@ -73,10 +75,12 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
     case HMAC_SHA1:
         {
 
-            int hash_len = gcry_md_get_algo_dlen( GCRY_MD_SHA1 );
+            int hash_length = gcry_md_get_algo_dlen( GCRY_MD_SHA1 );
             unsigned char digest[ hash_length ];
 
 
+              Buffer digestBuf; /* to store the generated hash */
+              digestBuf.AddAtStart(hash_length);
 
             /*
             gcry_md_hash_buffer (int algo, void *digest, const void *buffer, size_t length);
@@ -84,7 +88,7 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
             gcry_md_hash_buffer( GCRY_MD_SHA1, digest, keyBuff.PeekData(), hash_length );
 
             Buffer::Iterator it_digest = digestBuf.Begin();
-            it_digest.Write( digest , DIGEST_SIZE_IN_BYTES ); // strlen( (const char*)digest)
+            it_digest.Write( digest , hash_length ); // strlen( (const char*)digest)
             it_digest = digestBuf.Begin();
             token = it_digest.ReadNtohU32();
             it_digest.Next( 8 );
@@ -115,11 +119,11 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
 //     Create<Hash::Function::Fnv1a> ();
 
 //    std::size_t digest = hash_fn(key);
-  #endif // ENABLE_CRYPTO
+  #endif // HAVE_CRYPTO
 
 #if 0
   const int DIGEST_SIZE_IN_BYTES = SHA_DIGEST_LENGTH; //20
-  const int KEY_SIZE_IN_BYTES = 8;
+
 
 
 //  const int TOKEN_SIZE_IN_BYTES = 4;
