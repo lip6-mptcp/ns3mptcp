@@ -24,7 +24,7 @@
 
 NS_LOG_COMPONENT_DEFINE ("MpTcpCryptoTest");
 
-#ifdef HAVE_CRYPTO
+
 
 
 namespace ns3 {
@@ -35,6 +35,7 @@ uint64_t keyClient;
 uint64_t keyServer;
 uint32_t expectedTokenClient;
 uint32_t expectedTokenServer;
+/* it makes little sense to test these but just in case */
 uint32_t nonceSyn;
 uint32_t nonceSynAck;
 uint64_t expectedHmacSynAck;
@@ -95,14 +96,21 @@ public:
  : TestSuite ("mptcp-crypto", UNIT)
  {
 
+    const uint64_t keyClient = 17578475652852252522U;
+    const uint64_t keyServer = 4250710109353306436U;
     // Notice the 'U' suffix at the end of the number . By default compiler
     // considers int as signed, thus triggering a warning
     crypto_materials_t c = {
-      .keyClient = 17578475652852252522U,
-      .keyServer = 4250710109353306436U,
+      .keyClient = keyClient,
+      .keyServer = keyServer,
       /*expectedTokenClient computed from SynAck key */
+      #ifdef HAVE_CRYPTO
       .expectedTokenClient = 781076417,
       .expectedTokenServer = 109896498,
+      #else
+      .expectedTokenClient = (uint32_t)keyClient,
+      .expectedTokenServer = (uint32_t)keyServer,
+      #endif
       .nonceSyn = 4179070691,
       .nonceSynAck = 786372555,
       .expectedHmacSynAck = 17675966670101668951U,
