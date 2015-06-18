@@ -131,7 +131,6 @@ public:
     ////////////////////////////////////////////////
     //// MP REMOVE_ADDRESS
     ////
-    // TODO generate random/real  addresses  with IPv4 helper ?
     Ptr<TcpOptionMpTcpRemoveAddress> rem = CreateObject<TcpOptionMpTcpRemoveAddress> ();
     for (uint8_t i = 0; i < 4; ++i)
       {

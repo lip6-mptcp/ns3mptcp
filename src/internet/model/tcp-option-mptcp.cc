@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2011 Adrian Sai-wah Tam
+ * Copyright (c) 2015 Matthieu Coudron
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,7 +22,10 @@
 #include "ns3/log.h"
 
 
-#define TRUNC_TO_32(seq)  ((uint32_t)(seq))
+static inline
+uint64_t TRUNC_TO_32(uint64_t seq) {
+  return static_cast<uint32_t>(seq);
+}
 
 
 namespace ns3 {
@@ -127,20 +130,20 @@ TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
 {
   switch (subtype)
     {
-//    case MP_CAPABLE:
-//      return CreateObject<TcpOptionMpTcpCapable>();
-//    case MP_JOIN:
-//      return CreateObject<TcpOptionMpTcpJoin>();
-//    case MP_DSS:
-//      return CreateObject<TcpOptionMpTcpDSS>();
-//    case MP_FAIL:
-//      return CreateObject<TcpOptionMpTcpFail>();
-//    case MP_FASTCLOSE:
-//      return CreateObject<TcpOptionMpTcpFastClose>();
-//    case MP_PRIO:
-//      return CreateObject<TcpOptionMpTcpChangePriority>();
-//    case REMOVE_ADDR:
-//      return CreateObject<TcpOptionMpTcpRemoveAddress>();
+    case MP_CAPABLE:
+      return CreateObject<TcpOptionMpTcpCapable>();
+    case MP_JOIN:
+      return CreateObject<TcpOptionMpTcpJoin>();
+    case MP_DSS:
+      return CreateObject<TcpOptionMpTcpDSS>();
+    case MP_FAIL:
+      return CreateObject<TcpOptionMpTcpFail>();
+    case MP_FASTCLOSE:
+      return CreateObject<TcpOptionMpTcpFastClose>();
+    case MP_PRIO:
+      return CreateObject<TcpOptionMpTcpChangePriority>();
+    case REMOVE_ADDR:
+      return CreateObject<TcpOptionMpTcpRemoveAddress>();
     default:
       break;
     }
@@ -152,16 +155,8 @@ TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
 void
 TcpOptionMpTcpMain::SerializeRef (Buffer::Iterator& i) const
 {
-//    Buffer::Iterator& i = start;
-  i.WriteU8 (GetKind ());   // Kind
-  i.WriteU8 (GetSerializedSize ());  // Length
-
-
-  // TODO may be an error otherwise here !
-
-//    i.WriteU8 ( ( (GetSubType() << 4 ) && 0xf0) ); // Subtype TODO should write U4 only
-//i.WriteU8 ( GetSerializedSize() ); // Subtype TODO should write U4 only
-
+  i.WriteU8 (GetKind ());
+  i.WriteU8 (GetSerializedSize ());
 }
 
 uint32_t
@@ -172,7 +167,7 @@ TcpOptionMpTcpMain::DeserializeRef (Buffer::Iterator& i) const
 
   NS_ASSERT (kind == GetKind ());
 
-  length = (uint32_t)i.ReadU8 ( );
+  length = static_cast<uint32_t>(i.ReadU8 ());
   return length;
 }
 
@@ -328,6 +323,7 @@ TcpOptionMpTcpJoin::TcpOptionMpTcpJoin ()
     m_flags (0)
 {
   NS_LOG_FUNCTION (this);
+  memset(&m_buffer[0], 0, sizeof(uint32_t) * 5);
 }
 
 
@@ -361,8 +357,7 @@ TcpOptionMpTcpJoin::Print (std::ostream &os) const
       os << "[SynAck] with nonce=" << GetNonce ();
       return;
     case Ack:
-      //TODO compare hash etc..
-      os << "[Ack] with hash=TODO";
+      os << "[Ack] with hash";
       return;
     }
 }
@@ -430,7 +425,6 @@ TcpOptionMpTcpJoin::operator== (const TcpOptionMpTcpJoin& opt) const
                );
 
     case Ack:
-      //TODO compare hash etc..
       return true;
     }
 
@@ -769,7 +763,7 @@ TcpOptionMpTcpDSS::Serialize (Buffer::Iterator i) const
         }
       else
         {
-          i.WriteHtonU32 ( (uint32_t)m_dataAck );
+          i.WriteHtonU32 ( static_cast<uint32_t>(m_dataAck) );
         }
     }
 
