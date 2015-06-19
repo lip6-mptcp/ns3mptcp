@@ -600,11 +600,11 @@ protected:
   virtual void NewAck (SequenceNumber32 const& seq);
 
   /**
-   * \brief Received dupack (duplicate ACK)
-   * \param tcpHeader the packet's TCP header
-   * \param count counter of duplicate ACKs
-   */
-  virtual void DupAck (const TcpHeader& tcpHeader, uint32_t count) = 0;
+    * \brief Received dupack (duplicate ACK)
+    * \param tcpHeader the packet's TCP header
+    * \param count counter of duplicate ACKs
+    */
+   virtual uint32_t GetSsThresh () = 0;
 
   /**
    * \brief Call Retransmit() upon RTO event
@@ -797,7 +797,14 @@ protected:
 
   EventId m_sendPendingDataEvent; //!< micro-delay event to send pending data
 
+  // Ack state
   TracedValue<TcpAckState_t> m_ackState; //!< State in the ACK state machine
+
+  // Fast Retransmit and Recovery
+  SequenceNumber32       m_recover;      //!< Previous highest Tx seqnum for fast recovery
+  uint32_t               m_retxThresh;   //!< Fast Retransmit threshold
+  bool                   m_inFastRec;    //!< currently in fast recovery
+  bool                   m_limitedTx;    //!< perform limited transmit
 };
 
 /**

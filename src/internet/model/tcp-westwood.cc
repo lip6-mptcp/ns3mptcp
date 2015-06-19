@@ -73,7 +73,6 @@ TcpWestwood::GetTypeId (void)
 }
 
 TcpWestwood::TcpWestwood (void) :
-  m_inFastRec(false),
   m_currentBW(0),
   m_lastSampleBW(0),
   m_lastBW(0),
@@ -89,7 +88,6 @@ TcpWestwood::TcpWestwood (void) :
 
 TcpWestwood::TcpWestwood (const TcpWestwood& sock) :
   TcpSocketBase(sock),
-  m_inFastRec(false),
   m_currentBW(sock.m_currentBW),
   m_lastSampleBW(sock.m_lastSampleBW),
   m_lastBW(sock.m_lastBW),
@@ -242,59 +240,11 @@ TcpWestwood::UpdateAckedSegments (int acked)
   m_ackedSegments += acked;
 }
 
-void
-TcpWestwood::DupAck (const TcpHeader& header, uint32_t count)
+
+uint32_t
+TcpWestwood::GetSsThresh ()
 {
-  NS_LOG_FUNCTION (this << count << m_cWnd);
-
-  if (count == 3 && !m_inFastRec)
-    {// Triple duplicate ACK triggers fast retransmit
-     // Adjust cwnd and ssthresh based on the estimated BW
-      m_ssThresh = uint32_t(m_currentBW * static_cast<double> (m_minRtt.GetSeconds()));
-      if (m_cWnd > m_ssThresh)
-        {
-          m_cWnd = m_ssThresh;
-        }
-      m_inFastRec = true;
-      NS_LOG_INFO ("Triple dupack. Enter fast recovery mode. Reset cwnd to " << m_cWnd <<", ssthresh to " << m_ssThresh);
-      DoRetransmit ();
-    }
-  else if (m_inFastRec)
-    {// Increase cwnd for every additional DUPACK as in Reno
-      m_cWnd += m_segmentSize;
-      NS_LOG_INFO ("Dupack in fast recovery mode. Increase cwnd to " << m_cWnd);
-      if (!m_sendPendingDataEvent.IsRunning ())
-        {
-          SendPendingData (m_connected);
-        }
-    }
-}
-
-void
-TcpWestwood::Retransmit (void)
-{
-  NS_LOG_FUNCTION (this);
-  NS_LOG_LOGIC (this << " ReTxTimeout Expired at time " << Simulator::Now ().GetSeconds ());
-  m_inFastRec = false;
-
-  // If erroneous timeout in closed/timed-wait state, just return
-  if (m_state == CLOSED || m_state == TIME_WAIT)
-    return;
-  // If all data are received, just return
-  if (m_txBuffer->HeadSequence () >= m_nextTxSequence)
-    return;
-
-  // Upon an RTO, adjust cwnd and ssthresh based on the estimated BW
-  m_ssThresh = std::max (static_cast<double> (2 * m_segmentSize), m_currentBW.Get () * static_cast<double> (m_minRtt.GetSeconds ()));
-  m_cWnd = m_segmentSize;
-
-  // Restart from highest ACK
-  m_nextTxSequence = m_txBuffer->HeadSequence ();
-  NS_LOG_INFO ("RTO. Reset cwnd to " << m_cWnd <<
-      ", ssthresh to " << m_ssThresh << ", restart from seqnum " << m_nextTxSequence);
-
-  // Retransmit the packet
-  DoRetransmit ();
+  return uint32_t(m_currentBW * static_cast<double> (m_minRtt.GetSeconds()));
 }
 
 void

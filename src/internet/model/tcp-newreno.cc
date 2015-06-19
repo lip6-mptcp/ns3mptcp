@@ -41,14 +41,10 @@ TcpNewReno::GetTypeId (void)
     .SetParent<TcpSocketBase> ()
     .SetGroupName ("Internet")
     .AddConstructor<TcpNewReno> ()
-    .AddAttribute ("ReTxThreshold", "Threshold for fast retransmit",
-                    UintegerValue (3),
-                    MakeUintegerAccessor (&TcpNewReno::m_retxThresh),
-                    MakeUintegerChecker<uint32_t> ())
-    .AddAttribute ("LimitedTransmit", "Enable limited transmit",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&TcpNewReno::m_limitedTx),
-                   MakeBooleanChecker ())
+    .DeprecateAttribute ("LimitedTransmit", "TcpNewReno",
+                         "The attribute LimitedTransmit is moved inside TcpSocketBase")
+    .DeprecateAttribute ("ReTxThreshold", "TcpNewReno",
+                         "The attribute ReTxThreshold is moved inside TcpSocketBase")
     .DeprecateTraceSource ("CongestionWindow", "TcpNewReno",
                            "The attribute CongestionWindow is moved inside TcpSocketBase")
     .DeprecateTraceSource ("SlowStartThreshold", "TcpNewReno",
@@ -58,18 +54,13 @@ TcpNewReno::GetTypeId (void)
 }
 
 TcpNewReno::TcpNewReno (void)
-  : m_retxThresh (3), // mute valgrind, actual value set by the attribute system
-    m_inFastRec (false),
-    m_limitedTx (false) // mute valgrind, actual value set by the attribute system
+  : TcpSocketBase ()
 {
   NS_LOG_FUNCTION (this);
 }
 
 TcpNewReno::TcpNewReno (const TcpNewReno& sock)
-  : TcpSocketBase (sock),
-    m_retxThresh (sock.m_retxThresh),
-    m_inFastRec (false),
-    m_limitedTx (sock.m_limitedTx)
+  : TcpSocketBase (sock)
 {
   NS_LOG_FUNCTION (this);
   NS_LOG_LOGIC ("Invoked the copy constructor");
@@ -130,60 +121,10 @@ TcpNewReno::NewAck (const SequenceNumber32& seq)
   TcpSocketBase::NewAck (seq);
 }
 
-/* Cut cwnd and enter fast recovery mode upon triple dupack */
-void
-TcpNewReno::DupAck (const TcpHeader& t, uint32_t count)
+uint32_t
+TcpNewReno::GetSsThresh ()
 {
-  NS_LOG_FUNCTION (this << count);
-  if (count == m_retxThresh && !m_inFastRec)
-    { // triple duplicate ack triggers fast retransmit (RFC2582 sec.3 bullet #1)
-      m_ssThresh = std::max (2 * m_segmentSize, BytesInFlight () / 2);
-      m_cWnd = m_ssThresh + 3 * m_segmentSize;
-      m_recover = m_highTxMark;
-      m_inFastRec = true;
-      NS_LOG_INFO ("Triple dupack. Enter fast recovery mode. Reset cwnd to " << m_cWnd <<
-                   ", ssthresh to " << m_ssThresh << " at fast recovery seqnum " << m_recover);
-      DoRetransmit ();
-    }
-  else if (m_inFastRec)
-    { // Increase cwnd for every additional dupack (RFC2582, sec.3 bullet #3)
-      m_cWnd += m_segmentSize;
-      NS_LOG_INFO ("Dupack in fast recovery mode. Increase cwnd to " << m_cWnd);
-      if (!m_sendPendingDataEvent.IsRunning ())
-        {
-          SendPendingData (m_connected);
-        }
-    }
-  else if (!m_inFastRec && m_limitedTx && m_txBuffer->SizeFromSequence (m_nextTxSequence) > 0)
-    { // RFC3042 Limited transmit: Send a new packet for each duplicated ACK before fast retransmit
-      NS_LOG_INFO ("Limited transmit");
-      uint32_t sz = SendDataPacket (m_nextTxSequence, m_segmentSize, true);
-      m_nextTxSequence += sz;                    // Advance next tx sequence
-    };
-}
-
-/* Retransmit timeout */
-void
-TcpNewReno::Retransmit (void)
-{
-  NS_LOG_FUNCTION (this);
-  NS_LOG_LOGIC (this << " ReTxTimeout Expired at time " << Simulator::Now ().GetSeconds ());
-  m_inFastRec = false;
-
-  // If erroneous timeout in closed/timed-wait state, just return
-  if (m_state == CLOSED || m_state == TIME_WAIT) return;
-  // If all data are received (non-closing socket and nothing to send), just return
-  if (m_state <= ESTABLISHED && m_txBuffer->HeadSequence () >= m_highTxMark) return;
-
-  // According to RFC2581 sec.3.1, upon RTO, ssthresh is set to half of flight
-  // size and cwnd is set to 1*MSS, then the lost packet is retransmitted and
-  // TCP back to slow start
-  m_ssThresh = std::max (2 * m_segmentSize, BytesInFlight () / 2);
-  m_cWnd = m_segmentSize;
-  m_nextTxSequence = m_txBuffer->HeadSequence (); // Restart from highest Ack
-  NS_LOG_INFO ("RTO. Reset cwnd to " << m_cWnd <<
-               ", ssthresh to " << m_ssThresh << ", restart from seqnum " << m_nextTxSequence);
-  DoRetransmit ();                          // Retransmit the packet
+  return std::max (2 * m_segmentSize, BytesInFlight () / 2);
 }
 
 } // namespace ns3
