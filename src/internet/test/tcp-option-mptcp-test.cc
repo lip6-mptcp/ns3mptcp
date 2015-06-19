@@ -32,12 +32,21 @@ NS_LOG_COMPONENT_DEFINE ("MpTcpOptionsTestSuite");
 
 using namespace ns3;
 
+//template<class T>
+//CreateAndCheckMpTcpOption(TcpOptionMpTcpMain::SubType type)
+//{
+//    Ptr<T> opt = DynamicCast<T>(TcpOptionMpTcpMain::CreateMpTcpOption( m_type));
+//    NS_ASSERT_MSG( opt, "Could not create the mptcp option");
+//    NS_ASSERT_MSG( T::GetSubType() == opt->GetSubType(), "Mismatch between mptcp option types");
+//}
+
+
 
 template<class T>
 class TcpOptionMpTcpTestCase : public TestCase
 {
 public:
-  TcpOptionMpTcpTestCase (Ptr<T> configuredOption,std::string desc) : TestCase (desc)
+  TcpOptionMpTcpTestCase (Ptr<T> configuredOption, TcpOptionMpTcpMain::SubType type, std::string desc) : TestCase (desc)
   {
     NS_LOG_FUNCTION (this);
     m_option = configuredOption;
@@ -77,6 +86,11 @@ public:
 
   virtual void DoRun (void)
   {
+    // check subtypes match
+    Ptr<T> opt = DynamicCast<T>(TcpOptionMpTcpMain::CreateMpTcpOption( m_type));
+    NS_ASSERT_MSG( opt, "Could not create the mptcp option");
+    NS_ASSERT_MSG( m_option->GetSubType() == opt->GetSubType(), "Mismatch between mptcp option types");
+
     TestSerialize ();
     TestDeserialize ();
   }
@@ -84,6 +98,7 @@ public:
 protected:
   Ptr<T> m_option;
   Buffer m_buffer;
+  TcpOptionMpTcpMain::SubType m_type;  //!< To check if the subtype returned by the class is the correct one
 };
 
 
@@ -103,13 +118,13 @@ public:
     mpc->SetPeerKey (42);
     mpc->SetSenderKey (232323);
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpCapable> (mpc,"MP_CAPABLE with Sender & Peer keys both set"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpCapable> (mpc, TcpOptionMpTcpMain::MP_CAPABLE, "MP_CAPABLE with Sender & Peer keys both set"),
       QUICK
       );
 
     mpc2->SetSenderKey (3);
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpCapable> (mpc2,"MP_CAPABLE with only sender Key set"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpCapable> (mpc2, TcpOptionMpTcpMain::MP_CAPABLE, "MP_CAPABLE with only sender Key set"),
       QUICK
       );
 
@@ -123,7 +138,7 @@ public:
 
     prio->SetAddressId (3);
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpChangePriority> (prio,"Change priority for a different address"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpChangePriority> (prio, TcpOptionMpTcpMain::MP_PRIO, "Change priority for a different address"),
       QUICK
       );
 
@@ -131,21 +146,21 @@ public:
     ////////////////////////////////////////////////
     //// MP REMOVE_ADDRESS
     ////
-    Ptr<TcpOptionMpTcpRemoveAddress> rem = CreateObject<TcpOptionMpTcpRemoveAddress> ();
+    Ptr<TcpOptionMpTcpRemoveAddress> rem = CreateObject<TcpOptionMpTcpRemoveAddress>();
     for (uint8_t i = 0; i < 4; ++i)
       {
-        Ptr<TcpOptionMpTcpRemoveAddress> rem2 = CreateObject<TcpOptionMpTcpRemoveAddress> ();
+        Ptr<TcpOptionMpTcpRemoveAddress> rem2 = CreateObject<TcpOptionMpTcpRemoveAddress>();
 
         rem->AddAddressId (i);
         rem2->AddAddressId (i);
 
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpRemoveAddress> (rem,"With X addresses"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpRemoveAddress> (rem, TcpOptionMpTcpMain::MP_REMOVE_ADDR, "With X addresses"),
           QUICK
           );
 
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpRemoveAddress> (rem2,"With 1 address"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpRemoveAddress> (rem2, TcpOptionMpTcpMain::MP_REMOVE_ADDR, "With 1 address"),
           QUICK
           );
 
@@ -155,11 +170,11 @@ public:
     ////////////////////////////////////////////////
     //// MP ADD_ADDRESS
     ////
-    Ptr<TcpOptionMpTcpAddAddress> add = CreateObject<TcpOptionMpTcpAddAddress> ();
+    Ptr<TcpOptionMpTcpAddAddress> add = CreateObject<TcpOptionMpTcpAddAddress>();
     add->SetAddress ( InetSocketAddress ( "123.24.23.32"), 8 );
 
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpAddAddress> (add,"AddAddress IPv4"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpAddAddress> (add, TcpOptionMpTcpMain::MP_ADD_ADDR,"AddAddress IPv4"),
       QUICK
       );
 
@@ -200,39 +215,39 @@ public:
 
 
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1,"DSN mapping only"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1, TcpOptionMpTcpMain::MP_DSS, "DSN mapping only"),
           QUICK
           );
 
         dss1->AddDataFin ( (dsn + dataLvlLen + 1), true);
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1,"DSN mapping + DFIN"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1, TcpOptionMpTcpMain::MP_DSS,"DSN mapping + DFIN"),
           QUICK
           );
 
         dss1->SetDataAck (45000);
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1, "DataAck + DSN mapping + DFIN"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1, TcpOptionMpTcpMain::MP_DSS, "DataAck + DSN mapping + DFIN"),
           QUICK
           );
 
         dss2->SetDataAck (3210);
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss2, "DataAck only"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss2, TcpOptionMpTcpMain::MP_DSS, "DataAck only"),
           QUICK
           );
 
 
         dss3->AddDataFin ( 45 );
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss3, "DataFin only"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss3, TcpOptionMpTcpMain::MP_DSS, "DataFin only"),
           QUICK
           );
 
         dss4->AddDataFin ( 32 );
         dss4->SetDataAck (45000);
         AddTestCase (
-          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss4, "DataAck + DSN mapping + Datafin"),
+          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss4, TcpOptionMpTcpMain::MP_DSS, "DataAck + DSN mapping + Datafin"),
           QUICK
           );
 
@@ -240,15 +255,15 @@ public:
     ////////////////////////////////////////////////
     //// MP_JOIN Initial syn
     ////
-    Ptr<TcpOptionMpTcpJoin> syn = CreateObject<TcpOptionMpTcpJoin> (),
-                            syn2 = CreateObject<TcpOptionMpTcpJoin> ();
-//                    TcpOptionMpTcpMain::CreateMpTcpOption(TcpOptionMpTcpMain::MP_JOIN);
+    Ptr<TcpOptionMpTcpJoin> syn = CreateObject<TcpOptionMpTcpJoin>(),
+                            syn2 = CreateObject<TcpOptionMpTcpJoin>();
+//                    ;
 //                     CreateObject<TcpOptionMpTcpJoin>();
     syn->SetMode (TcpOptionMpTcpJoin::Syn);
     syn->SetAddressId (4);
     syn->SetPeerToken (5323);
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpJoin> ( syn, "MP_JOIN Syn"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpJoin> ( syn, TcpOptionMpTcpMain::MP_JOIN, "MP_JOIN Syn"),
       QUICK
       );
 
@@ -256,13 +271,13 @@ public:
     ////////////////////////////////////////////////
     //// MP_JOIN synRcvd
     ////
-    Ptr<TcpOptionMpTcpJoin> jsr = CreateObject<TcpOptionMpTcpJoin> (),
-                            jsr2 = CreateObject<TcpOptionMpTcpJoin> ();
+    Ptr<TcpOptionMpTcpJoin> jsr = CreateObject<TcpOptionMpTcpJoin>(),
+                            jsr2 = CreateObject<TcpOptionMpTcpJoin>();
     jsr->SetMode (TcpOptionMpTcpJoin::SynAck);
     jsr->SetAddressId (4);
     jsr->SetTruncatedHmac ( 522323 );
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpJoin> ( jsr, "MP_JOIN Syn Received"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpJoin> ( jsr, TcpOptionMpTcpMain::MP_JOIN, "MP_JOIN Syn Received"),
       QUICK
       );
 
@@ -276,7 +291,7 @@ public:
     jsar->SetMode (TcpOptionMpTcpJoin::Ack);
     jsar->SetHmac ( hmac  );
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpJoin> ( jsar, "MP_JOIN SynAck Received"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpJoin> ( jsar, TcpOptionMpTcpMain::MP_JOIN, "MP_JOIN SynAck Received"),
       QUICK
       );
 
@@ -288,7 +303,7 @@ public:
     close->SetPeerKey (3232);
 
     AddTestCase (
-      new TcpOptionMpTcpTestCase<TcpOptionMpTcpFastClose> ( close, "MP_Fastclose"),
+      new TcpOptionMpTcpTestCase<TcpOptionMpTcpFastClose> ( close, TcpOptionMpTcpMain::MP_FASTCLOSE, "MP_Fastclose"),
       QUICK
       );
 

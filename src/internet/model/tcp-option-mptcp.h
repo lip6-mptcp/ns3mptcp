@@ -59,7 +59,7 @@ public:
     MP_JOIN,
     MP_DSS,
     MP_ADD_ADDR,
-    REMOVE_ADDR,
+    MP_REMOVE_ADDR,
     MP_PRIO,
     MP_FAIL,
     MP_FASTCLOSE
@@ -112,7 +112,7 @@ public:
   /**
    * \return the MPTCP subtype of this class
    */
-  virtual uint8_t
+  virtual TcpOptionMpTcpMain::SubType
   GetSubType (void) const = 0;
 
 protected:
@@ -139,7 +139,7 @@ protected:
 /**
  * \tparam SUBTYPE should be an integer
  */
-template<unsigned int SUBTYPE>
+template<TcpOptionMpTcpMain::SubType SUBTYPE>
 class TcpOptionMpTcp : public TcpOptionMpTcpMain
 {
 public:
@@ -154,7 +154,7 @@ public:
   /**
    * \return MPTCP option type
    */
-  virtual uint8_t
+  virtual TcpOptionMpTcpMain::SubType
   GetSubType (void) const
   {
     return SUBTYPE;
@@ -527,12 +527,12 @@ public:
    */
   enum FLAG
   {
-    DataAckPresent  = 1,   //!< matches the "A" in previous packet format
-    DataAckOf8Bytes = 2, //!< a  (should not be used for now)
-    DSNMappingPresent = 4,  /**< M bit */
-    DSNOfEightBytes   = 8,      //!< m  (should not be used for now)
-    DataFin           = 16 //!< F . set to indicate end of communication
-//    CheckSumPresent   = 32  //!< Not computed for now
+    DataAckPresent  = 1,       //!< matches the "A" in previous packet format
+    DataAckOf8Bytes = 2,       //!< a
+    DSNMappingPresent = 4,     //!< M bit
+    DSNOfEightBytes   = 8,     //!< m bit
+    DataFin           = 16,    //!< F . set to indicate end of communication
+    CheckSumPresent   = 32     //!< Not computed for now
 
   };
 
@@ -636,16 +636,11 @@ public:
   static uint32_t GetSizeFromFlags (uint16_t flags);
 
 protected:
-  /**
-   * \warning This is not the length of the mapping !
-   *
-  **/
-//  virtual uint16_t GetDataLevelLength() const;
 
   bool m_hasChecksum;   //!< true if checksums enabled
-  uint16_t m_checksum;
+  uint16_t m_checksum;  //!< valeu of the checksum
 
-  uint8_t m_flags;  //!< Flags
+  uint8_t m_flags;  //!< bitfield
 
   // In fact for now we use only 32 LSB
   uint64_t m_dataAck;           /**< Can be On 32 bits dependings on the flags **/
@@ -782,7 +777,7 @@ private:
 
 \endverbatim
  */
-class TcpOptionMpTcpRemoveAddress : public TcpOptionMpTcp<TcpOptionMpTcpMain::REMOVE_ADDR>
+class TcpOptionMpTcpRemoveAddress : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_REMOVE_ADDR>
 {
 
 public:
@@ -791,13 +786,12 @@ public:
 
   /**
    * As we do not know in advance the number of records, we pass a vector
-   * \param
-   * \warn
+   * \param Returns the addresses into a vector. Empty it before use.
    */
   void GetAddresses (std::vector<uint8_t>& addresses);
 
   /**
-   * Add an association id to remove from peer memory
+   * Append an association id to remove from peer memory
    * \param addressId The association (IP,port) id
    */
   void AddAddressId (uint8_t addressId);

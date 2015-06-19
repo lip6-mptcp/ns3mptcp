@@ -142,7 +142,7 @@ TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
       return CreateObject<TcpOptionMpTcpFastClose>();
     case MP_PRIO:
       return CreateObject<TcpOptionMpTcpChangePriority>();
-    case REMOVE_ADDR:
+    case MP_REMOVE_ADDR:
       return CreateObject<TcpOptionMpTcpRemoveAddress>();
     default:
       break;
@@ -420,7 +420,6 @@ TcpOptionMpTcpJoin::operator== (const TcpOptionMpTcpJoin& opt) const
     case SynAck:
       return (
                GetNonce () == opt.GetNonce ()
-//          && GetTruncatedHmac() == opt.GetTruncatedHmac()
                && GetAddressId ()  == opt.GetAddressId ()
                );
 
@@ -506,6 +505,8 @@ TcpOptionMpTcpJoin::Serialize (Buffer::Iterator i) const
           i.WriteHtonU32 ( m_buffer[j]);
         }
       break;
+    default:
+      NS_FATAL_ERROR("Unhandled case");
     }
 }
 
@@ -1056,48 +1057,24 @@ TcpOptionMpTcpAddAddress::Serialize (Buffer::Iterator i) const
 
   NS_ASSERT_MSG (m_addressVersion == 4 || m_addressVersion == 6, "Set an IP before serializing");
 
-//  uint8_t addressVersion = 0;
-//  InetSocketAddress address;
-//  Inet6SocketAddress address6;
-
-//  if(InetSocketAddress::IsMatchingType(m_address) )
-//  {
-//    addressVersion = 4;
-//    address_v4 =  InetSocketAddress::ConvertFrom(m_address);
-//  }
-//  else if( Inet6SocketAddress::IsMatchingType(m_address) )
-//  {
-//    addressVersion = 6;
-//    address6 =  Inet6SocketAddress::ConvertFrom(m_address);
-//  }
-//  else
-//  {
-//    NS_ABORT_MSG("Address of wrong type");
-//  }
-
   i.WriteU8 ( (GetSubType () << 4) + (uint8_t) m_addressVersion );
   i.WriteU8 ( GetAddressId () );
 
 
   if (m_addressVersion == 4)
     {
-//    i.WriteHtonU32( m_address.GetIpv4().Get() );
       i.WriteHtonU32 ( m_address.Get () );
-//    i.WriteU8(m_address.GetPort());
     }
   else
     {
       NS_ASSERT_MSG (m_addressVersion == 6, "You should set an IP address before serializing MPTCP option ADD_ADDR");
 
       uint8_t     buf[16];
-//    m_address6.GetIpv6().GetBytes( buf );
       m_address6.GetBytes ( buf );
       for (int j = 0; j < 16; ++j)
         {
           i.WriteU8 ( buf[j] );
         }
-//    NS_LOG_INFO(this <<  "Got bytes from ipv6");
-//    i.WriteU8(m_address.GetPort());
     }
 
   i.WriteU8 (m_port);
@@ -1125,9 +1102,7 @@ TcpOptionMpTcpAddAddress::Deserialize (Buffer::Iterator i)
     }
   else
     {
-      // ipv6
       NS_FATAL_ERROR ("IPv6 not supported yet");
-      //m_address6.Set( );
     }
   return length;
 }
@@ -1157,8 +1132,6 @@ TcpOptionMpTcpAddAddress::operator== (const TcpOptionMpTcpAddAddress& opt) const
   return (GetAddressId () == opt.GetAddressId ()
           && m_address == opt.m_address
           && m_address6 == opt.m_address6
-//    && m_port == opt.m_port
-
           );
 }
 
@@ -1223,9 +1196,7 @@ TcpOptionMpTcpRemoveAddress::Deserialize (Buffer::Iterator i)
 
   uint8_t subtype_and_resvd = i.ReadU8 ();
   NS_ASSERT ( subtype_and_resvd >> 4 == GetSubType ()  );
-//  m_flags = i.ReadU8();
-//
-//  SetSenderKey( i.ReadNtohU64() );
+
   m_addressesId.clear ();
   for (uint32_t j = 3; j < length; ++j)
     {
@@ -1297,7 +1268,7 @@ TcpOptionMpTcpChangePriority::Print (std::ostream &os) const
     {
       os << "Not set";
     }
-  os << "] to flags ["  << (int)GetFlags () << "]";
+  os << "] to flags ["  << static_cast<int>(GetFlags ()) << "]";
 }
 
 void
@@ -1360,7 +1331,7 @@ TcpOptionMpTcpChangePriority::SetFlags (const uint8_t& flags)
 {
   NS_LOG_FUNCTION (flags);
 
-  /* only save the right bits */
+  /* only save the LSB bits */
   m_flags = 0x0f & flags;
 }
 
@@ -1450,15 +1421,14 @@ TcpOptionMpTcpFastClose::Deserialize (Buffer::Iterator i)
 
   uint32_t length =  TcpOptionMpTcpMain::DeserializeRef (i);
 
-  NS_ASSERT ( length == 12 );
+  NS_ASSERT ( length == GetSerializedSize() );
 
   uint8_t subtype_and_flags = i.ReadU8 ();
   NS_ASSERT ( subtype_and_flags >> 4 == GetSubType ()  );
-//  m_backupFlag = subtype_and_flags & 0x0f;
 
   SetPeerKey ( i.ReadNtohU64 () );
 
-  return 12;
+  return GetSerializedSize();
 }
 
 uint32_t
