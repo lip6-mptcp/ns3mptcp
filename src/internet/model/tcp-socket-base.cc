@@ -1118,7 +1118,29 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
   // Different flags are different events
   if (tcpflags == TcpHeader::ACK)
     {
-      ReceivedAck (packet, tcpHeader);
+      if (tcpHeader.GetAckNumber () < m_txBuffer->HeadSequence ())
+        {
+          // Case 1:  If the ACK is a duplicate (SEG.ACK < SND.UNA), it can be ignored.
+          // Pag. 72 RFC 793
+          NS_LOG_LOGIC ("Ignored ack of " << tcpHeader.GetAckNumber ());
+
+          // TODO: RFC 5961 5.2 [Blind Data Injection Attack].[Mitigation]
+        }
+      else if (tcpHeader.GetAckNumber() > m_nextTxSequence)
+        {
+          // If the ACK acks something not yet sent (SEG.ACK > SND.NXT) then
+          // send an ACK, drop the segment, and return.
+          // Pag. 72 RFC 793
+          NS_LOG_LOGIC ("Ignored ack of " << tcpHeader.GetAckNumber ());
+
+          SendEmptyPacket (TcpHeader::ACK);
+        }
+      else
+        {
+          // SND.UNA < SEG.ACK =< SND.NXT
+          // Pag. 72 RFC 793
+          ReceivedAck (packet, tcpHeader);
+        }
     }
   else if (tcpflags == TcpHeader::SYN)
     { // Received SYN, old NS-3 behaviour is to set state to SYN_RCVD and
@@ -1157,15 +1179,9 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 {
   NS_LOG_FUNCTION (this << tcpHeader);
 
-  // Received ACK. Compare the ACK number against highest unacked seqno
-  if (0 == (tcpHeader.GetFlags () & TcpHeader::ACK))
-    { // Ignore if no ACK flag
-    }
-  else if (tcpHeader.GetAckNumber () < m_txBuffer->HeadSequence ())
-    { // Case 1: Old ACK, ignored.
-      NS_LOG_LOGIC ("Ignored ack of " << tcpHeader.GetAckNumber ());
-    }
-  else if (tcpHeader.GetAckNumber () == m_txBuffer->HeadSequence ())
+  NS_ASSERT (0 != (tcpHeader.GetFlags () & TcpHeader::ACK));
+
+  if (tcpHeader.GetAckNumber () == m_txBuffer->HeadSequence ())
     { // Case 2: Potentially a duplicated ACK
       if (tcpHeader.GetAckNumber () < m_nextTxSequence && packet->GetSize() == 0)
         {
