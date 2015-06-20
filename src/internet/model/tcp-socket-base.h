@@ -803,7 +803,6 @@ protected:
   // Fast Retransmit and Recovery
   SequenceNumber32       m_recover;      //!< Previous highest Tx seqnum for fast recovery
   uint32_t               m_retxThresh;   //!< Fast Retransmit threshold
-  bool                   m_inFastRec;    //!< currently in fast recovery
   bool                   m_limitedTx;    //!< perform limited transmit
 };
 
