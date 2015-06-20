@@ -85,23 +85,6 @@ TcpNewReno::NewAck (const SequenceNumber32& seq)
                 " cwnd " << m_cWnd <<
                 " ssthresh " << m_ssThresh);
 
-  // Check for exit condition of fast recovery
-  if (m_inFastRec && seq < m_recover)
-    { // Partial ACK, partial window deflation (RFC2582 sec.3 bullet #5 paragraph 3)
-      m_cWnd += m_segmentSize - (seq - m_txBuffer->HeadSequence ());
-      NS_LOG_INFO ("Partial ACK for seq " << seq << " in fast recovery: cwnd set to " << m_cWnd);
-      m_txBuffer->DiscardUpTo(seq);  //Bug 1850:  retransmit before newack
-      DoRetransmit (); // Assume the next seq is lost. Retransmit lost packet
-      TcpSocketBase::NewAck (seq); // update m_nextTxSequence and send new data if allowed by window
-      return;
-    }
-  else if (m_inFastRec && seq >= m_recover)
-    { // Full ACK (RFC2582 sec.3 bullet #5 paragraph 2, option 1)
-      m_cWnd = std::min (m_ssThresh.Get (), BytesInFlight () + m_segmentSize);
-      m_inFastRec = false;
-      NS_LOG_INFO ("Received full ACK for seq " << seq <<". Leaving fast recovery with cwnd set to " << m_cWnd);
-    }
-
   // Increase of cwnd based on current phase (slow start or congestion avoidance)
   if (m_cWnd < m_ssThresh)
     { // Slow start mode, add one segSize to cWnd. Default m_ssThresh is 65535. (RFC2001, sec.1)

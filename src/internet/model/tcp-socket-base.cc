@@ -1234,6 +1234,24 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
   else if (tcpHeader.GetAckNumber () > m_txBuffer->HeadSequence ())
     { // Case 3: New ACK, reset m_dupAckCount and update m_txBuffer
       NS_LOG_LOGIC ("New ack of " << tcpHeader.GetAckNumber ());
+
+      // Check for exit condition of fast recovery
+      if (m_inFastRec && tcpHeader.GetAckNumber () < m_recover)
+        { // Partial ACK, partial window deflation (RFC2582 sec.3 bullet #5 paragraph 3)
+          m_cWnd += m_segmentSize - (tcpHeader.GetAckNumber () - m_txBuffer->HeadSequence ());
+          NS_LOG_INFO ("Partial ACK for seq " << tcpHeader.GetAckNumber () << " in fast recovery: cwnd set to " << m_cWnd);
+          m_txBuffer->DiscardUpTo(tcpHeader.GetAckNumber ());  //Bug 1850:  retransmit before newack
+          DoRetransmit (); // Assume the next seq is lost. Retransmit lost packet
+          TcpSocketBase::NewAck (tcpHeader.GetAckNumber ()); // update m_nextTxSequence and send new data if allowed by window
+          return;
+        }
+      else if (m_inFastRec && tcpHeader.GetAckNumber () >= m_recover)
+        { // Full ACK (RFC2582 sec.3 bullet #5 paragraph 2, option 1)
+          m_cWnd = std::min (m_ssThresh.Get (), BytesInFlight () + m_segmentSize);
+          m_inFastRec = false;
+          NS_LOG_INFO ("Received full ACK for seq " << tcpHeader.GetAckNumber () <<". Leaving fast recovery with cwnd set to " << m_cWnd);
+        }
+
       NewAck (tcpHeader.GetAckNumber ());
       m_dupAckCount = 0;
     }

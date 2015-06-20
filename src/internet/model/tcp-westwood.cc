@@ -123,14 +123,6 @@ TcpWestwood::NewAck (const SequenceNumber32& seq)
                 " cwnd " << m_cWnd <<
                 " ssthresh " << m_ssThresh);
 
-  // Check for exit condition of fast recovery
-  if (m_inFastRec)
-    {// First new ACK after fast recovery, reset cwnd as in Reno
-      m_cWnd = m_ssThresh;
-      m_inFastRec = false;
-      NS_LOG_INFO ("Reset cwnd to " << m_cWnd);
-    };
-
   // Increase of cwnd based on current phase (slow start or congestion avoidance)
   if (m_cWnd < m_ssThresh)
     { // Slow start mode, add one segSize to cWnd as in Reno
