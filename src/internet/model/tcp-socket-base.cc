@@ -2482,20 +2482,37 @@ TcpSocketBase::PersistTimeout ()
 void
 TcpSocketBase::Retransmit ()
 {
-  m_ackState = LOSS;
-
   // If erroneous timeout in closed/timed-wait state, just return
   if (m_state == CLOSED || m_state == TIME_WAIT) return;
   // If all data are received (non-closing socket and nothing to send), just return
   if (m_state <= ESTABLISHED && m_txBuffer->HeadSequence () >= m_highTxMark) return;
 
-  // According to RFC2581 sec.3.1, upon RTO, ssthresh is set to half of flight
-  // size and cwnd is set to 1*MSS, then the lost packet is retransmitted and
-  // TCP back to slow start
-  m_ssThresh = GetSsThresh ();
-  m_cWnd = m_segmentSize;
+  /*
+   * When a TCP sender detects segment loss using the retransmission timer
+   * and the given segment has not yet been resent by way of the
+   * retransmission timer, the value of ssthresh MUST be set to no more
+   * than the value given in equation (4):
+   *
+   *   ssthresh = max (FlightSize / 2, 2*SMSS)            (4)
+   *
+   * where, as discussed above, FlightSize is the amount of outstanding
+   * data in the network.
+   *
+   * On the other hand, when a TCP sender detects segment loss using the
+   * retransmission timer and the given segment has already been
+   * retransmitted by way of the retransmission timer at least once, the
+   * value of ssthresh is held constant.
+   */
+
+  if (m_ackState != LOSS)
+    {
+      m_ssThresh = GetSsThresh ();
+      m_cWnd = m_segmentSize;
+    }
+
   m_nextTxSequence = m_txBuffer->HeadSequence (); // Restart from highest Ack
   m_dupAckCount = 0;
+  m_ackState = LOSS;
   NS_LOG_INFO ("RTO. Reset cwnd to " << m_cWnd <<
                ", ssthresh to " << m_ssThresh << ", restart from seqnum " << m_nextTxSequence);
   DoRetransmit ();                          // Retransmit the packet
