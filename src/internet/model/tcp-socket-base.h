@@ -804,6 +804,8 @@ protected:
   SequenceNumber32       m_recover;      //!< Previous highest Tx seqnum for fast recovery
   uint32_t               m_retxThresh;   //!< Fast Retransmit threshold
   bool                   m_limitedTx;    //!< perform limited transmit
+  uint32_t               m_lostOut;      //!< number of bytes lost (estimation)
+  uint32_t               m_retransOut;   //!< number of bytes retransmitted and not yet ACKed
 };
 
 /**

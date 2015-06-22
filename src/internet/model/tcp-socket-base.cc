@@ -205,7 +205,9 @@ TcpSocketBase::TcpSocketBase (void)
     m_timestampToEcho (0),
     m_ackState (OPEN),
     m_retxThresh (3),
-    m_limitedTx (false)
+    m_limitedTx (false),
+    m_lostOut (0),
+    m_retransOut (0)
 
 {
   NS_LOG_FUNCTION (this);
@@ -255,8 +257,9 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_timestampToEcho (sock.m_timestampToEcho),
     m_ackState (sock.m_ackState),
     m_retxThresh (sock.m_retxThresh),
-    m_limitedTx (sock.m_limitedTx)
-
+    m_limitedTx (sock.m_limitedTx),
+    m_lostOut (sock.m_lostOut),
+    m_retransOut (sock.m_retransOut)
 {
   NS_LOG_FUNCTION (this);
   NS_LOG_LOGIC ("Invoked the copy constructor");
@@ -1219,9 +1222,10 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
             {
               // triple duplicate ack triggers fast retransmit (RFC2582 sec.3 bullet #1)
               m_ssThresh = GetSsThresh();
-              m_cWnd = m_ssThresh + 3 * m_segmentSize;
+              m_cWnd = m_ssThresh;
               m_recover = m_highTxMark;
               m_ackState = RECOVERY;
+              m_lostOut++;
               NS_LOG_LOGIC ("Dupack. Disorder -> Recovery");
               NS_LOG_INFO ("Triple dupack. Enter fast recovery mode. Reset cwnd to " << m_cWnd <<
                            ", ssthresh to " << m_ssThresh << " at fast recovery seqnum " << m_recover);
@@ -1233,9 +1237,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
             }
         }
       else if (m_ackState == RECOVERY)
-        { // Increase cwnd for every additional dupack (RFC2582, sec.3 bullet #3)
-          m_cWnd += m_segmentSize;
-          NS_LOG_INFO ("Dupack in fast recovery mode. Increase cwnd to " << m_cWnd);
+        {
+          NS_LOG_INFO ("Dupack in fast recovery mode.");
           if (!m_sendPendingDataEvent.IsRunning ())
             {
               SendPendingData (m_connected);
@@ -1265,16 +1268,17 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       else if (m_ackState == RECOVERY)
         {
           if (tcpHeader.GetAckNumber () < m_recover)
-            { // Partial ACK, partial window deflation (RFC2582 sec.3 bullet #5 paragraph 3)
-              m_cWnd += m_segmentSize - (tcpHeader.GetAckNumber () - m_txBuffer->HeadSequence ());
-              NS_LOG_INFO ("Partial ACK for seq " << tcpHeader.GetAckNumber () << " in fast recovery: cwnd set to " << m_cWnd);
+            {
+              NS_LOG_INFO ("Partial ACK for seq " << tcpHeader.GetAckNumber () << " in fast recovery");
               m_txBuffer->DiscardUpTo(tcpHeader.GetAckNumber ());  //Bug 1850:  retransmit before newack
+              m_retransOut--;
               DoRetransmit (); // Assume the next seq is lost. Retransmit lost packet
             }
           else if (tcpHeader.GetAckNumber () >= m_recover)
-            {// Full ACK (RFC2582 sec.3 bullet #5 paragraph 2, option 1)
-              m_cWnd = std::min (m_ssThresh.Get (), BytesInFlight () + m_segmentSize);
+            {
               m_ackState = OPEN;
+              m_retransOut = 0;
+              m_lostOut = 0;
               NS_LOG_INFO ("Received full ACK for seq " << tcpHeader.GetAckNumber () <<". Leaving fast recovery with cwnd set to " << m_cWnd);
             }
         }
@@ -1282,6 +1286,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         {
           // Go back in OPEN state
           m_ackState = OPEN;
+          m_retransOut = 0;
+          m_lostOut = 0;
           NS_LOG_LOGIC ("New Ack. Loss -> Open");
         }
 
@@ -2201,14 +2207,58 @@ TcpSocketBase::Window (void)
   return std::min (m_rWnd.Get (), m_cWnd.Get ());
 }
 
+/*
+ * In Fast Recovery, RFC says that for each duplicate ACK the implementation
+ * should increment cWnd by one segment size. The reasoning behind this
+ * temporarily inflation of cwnd is to be able to send more segments out for
+ * each incoming duplicate-ACK (which indicates that another segment made it
+ * to the other side). This is necessary because TCP's sliding window is stuck
+ * and will not slide until the first non-duplicate ACK comes back. As soon as
+ * the first non-duplicate ACK comes back cwnd is set back to ssthresh and the
+ * window continues sliding in normal congestion-avoidance mode. The implementation
+ * of TCP in Linux kernel avoids this "shamanism" (they're so funny in commenting
+ * their code) by improving the estimate of the in-flight packet. In RFC and old ns-3,
+ * the calculus is:
+ *
+ *    AvailableWindow = cWnd - (SND.NXT - SND.UNA)
+ *
+ * example: cWnd = 10, SND.NXT = 20, SND.UNA = 10.
+ * You receive 3 ACKs for 10. When receiving the third, you set cWnd to 13, and so:
+ *
+ *    AvailableWindow = 13 - (20 - 10) = 3
+ *
+ * and 3 packets could be sent. For each additional DUPACK, cWnd is
+ * incremented by 1 MSS, and one packet could be sent. When a full ACK is
+ * received, cWnd goes back to the right value (which is the recalculated ssth).
+ * In Linux [1], the calculus is:
+ *
+ *    AvailableWindow = cWnd - (SND.NXT-SND.UNA) - left_out + retrans_out
+ *
+ * What are these new values? retrans_out is the number of packet retransmitted, and
+ *
+ *    left_out = sacked_out + lost_out
+ *
+ * where sacked_out is the number of packets arrived at the received but not
+ * acked. With SACK this is easy to obtain, but with DUPACK is easy too
+ * (sacket_out=m_dupAckCount). lost_out is the only guessed value: with FACK,
+ * which is the most conservative heuristic, you assume that all not SACKed
+ * packets until the most forward SACK are lost. Since we have not SACK, NewReno
+ * estimate could be used, which basically assumes that only one segment is
+ * lost (classical Reno). If we are in recovery and a partial ACK arrives,
+ * it means that one more packet has been lost.
+ */
 uint32_t
 TcpSocketBase::AvailableWindow ()
 {
   NS_LOG_FUNCTION_NOARGS ();
   uint32_t unack = UnAckDataCount (); // Number of outstanding bytes
-  uint32_t win = Window (); // Number of bytes allowed to be outstanding
-  NS_LOG_LOGIC ("UnAckCount=" << unack << ", Win=" << win);
-  return (win < unack) ? 0 : (win - unack);
+  uint32_t win = Window ();           // Number of bytes allowed to be outstanding
+  uint32_t leftOut = m_dupAckCount + m_lostOut;
+
+  NS_LOG_LOGIC ("UnAckCount=" << unack << ", Win=" << win <<
+                ", leftOut=" << leftOut << ", retransOut=" << m_retransOut);
+
+  return (win < unack) ? 0 : (win - unack - leftOut + m_retransOut);
 }
 
 uint16_t
@@ -2550,6 +2600,8 @@ TcpSocketBase::DoRetransmit ()
   // In case of RTO, advance m_nextTxSequence
   m_nextTxSequence = std::max (m_nextTxSequence.Get (), m_txBuffer->HeadSequence () + sz);
 
+  // Increment the retransmit count.
+  m_retransOut++;
 }
 
 void
