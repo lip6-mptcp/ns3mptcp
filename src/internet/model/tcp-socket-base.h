@@ -45,6 +45,7 @@ class Node;
 class Packet;
 class TcpL4Protocol;
 class TcpHeader;
+class TcpSocketState;
 
 /**
  * \ingroup tcp
@@ -187,6 +188,30 @@ public:
    * \brief Literal names of TCP states for use in log messages
    */
   static const char* const TcpAckStateName[TcpSocketBase::LAST_ACKSTATE];
+
+  /**
+   * \brief Callback pointer for cWnd trace chaining
+   */
+  TracedCallback<uint32_t, uint32_t> m_cWndTrace;
+
+  /**
+   * \brief Callback pointer for ssTh trace chaining
+   */
+  TracedCallback<uint32_t, uint32_t> m_ssThTrace;
+
+  /**
+   * \brief Callback function to hook to TcpSocketState congestion window
+   * \param oldValue old cWnd value
+   * \param newValue new cWnd value
+   */
+  void UpdateCwnd (uint32_t oldValue, uint32_t newValue);
+
+  /**
+   * \brief Callback function to hook to TcpSocketState slow start threshold
+   * \param oldValue old ssTh value
+   * \param newValue new ssTh value
+   */
+  void UpdateSsThresh (uint32_t oldValue, uint32_t newValue);
 
 
   // Necessary implementations of null functions from ns3::Socket
@@ -781,12 +806,6 @@ protected:
   TracedValue<SequenceNumber32> m_highRxMark;     //!< Highest seqno received
   TracedValue<SequenceNumber32> m_highRxAckMark;  //!< Highest ack received
 
-  // Congestion control
-  TracedValue<uint32_t> m_cWnd;     //!< Congestion window
-  TracedValue<uint32_t> m_ssThresh; //!< Slow start threshold
-  uint32_t               m_initialCWnd;      //!< Initial cWnd value
-  uint32_t               m_initialSsThresh;  //!< Initial Slow Start Threshold value
-
   // Options
   bool    m_winScalingEnabled;    //!< Window Scale option enabled
   uint8_t m_sndScaleFactor;       //!< Sent Window Scale (i.e., the one of the node)
@@ -806,6 +825,32 @@ protected:
   bool                   m_limitedTx;    //!< perform limited transmit
   uint32_t               m_lostOut;      //!< number of bytes lost (estimation)
   uint32_t               m_retransOut;   //!< number of bytes retransmitted and not yet ACKed
+
+  // Transmission Control Block
+  Ptr<TcpSocketState> m_tcb;
+};
+
+class TcpSocketState : public Object
+{
+public:
+  /**
+   * Get the type ID.
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId (void);
+
+  TcpSocketState ();
+  TcpSocketState (const TcpSocketState &other);
+
+  // Congestion control
+  TracedValue<uint32_t>  m_cWnd;             //!< Congestion window
+  TracedValue<uint32_t>  m_ssThresh;         //!< Slow start threshold
+  uint32_t               m_initialCWnd;      //!< Initial cWnd value
+  uint32_t               m_initialSsThresh;  //!< Initial Slow Start Threshold value
+
+  // Segment
+  uint32_t               m_segmentSize;      //!< Segment size
 };
 
 /**

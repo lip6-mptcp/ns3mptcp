@@ -120,21 +120,21 @@ TcpWestwood::NewAck (const SequenceNumber32& seq)
 { // Same as Reno
   NS_LOG_FUNCTION (this << seq);
   NS_LOG_LOGIC ("TcpWestwood receieved ACK for seq " << seq <<
-                " cwnd " << m_cWnd <<
-                " ssthresh " << m_ssThresh);
+                " cwnd " << m_tcb->m_cWnd <<
+                " ssthresh " << m_tcb->m_ssThresh);
 
   // Increase of cwnd based on current phase (slow start or congestion avoidance)
-  if (m_cWnd < m_ssThresh)
+  if (m_tcb->m_cWnd < m_tcb->m_ssThresh)
     { // Slow start mode, add one segSize to cWnd as in Reno
-      m_cWnd += m_segmentSize;
-      NS_LOG_INFO ("In SlowStart, updated to cwnd " << m_cWnd << " ssthresh " << m_ssThresh);
+      m_tcb->m_cWnd += m_segmentSize;
+      NS_LOG_INFO ("In SlowStart, updated to cwnd " << m_tcb->m_cWnd << " ssthresh " << m_tcb->m_ssThresh);
     }
   else
     { // Congestion avoidance mode, increase by (segSize*segSize)/cwnd as in Reno
-      double adder = static_cast<double> (m_segmentSize * m_segmentSize) / m_cWnd.Get();
+      double adder = static_cast<double> (m_segmentSize * m_segmentSize) / m_tcb->m_cWnd.Get();
       adder = std::max(1.0, adder);
-      m_cWnd += static_cast<uint32_t>(adder);
-      NS_LOG_INFO ("In CongAvoid, updated to cwnd " << m_cWnd << " ssthresh " << m_ssThresh);
+      m_tcb->m_cWnd += static_cast<uint32_t>(adder);
+      NS_LOG_INFO ("In CongAvoid, updated to cwnd " << m_tcb->m_cWnd << " ssthresh " << m_tcb->m_ssThresh);
     }
 
   // Complete newAck processing

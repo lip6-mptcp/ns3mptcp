@@ -79,20 +79,20 @@ TcpTahoe::NewAck (SequenceNumber32 const& seq)
 {
   NS_LOG_FUNCTION (this << seq);
   NS_LOG_LOGIC ("TcpTahoe received ACK for seq " << seq <<
-                " cwnd " << m_cWnd <<
-                " ssthresh " << m_ssThresh);
-  if (m_cWnd < m_ssThresh)
-    { // Slow start mode, add one segSize to cWnd. Default m_ssThresh is 65535. (RFC2001, sec.1)
-      m_cWnd += m_segmentSize;
-      NS_LOG_INFO ("In SlowStart, updated to cwnd " << m_cWnd << " ssthresh " << m_ssThresh);
+                " cwnd " << m_tcb->m_cWnd <<
+                " ssthresh " << m_tcb->m_ssThresh);
+  if (m_tcb->m_cWnd < m_tcb->m_ssThresh)
+    { // Slow start mode, add one segSize to cWnd. Default m_tcb->m_ssThresh is 65535. (RFC2001, sec.1)
+      m_tcb->m_cWnd += m_segmentSize;
+      NS_LOG_INFO ("In SlowStart, updated to cwnd " << m_tcb->m_cWnd << " ssthresh " << m_tcb->m_ssThresh);
     }
   else
     { // Congestion avoidance mode, increase by (segSize*segSize)/cwnd. (RFC2581, sec.3.1)
       // To increase cwnd for one segSize per RTT, it should be (ackBytes*segSize)/cwnd
-      double adder = static_cast<double> (m_segmentSize * m_segmentSize) / m_cWnd.Get ();
+      double adder = static_cast<double> (m_segmentSize * m_segmentSize) / m_tcb->m_cWnd.Get ();
       adder = std::max (1.0, adder);
-      m_cWnd += static_cast<uint32_t> (adder);
-      NS_LOG_INFO ("In CongAvoid, updated to cwnd " << m_cWnd << " ssthresh " << m_ssThresh);
+      m_tcb->m_cWnd += static_cast<uint32_t> (adder);
+      NS_LOG_INFO ("In CongAvoid, updated to cwnd " << m_tcb->m_cWnd << " ssthresh " << m_tcb->m_ssThresh);
     }
   TcpSocketBase::NewAck (seq);           // Complete newAck processing
 }
