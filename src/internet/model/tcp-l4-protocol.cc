@@ -40,7 +40,7 @@
 #include "ipv6-l3-protocol.h"
 #include "ipv6-routing-protocol.h"
 #include "tcp-socket-factory-impl.h"
-#include "tcp-newreno.h"
+#include "tcp-socket-base.h"
 #include "rtt-estimator.h"
 
 #include <vector>
@@ -77,7 +77,7 @@ TcpL4Protocol::GetTypeId (void)
     .AddAttribute ("SocketType",
                    "Socket type of TCP objects.",
                    TypeIdValue (TcpNewReno::GetTypeId ()),
-                   MakeTypeIdAccessor (&TcpL4Protocol::m_socketTypeId),
+                   MakeTypeIdAccessor (&TcpL4Protocol::m_congestionTypeId),
                    MakeTypeIdChecker ())
     .AddAttribute ("SocketList", "The list of sockets associated to this protocol.",
                    ObjectVectorValue (),
@@ -172,18 +172,23 @@ TcpL4Protocol::DoDispose (void)
 }
 
 Ptr<Socket>
-TcpL4Protocol::CreateSocket (TypeId socketTypeId)
+TcpL4Protocol::CreateSocket (TypeId congestionTypeId)
 {
   NS_LOG_FUNCTION_NOARGS ();
   ObjectFactory rttFactory;
-  ObjectFactory socketFactory;
+  ObjectFactory congestionAlgorithmFactory;
   rttFactory.SetTypeId (m_rttTypeId);
-  socketFactory.SetTypeId (socketTypeId);
+  congestionAlgorithmFactory.SetTypeId (congestionTypeId);
+
   Ptr<RttEstimator> rtt = rttFactory.Create<RttEstimator> ();
-  Ptr<TcpSocketBase> socket = socketFactory.Create<TcpSocketBase> ();
+  Ptr<TcpSocketBase> socket = CreateObject<TcpSocketBase> ();
+  Ptr<TcpCongestionOps> algo = congestionAlgorithmFactory.Create<TcpCongestionOps> ();
+
   socket->SetNode (m_node);
   socket->SetTcp (this);
   socket->SetRtt (rtt);
+  socket->SetCongestionControlAlgorithm (algo);
+
   m_sockets.push_back (socket);
   return socket;
 }
@@ -191,7 +196,7 @@ TcpL4Protocol::CreateSocket (TypeId socketTypeId)
 Ptr<Socket>
 TcpL4Protocol::CreateSocket (void)
 {
-  return CreateSocket (m_socketTypeId);
+  return CreateSocket (m_congestionTypeId);
 }
 
 Ipv4EndPoint *

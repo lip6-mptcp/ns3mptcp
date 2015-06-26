@@ -18,15 +18,9 @@
  * Author: Adrian Sai-wah Tam <adrian.sw.tam@gmail.com>
  */
 
-#define NS_LOG_APPEND_CONTEXT \
-  if (m_node) { std::clog << Simulator::Now ().GetSeconds () << " [node " << m_node->GetId () << "] "; }
-
 #include "tcp-tahoe.h"
 #include "ns3/log.h"
-#include "ns3/trace-source-accessor.h"
-#include "ns3/simulator.h"
-#include "ns3/abort.h"
-#include "ns3/node.h"
+#include "ns3/tcp-socket-base.h"
 
 namespace ns3 {
 
@@ -38,7 +32,7 @@ TypeId
 TcpTahoe::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::TcpTahoe")
-    .SetParent<TcpSocketBase> ()
+    .SetParent<TcpNewReno> ()
     .SetGroupName ("Internet")
     .AddConstructor<TcpTahoe> ()
     .DeprecateAttribute ("ReTxThreshold", "TcpTahoe",
@@ -51,56 +45,39 @@ TcpTahoe::GetTypeId (void)
   return tid;
 }
 
-TcpTahoe::TcpTahoe (void)
+TcpTahoe::TcpTahoe (void) : TcpNewReno ()
 {
   NS_LOG_FUNCTION (this);
 }
 
 TcpTahoe::TcpTahoe (const TcpTahoe& sock)
-  : TcpSocketBase (sock)
+  : TcpNewReno (sock)
 {
   NS_LOG_FUNCTION (this);
-  NS_LOG_LOGIC ("Invoked the copy constructor");
 }
 
 TcpTahoe::~TcpTahoe (void)
 {
 }
 
-Ptr<TcpSocketBase>
-TcpTahoe::Fork (void)
+uint32_t
+TcpTahoe::GetSsThresh (Ptr<const TcpSocketState> tcb)
 {
-  return CopyObject<TcpTahoe> (this);
-}
-
-/* New ACK (up to seqnum seq) received. Increase cwnd and call TcpSocketBase::NewAck() */
-void
-TcpTahoe::NewAck (SequenceNumber32 const& seq)
-{
-  NS_LOG_FUNCTION (this << seq);
-  NS_LOG_LOGIC ("TcpTahoe received ACK for seq " << seq <<
-                " cwnd " << m_tcb->m_cWnd <<
-                " ssthresh " << m_tcb->m_ssThresh);
-  if (m_tcb->m_cWnd < m_tcb->m_ssThresh)
-    { // Slow start mode, add one segSize to cWnd. Default m_tcb->m_ssThresh is 65535. (RFC2001, sec.1)
-      m_tcb->m_cWnd += m_segmentSize;
-      NS_LOG_INFO ("In SlowStart, updated to cwnd " << m_tcb->m_cWnd << " ssthresh " << m_tcb->m_ssThresh);
+  if (tcb->m_ackState == TcpSocketState::DISORDER)
+    {
+      // Tahoe only uses a timeout for detecting congestion
+      return tcb->m_ssThresh;
     }
   else
-    { // Congestion avoidance mode, increase by (segSize*segSize)/cwnd. (RFC2581, sec.3.1)
-      // To increase cwnd for one segSize per RTT, it should be (ackBytes*segSize)/cwnd
-      double adder = static_cast<double> (m_segmentSize * m_segmentSize) / m_tcb->m_cWnd.Get ();
-      adder = std::max (1.0, adder);
-      m_tcb->m_cWnd += static_cast<uint32_t> (adder);
-      NS_LOG_INFO ("In CongAvoid, updated to cwnd " << m_tcb->m_cWnd << " ssthresh " << m_tcb->m_ssThresh);
+    {
+      return TcpNewReno::GetSsThresh (tcb);
     }
-  TcpSocketBase::NewAck (seq);           // Complete newAck processing
 }
 
-uint32_t
-TcpTahoe::GetSsThresh ()
+Ptr<TcpCongestionOps>
+TcpTahoe::Fork()
 {
-  return std::max (2 * m_segmentSize, BytesInFlight () / 2);
+  return CreateObject<TcpTahoe> (*this);
 }
 
 } // namespace ns3

@@ -21,9 +21,11 @@
 #ifndef TCP_TAHOE_H
 #define TCP_TAHOE_H
 
-#include "tcp-socket-base.h"
+#include "tcp-congestion-ops.h"
 
 namespace ns3 {
+
+class TcpSocketState;
 
 /**
  * \ingroup socket
@@ -39,7 +41,7 @@ namespace ns3 {
  * The implementation of these algorithms are based on W. R. Stevens's book and
  * also \RFC{2001}.
  */
-class TcpTahoe : public TcpSocketBase
+class TcpTahoe : public TcpNewReno
 {
 public:
   /**
@@ -58,10 +60,10 @@ public:
   TcpTahoe (const TcpTahoe& sock);
   virtual ~TcpTahoe (void);
 
+  virtual Ptr<TcpCongestionOps> Fork ();
+
 protected:
-  virtual Ptr<TcpSocketBase> Fork (void); // Call CopyObject<TcpTahoe> to clone me
-  virtual void NewAck (SequenceNumber32 const& seq); // Inc cwnd and call NewAck() of parent
-  virtual uint32_t GetSsThresh ();
+  virtual uint32_t GetSsThresh (Ptr<const TcpSocketState> state);
 };
 
 } // namespace ns3
