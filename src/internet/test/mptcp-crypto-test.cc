@@ -127,8 +127,6 @@ public:
 
 
 
-} g_TcpOptionTestSuite;
+} g_TcpCryptoTestSuite;
 
 }
-
-#endif // HAVE_CRYPTO
