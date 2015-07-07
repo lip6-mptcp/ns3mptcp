@@ -57,7 +57,7 @@ public:
     MSS = 2,      //!< MSS
     WINSCALE = 3, //!< WINSCALE
     TS = 8,       //!< TS
-    MPTCP = 30,   /**< Multipath TCP options share the same Kind */
+    MPTCP = 30,   //! Multipath TCP options share the same Kind
     UNKNOWN = 255 //!< not a standardized value; for unknown recv'd options
   };
 

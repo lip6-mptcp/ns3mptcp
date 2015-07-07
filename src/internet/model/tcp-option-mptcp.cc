@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2011 Adrian Sai-wah Tam
+ * Copyright (c) 2015 Matthieu Coudron
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,7 +22,10 @@
 #include "ns3/log.h"
 
 
-#define TRUNC_TO_32(seq)  ((uint32_t)(seq))
+static inline
+uint64_t TRUNC_TO_32(uint64_t seq) {
+  return static_cast<uint32_t>(seq);
+}
 
 
 namespace ns3 {
@@ -127,20 +130,20 @@ TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
 {
   switch (subtype)
     {
-//    case MP_CAPABLE:
-//      return CreateObject<TcpOptionMpTcpCapable>();
-//    case MP_JOIN:
-//      return CreateObject<TcpOptionMpTcpJoin>();
-//    case MP_DSS:
-//      return CreateObject<TcpOptionMpTcpDSS>();
-//    case MP_FAIL:
-//      return CreateObject<TcpOptionMpTcpFail>();
-//    case MP_FASTCLOSE:
-//      return CreateObject<TcpOptionMpTcpFastClose>();
-//    case MP_PRIO:
-//      return CreateObject<TcpOptionMpTcpChangePriority>();
-//    case REMOVE_ADDR:
-//      return CreateObject<TcpOptionMpTcpRemoveAddress>();
+    case MP_CAPABLE:
+      return CreateObject<TcpOptionMpTcpCapable>();
+    case MP_JOIN:
+      return CreateObject<TcpOptionMpTcpJoin>();
+    case MP_DSS:
+      return CreateObject<TcpOptionMpTcpDSS>();
+    case MP_FAIL:
+      return CreateObject<TcpOptionMpTcpFail>();
+    case MP_FASTCLOSE:
+      return CreateObject<TcpOptionMpTcpFastClose>();
+    case MP_PRIO:
+      return CreateObject<TcpOptionMpTcpChangePriority>();
+    case MP_REMOVE_ADDR:
+      return CreateObject<TcpOptionMpTcpRemoveAddress>();
     default:
       break;
     }
@@ -152,16 +155,8 @@ TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
 void
 TcpOptionMpTcpMain::SerializeRef (Buffer::Iterator& i) const
 {
-//    Buffer::Iterator& i = start;
-  i.WriteU8 (GetKind ());   // Kind
-  i.WriteU8 (GetSerializedSize ());  // Length
-
-
-  // TODO may be an error otherwise here !
-
-//    i.WriteU8 ( ( (GetSubType() << 4 ) && 0xf0) ); // Subtype TODO should write U4 only
-//i.WriteU8 ( GetSerializedSize() ); // Subtype TODO should write U4 only
-
+  i.WriteU8 (GetKind ());
+  i.WriteU8 (GetSerializedSize ());
 }
 
 uint32_t
@@ -172,7 +167,7 @@ TcpOptionMpTcpMain::DeserializeRef (Buffer::Iterator& i) const
 
   NS_ASSERT (kind == GetKind ());
 
-  length = (uint32_t)i.ReadU8 ( );
+  length = static_cast<uint32_t>(i.ReadU8 ());
   return length;
 }
 
@@ -328,6 +323,7 @@ TcpOptionMpTcpJoin::TcpOptionMpTcpJoin ()
     m_flags (0)
 {
   NS_LOG_FUNCTION (this);
+  memset(&m_buffer[0], 0, sizeof(uint32_t) * 5);
 }
 
 
@@ -361,8 +357,7 @@ TcpOptionMpTcpJoin::Print (std::ostream &os) const
       os << "[SynAck] with nonce=" << GetNonce ();
       return;
     case Ack:
-      //TODO compare hash etc..
-      os << "[Ack] with hash=TODO";
+      os << "[Ack] with hash";
       return;
     }
 }
@@ -425,12 +420,10 @@ TcpOptionMpTcpJoin::operator== (const TcpOptionMpTcpJoin& opt) const
     case SynAck:
       return (
                GetNonce () == opt.GetNonce ()
-//          && GetTruncatedHmac() == opt.GetTruncatedHmac()
                && GetAddressId ()  == opt.GetAddressId ()
                );
 
     case Ack:
-      //TODO compare hash etc..
       return true;
     }
 
@@ -512,6 +505,8 @@ TcpOptionMpTcpJoin::Serialize (Buffer::Iterator i) const
           i.WriteHtonU32 ( m_buffer[j]);
         }
       break;
+    default:
+      NS_FATAL_ERROR("Unhandled case");
     }
 }
 
@@ -769,7 +764,7 @@ TcpOptionMpTcpDSS::Serialize (Buffer::Iterator i) const
         }
       else
         {
-          i.WriteHtonU32 ( (uint32_t)m_dataAck );
+          i.WriteHtonU32 ( static_cast<uint32_t>(m_dataAck) );
         }
     }
 
@@ -1062,48 +1057,24 @@ TcpOptionMpTcpAddAddress::Serialize (Buffer::Iterator i) const
 
   NS_ASSERT_MSG (m_addressVersion == 4 || m_addressVersion == 6, "Set an IP before serializing");
 
-//  uint8_t addressVersion = 0;
-//  InetSocketAddress address;
-//  Inet6SocketAddress address6;
-
-//  if(InetSocketAddress::IsMatchingType(m_address) )
-//  {
-//    addressVersion = 4;
-//    address_v4 =  InetSocketAddress::ConvertFrom(m_address);
-//  }
-//  else if( Inet6SocketAddress::IsMatchingType(m_address) )
-//  {
-//    addressVersion = 6;
-//    address6 =  Inet6SocketAddress::ConvertFrom(m_address);
-//  }
-//  else
-//  {
-//    NS_ABORT_MSG("Address of wrong type");
-//  }
-
   i.WriteU8 ( (GetSubType () << 4) + (uint8_t) m_addressVersion );
   i.WriteU8 ( GetAddressId () );
 
 
   if (m_addressVersion == 4)
     {
-//    i.WriteHtonU32( m_address.GetIpv4().Get() );
       i.WriteHtonU32 ( m_address.Get () );
-//    i.WriteU8(m_address.GetPort());
     }
   else
     {
       NS_ASSERT_MSG (m_addressVersion == 6, "You should set an IP address before serializing MPTCP option ADD_ADDR");
 
       uint8_t     buf[16];
-//    m_address6.GetIpv6().GetBytes( buf );
       m_address6.GetBytes ( buf );
       for (int j = 0; j < 16; ++j)
         {
           i.WriteU8 ( buf[j] );
         }
-//    NS_LOG_INFO(this <<  "Got bytes from ipv6");
-//    i.WriteU8(m_address.GetPort());
     }
 
   i.WriteU8 (m_port);
@@ -1131,9 +1102,7 @@ TcpOptionMpTcpAddAddress::Deserialize (Buffer::Iterator i)
     }
   else
     {
-      // ipv6
       NS_FATAL_ERROR ("IPv6 not supported yet");
-      //m_address6.Set( );
     }
   return length;
 }
@@ -1163,8 +1132,6 @@ TcpOptionMpTcpAddAddress::operator== (const TcpOptionMpTcpAddAddress& opt) const
   return (GetAddressId () == opt.GetAddressId ()
           && m_address == opt.m_address
           && m_address6 == opt.m_address6
-//    && m_port == opt.m_port
-
           );
 }
 
@@ -1229,9 +1196,7 @@ TcpOptionMpTcpRemoveAddress::Deserialize (Buffer::Iterator i)
 
   uint8_t subtype_and_resvd = i.ReadU8 ();
   NS_ASSERT ( subtype_and_resvd >> 4 == GetSubType ()  );
-//  m_flags = i.ReadU8();
-//
-//  SetSenderKey( i.ReadNtohU64() );
+
   m_addressesId.clear ();
   for (uint32_t j = 3; j < length; ++j)
     {
@@ -1303,7 +1268,7 @@ TcpOptionMpTcpChangePriority::Print (std::ostream &os) const
     {
       os << "Not set";
     }
-  os << "] to flags ["  << (int)GetFlags () << "]";
+  os << "] to flags ["  << static_cast<int>(GetFlags ()) << "]";
 }
 
 void
@@ -1366,7 +1331,7 @@ TcpOptionMpTcpChangePriority::SetFlags (const uint8_t& flags)
 {
   NS_LOG_FUNCTION (flags);
 
-  /* only save the right bits */
+  /* only save the LSB bits */
   m_flags = 0x0f & flags;
 }
 
@@ -1456,15 +1421,14 @@ TcpOptionMpTcpFastClose::Deserialize (Buffer::Iterator i)
 
   uint32_t length =  TcpOptionMpTcpMain::DeserializeRef (i);
 
-  NS_ASSERT ( length == 12 );
+  NS_ASSERT ( length == GetSerializedSize() );
 
   uint8_t subtype_and_flags = i.ReadU8 ();
   NS_ASSERT ( subtype_and_flags >> 4 == GetSubType ()  );
-//  m_backupFlag = subtype_and_flags & 0x0f;
 
   SetPeerKey ( i.ReadNtohU64 () );
 
-  return 12;
+  return GetSerializedSize();
 }
 
 uint32_t

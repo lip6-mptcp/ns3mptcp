@@ -22,6 +22,7 @@
 #include <iostream>
 #include "tcp-header.h"
 #include "tcp-option.h"
+#include "tcp-option-mptcp.h"
 #include "ns3/buffer.h"
 #include "ns3/address-utils.h"
 #include "ns3/log.h"
@@ -69,7 +70,7 @@ TcpHeader::FlagsToString (uint8_t flags, const std::string& delimiter)
     {
       if (flags & (1 << i))
         {
-          if (flagsDescription.length() > 0) 
+          if (flagsDescription.length() > 0)
             {
               flagsDescription += delimiter;
             }
@@ -175,8 +176,8 @@ TcpHeader::GetUrgentPointer () const
   return m_urgentPointer;
 }
 
-void 
-TcpHeader::InitializeChecksum (Ipv4Address source, 
+void
+TcpHeader::InitializeChecksum (Ipv4Address source,
                                Ipv4Address destination,
                                uint8_t protocol)
 {
@@ -185,8 +186,8 @@ TcpHeader::InitializeChecksum (Ipv4Address source,
   m_protocol = protocol;
 }
 
-void 
-TcpHeader::InitializeChecksum (Ipv6Address source, 
+void
+TcpHeader::InitializeChecksum (Ipv6Address source,
                                Ipv6Address destination,
                                uint8_t protocol)
 {
@@ -195,8 +196,8 @@ TcpHeader::InitializeChecksum (Ipv6Address source,
   m_protocol = protocol;
 }
 
-void 
-TcpHeader::InitializeChecksum (Address source, 
+void
+TcpHeader::InitializeChecksum (Address source,
                                Address destination,
                                uint8_t protocol)
 {
@@ -254,7 +255,7 @@ TcpHeader::IsChecksumOk (void) const
   return m_goodChecksum;
 }
 
-TypeId 
+TypeId
 TcpHeader::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::TcpHeader")
@@ -265,7 +266,7 @@ TcpHeader::GetTypeId (void)
   return tid;
 }
 
-TypeId 
+TypeId
 TcpHeader::GetInstanceTypeId (void) const
 {
   return GetTypeId ();
@@ -372,11 +373,18 @@ TcpHeader::Deserialize (Buffer::Iterator start)
       uint8_t kind = i.PeekU8 ();
       Ptr<TcpOption> op;
       uint32_t optionSize;
-      if (TcpOption::IsKindKnown (kind))
+      if( kind == TcpOption::MPTCP)
+      {
+        i.ReadU16(); // skip TCP kind & length
+        uint8_t subtype = i.ReadU8() >> 4;  // read MPTCP subtype
+        i.Prev(3); // revert the iterator back to where it should be
+        op = TcpOptionMpTcpMain::CreateMpTcpOption(subtype);
+      }
+      else if (TcpOption::IsKindKnown (kind))
         {
           op = TcpOption::CreateOption (kind);
         }
-      else 
+      else
         {
           op = TcpOption::CreateOption (TcpOption::UNKNOWN);
           NS_LOG_WARN ("Option kind " << static_cast<int> (kind) << " unknown, skipping.");

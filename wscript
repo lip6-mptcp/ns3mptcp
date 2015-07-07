@@ -501,11 +501,10 @@ def configure(conf):
                                  conf.env['ENABLE_GSL'],
                                  "GSL not found")
 
-    have_crypto = conf.check_cxx( msg="Checking for libgcrypt", lib="gcrypt", 
+    have_crypto = conf.check_cxx( msg="Checking for libgcrypt", lib="gcrypt",
         define_name="HAVE_CRYPTO", mandatory=False)
     conf.report_optional_feature("libgcrypt", "gcrypt library",
-                                 have_crypto,
-                                 "libgcrypt not found")
+                                 have_crypto, "libgcrypt not found")
 
 
     # for compiling C code, copy over the CXX* flags
