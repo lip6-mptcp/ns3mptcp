@@ -172,7 +172,7 @@ YansWifiChannelHelper::Create (void) const
   return channel;
 }
 
-int64_t 
+int64_t
 YansWifiChannelHelper::AssignStreams (Ptr<YansWifiChannel> c, int64_t stream)
 {
   return c->AssignStreams (stream);
@@ -198,12 +198,14 @@ YansWifiPhyHelper::SetChannel (Ptr<YansWifiChannel> channel)
 {
   m_channel = channel;
 }
+
 void
 YansWifiPhyHelper::SetChannel (std::string channelName)
 {
   Ptr<YansWifiChannel> channel = Names::Find<YansWifiChannel> (channelName);
   m_channel = channel;
 }
+
 void
 YansWifiPhyHelper::Set (std::string name, const AttributeValue &v)
 {
@@ -240,7 +242,6 @@ YansWifiPhyHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
   Ptr<ErrorRateModel> error = m_errorRateModel.Create<ErrorRateModel> ();
   phy->SetErrorRateModel (error);
   phy->SetChannel (m_channel);
-  phy->SetMobility (node);
   phy->SetDevice (device);
   return phy;
 }
@@ -248,12 +249,12 @@ YansWifiPhyHelper::Create (Ptr<Node> node, Ptr<NetDevice> device) const
 static void
 PcapSniffTxEvent (
   Ptr<PcapFileWrapper> file,
-  Ptr<const Packet>   packet,
-  uint16_t            channelFreqMhz,
-  uint16_t            channelNumber,
-  uint32_t            rate,
-  bool                isShortPreamble,
-  uint8_t             txPower)
+  Ptr<const Packet>    packet,
+  uint16_t             channelFreqMhz,
+  uint16_t             channelNumber,
+  uint32_t             rate,
+  bool                 isShortPreamble,
+  WifiTxVector         txvector)
 {
   uint32_t dlt = file->GetDataLinkType ();
 
@@ -274,12 +275,17 @@ PcapSniffTxEvent (
         uint8_t frameFlags = RadiotapHeader::FRAME_FLAG_NONE;
         header.SetTsft (Simulator::Now ().GetMicroSeconds ());
 
-        // Our capture includes the FCS, so we set the flag to say so.
+        //Our capture includes the FCS, so we set the flag to say so.
         frameFlags |= RadiotapHeader::FRAME_FLAG_FCS_INCLUDED;
 
         if (isShortPreamble)
           {
             frameFlags |= RadiotapHeader::FRAME_FLAG_SHORT_PREAMBLE;
+          }
+
+        if (txvector.IsShortGuardInterval ())
+          {
+            frameFlags |= RadiotapHeader::FRAME_FLAG_SHORT_GUARD;
           }
 
         header.SetFrameFlags (frameFlags);
@@ -288,10 +294,10 @@ PcapSniffTxEvent (
         uint16_t channelFlags = 0;
         switch (rate)
           {
-          case 2:  // 1Mbps
-          case 4:  // 2Mbps
-          case 10: // 5Mbps
-          case 22: // 11Mbps
+          case 2:  //1Mbps
+          case 4:  //2Mbps
+          case 10: //5Mbps
+          case 22: //11Mbps
             channelFlags |= RadiotapHeader::CHANNEL_FLAG_CCK;
             break;
 
@@ -310,7 +316,6 @@ PcapSniffTxEvent (
           }
 
         header.SetChannelFrequencyAndFlags (channelFreqMhz, channelFlags);
-        
 
         p->AddHeader (header);
         file->Write (Simulator::Now (), p);
@@ -324,13 +329,14 @@ PcapSniffTxEvent (
 static void
 PcapSniffRxEvent (
   Ptr<PcapFileWrapper> file,
-  Ptr<const Packet> packet,
-  uint16_t channelFreqMhz,
-  uint16_t channelNumber,
-  uint32_t rate,
-  bool isShortPreamble,
-  double signalDbm,
-  double noiseDbm)
+  Ptr<const Packet>    packet,
+  uint16_t             channelFreqMhz,
+  uint16_t             channelNumber,
+  uint32_t             rate,
+  bool                 isShortPreamble,
+  WifiTxVector         txvector,
+  double               signalDbm,
+  double               noiseDbm)
 {
   uint32_t dlt = file->GetDataLinkType ();
 
@@ -351,12 +357,17 @@ PcapSniffRxEvent (
         uint8_t frameFlags = RadiotapHeader::FRAME_FLAG_NONE;
         header.SetTsft (Simulator::Now ().GetMicroSeconds ());
 
-        // Our capture includes the FCS, so we set the flag to say so.
+        //Our capture includes the FCS, so we set the flag to say so.
         frameFlags |= RadiotapHeader::FRAME_FLAG_FCS_INCLUDED;
 
         if (isShortPreamble)
           {
             frameFlags |= RadiotapHeader::FRAME_FLAG_SHORT_PREAMBLE;
+          }
+
+        if (txvector.IsShortGuardInterval ())
+          {
+            frameFlags |= RadiotapHeader::FRAME_FLAG_SHORT_GUARD;
           }
 
         header.SetFrameFlags (frameFlags);
@@ -365,10 +376,10 @@ PcapSniffRxEvent (
         uint16_t channelFlags = 0;
         switch (rate)
           {
-          case 2:  // 1Mbps
-          case 4:  // 2Mbps
-          case 10: // 5Mbps
-          case 22: // 11Mbps
+          case 2:  //1Mbps
+          case 4:  //2Mbps
+          case 10: //5Mbps
+          case 22: //11Mbps
             channelFlags |= RadiotapHeader::CHANNEL_FLAG_CCK;
             break;
 
@@ -428,11 +439,9 @@ YansWifiPhyHelper::GetPcapDataLinkType (void) const
 void
 YansWifiPhyHelper::EnablePcapInternal (std::string prefix, Ptr<NetDevice> nd, bool promiscuous, bool explicitFilename)
 {
-  //
-  // All of the Pcap enable functions vector through here including the ones
-  // that are wandering through all of devices on perhaps all of the nodes in
-  // the system.  We can only deal with devices of type WifiNetDevice.
-  //
+  //All of the Pcap enable functions vector through here including the ones
+  //that are wandering through all of devices on perhaps all of the nodes in
+  //the system. We can only deal with devices of type WifiNetDevice.
   Ptr<WifiNetDevice> device = nd->GetObject<WifiNetDevice> ();
   if (device == 0)
     {
@@ -468,11 +477,9 @@ YansWifiPhyHelper::EnableAsciiInternal (
   Ptr<NetDevice> nd,
   bool explicitFilename)
 {
-  //
-  // All of the ascii enable functions vector through here including the ones
-  // that are wandering through all of devices on perhaps all of the nodes in
-  // the system.  We can only deal with devices of type WifiNetDevice.
-  //
+  //All of the ascii enable functions vector through here including the ones
+  //that are wandering through all of devices on perhaps all of the nodes in
+  //the system. We can only deal with devices of type WifiNetDevice.
   Ptr<WifiNetDevice> device = nd->GetObject<WifiNetDevice> ();
   if (device == 0)
     {
@@ -480,29 +487,23 @@ YansWifiPhyHelper::EnableAsciiInternal (
       return;
     }
 
-  //
-  // Our trace sinks are going to use packet printing, so we have to make sure
-  // that is turned on.
-  //
+  //Our trace sinks are going to use packet printing, so we have to make sure
+  //that is turned on.
   Packet::EnablePrinting ();
 
   uint32_t nodeid = nd->GetNode ()->GetId ();
   uint32_t deviceid = nd->GetIfIndex ();
   std::ostringstream oss;
 
-  //
-  // If we are not provided an OutputStreamWrapper, we are expected to create
-  // one using the usual trace filename conventions and write our traces
-  // without a context since there will be one file per context and therefore
-  // the context would be redundant.
-  //
+  //If we are not provided an OutputStreamWrapper, we are expected to create
+  //one using the usual trace filename conventions and write our traces
+  //without a context since there will be one file per context and therefore
+  //the context would be redundant.
   if (stream == 0)
     {
-      //
-      // Set up an output stream object to deal with private ofstream copy
-      // constructor and lifetime issues.  Let the helper decide the actual
-      // name of the file given the prefix.
-      //
+      //Set up an output stream object to deal with private ofstream copy
+      //constructor and lifetime issues. Let the helper decide the actual
+      //name of the file given the prefix.
       AsciiTraceHelper asciiTraceHelper;
 
       std::string filename;
@@ -516,12 +517,10 @@ YansWifiPhyHelper::EnableAsciiInternal (
         }
 
       Ptr<OutputStreamWrapper> theStream = asciiTraceHelper.CreateFileStream (filename);
-      //
-      // We could go poking through the phy and the state looking for the
-      // correct trace source, but we can let Config deal with that with
-      // some search cost.  Since this is presumably happening at topology
-      // creation time, it doesn't seem much of a price to pay.
-      //
+      //We could go poking through the phy and the state looking for the
+      //correct trace source, but we can let Config deal with that with
+      //some search cost.  Since this is presumably happening at topology
+      //creation time, it doesn't seem much of a price to pay.
       oss.str ("");
       oss << "/NodeList/" << nodeid << "/DeviceList/" << deviceid << "/$ns3::WifiNetDevice/Phy/State/RxOk";
       Config::ConnectWithoutContext (oss.str (), MakeBoundCallback (&AsciiPhyReceiveSinkWithoutContext, theStream));
@@ -533,13 +532,11 @@ YansWifiPhyHelper::EnableAsciiInternal (
       return;
     }
 
-  //
-  // If we are provided an OutputStreamWrapper, we are expected to use it, and
-  // to provide a context.  We are free to come up with our own context if we
-  // want, and use the AsciiTraceHelper Hook*WithContext functions, but for
-  // compatibility and simplicity, we just use Config::Connect and let it deal
-  // with coming up with a context.
-  //
+  //If we are provided an OutputStreamWrapper, we are expected to use it, and
+  //to provide a context. We are free to come up with our own context if we
+  //want, and use the AsciiTraceHelper Hook*WithContext functions, but for
+  //compatibility and simplicity, we just use Config::Connect and let it deal
+  //with coming up with a context.
   oss.str ("");
   oss << "/NodeList/" << nodeid << "/DeviceList/" << deviceid << "/$ns3::WifiNetDevice/Phy/State/RxOk";
   Config::Connect (oss.str (), MakeBoundCallback (&AsciiPhyReceiveSinkWithContext, stream));
@@ -549,4 +546,4 @@ YansWifiPhyHelper::EnableAsciiInternal (
   Config::Connect (oss.str (), MakeBoundCallback (&AsciiPhyTransmitSinkWithContext, stream));
 }
 
-} // namespace ns3
+} //namespace ns3

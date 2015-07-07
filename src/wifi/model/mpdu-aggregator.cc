@@ -17,8 +17,8 @@
  *
  * Author: Ghada Badawy <gbadawy@gmail.com>
  */
-#include "ns3/log.h"
 
+#include "ns3/log.h"
 #include "mpdu-aggregator.h"
 #include "wifi-mac-header.h"
 
@@ -32,8 +32,9 @@ TypeId
 MpduAggregator::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::MpduAggregator")
-    .SetGroupName ("Wifi")
     .SetParent<Object> ()
+    .SetGroupName ("Wifi")
+    //No AddConstructor because this is an abstract class.
   ;
   return tid;
 }
@@ -74,5 +75,4 @@ MpduAggregator::Deaggregate (Ptr<Packet> aggregatedPacket)
   return set;
 }
 
-
-} // namespace ns3
+} //namespace ns3

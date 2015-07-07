@@ -81,6 +81,16 @@ public:
     std::string callback;
     Ptr<const TraceSourceAccessor> accessor;
   };
+  struct DeprecatedAttributeInformation {
+    std::string oldName;
+    std::string oldClass;
+    std::string msg;
+  };
+  struct DeprecatedTraceSourceInformation {
+    std::string oldName;
+    std::string oldClass;
+    std::string msg;
+  };
 
   /**
    * Type of hash values
@@ -190,12 +200,26 @@ public:
    * \returns the number of attributes associated to this TypeId
    */
   uint32_t GetAttributeN (void) const;
+
+  /**
+   * \return the number of deprecated attributes associated to this TypeId
+   */
+  uint32_t GetDeprecatedAttributeN (void) const;
+
   /**
    * \param i index into attribute array
    * \returns the information associated to attribute whose 
    *          index is i.
    */
   struct TypeId::AttributeInformation GetAttribute(uint32_t i) const;
+
+  /**
+   * \param i index into deprecated attribute array
+   * \returns the information associated to attribute whose
+   *          index is i.
+   */
+  struct TypeId::DeprecatedAttributeInformation GetDeprecatedAttribute (uint32_t i) const;
+
   /**
    * \param i index into attribute array
    * \returns the full name associated to the attribute whose
@@ -220,11 +244,23 @@ public:
    * \returns the number of trace sources defined in this TypeId.
    */
   uint32_t GetTraceSourceN (void) const;
+
+  /**
+   * \returns the number of deprecated trace sources defined in this TypeId.
+   */
+  uint32_t GetDeprecatedTraceSourceN (void) const;
+
   /**
    * \param i index into trace source array.
    * \returns detailed information about the requested trace source.
    */
   struct TypeId::TraceSourceInformation GetTraceSource(uint32_t i) const;
+
+  /**
+   * \param i index into deprecated trace source array.
+   * \returns detailed information about the requested deprecated trace source.
+   */
+  struct TypeId::DeprecatedTraceSourceInformation GetDeprecatedTraceSource (uint32_t i) const;
 
   /**
    * \param tid the TypeId of the base class.
@@ -296,6 +332,21 @@ public:
                        Ptr<const AttributeChecker> checker);
 
   /**
+   * \brief Deprecate an attribute by printing a message to the user
+   *
+   * If the user tries to attach to the attribute declared with this method,
+   * a warning message is printed, indicating where he/she can found the new
+   * attribute class and name.
+   *
+   * \param oldName old name of the attribute
+   * \param oldClass old class of the attribute
+   * \param msg optional message to be printed
+   * \return this TypeId instance
+   */
+  TypeId DeprecateAttribute (const std::string &oldName, const std::string &oldClass,
+                             const std::string &msg);
+
+  /**
    * \param i the attribute to manipulate
    * \param initialValue the new initial value to use for this attribute.
    * \returns true if the call was successfuly, false otherwise.
@@ -351,6 +402,21 @@ public:
                          std::string help,
                          Ptr<const TraceSourceAccessor> accessor,
                          std::string callback);
+
+  /**
+   * \brief Deprecate a trace source by printing a message to the user
+   *
+   * If the user tries to attach to the trace source declared with this method,
+   * a warning message is printed, indicating where he/she can found the new
+   * attribute class and name.
+   *
+   * \param oldName old name of the trace source
+   * \param oldClass old class of the trace source
+   * \param msg optional message to print to the user
+   * \return this TypeId instance
+   */
+  TypeId DeprecateTraceSource (const std::string &oldName, const std::string &oldClass,
+                               const std::string &msg);
 
   TypeId HideFromDocumentation (void);
 

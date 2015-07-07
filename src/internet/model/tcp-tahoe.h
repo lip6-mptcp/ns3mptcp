@@ -21,9 +21,11 @@
 #ifndef TCP_TAHOE_H
 #define TCP_TAHOE_H
 
-#include "tcp-socket-base.h"
+#include "tcp-congestion-ops.h"
 
 namespace ns3 {
+
+class TcpSocketState;
 
 /**
  * \ingroup socket
@@ -39,7 +41,7 @@ namespace ns3 {
  * The implementation of these algorithms are based on W. R. Stevens's book and
  * also \RFC{2001}.
  */
-class TcpTahoe : public TcpSocketBase
+class TcpTahoe : public TcpNewReno
 {
 public:
   /**
@@ -58,36 +60,10 @@ public:
   TcpTahoe (const TcpTahoe& sock);
   virtual ~TcpTahoe (void);
 
-  // From TcpSocketBase
-  virtual int Connect (const Address &address);
-  virtual int Listen (void);
+  virtual Ptr<TcpCongestionOps> Fork ();
 
 protected:
-  virtual uint32_t Window (void); // Return the max possible number of unacked bytes
-  virtual Ptr<TcpSocketBase> Fork (void); // Call CopyObject<TcpTahoe> to clone me
-  virtual void NewAck (SequenceNumber32 const& seq); // Inc cwnd and call NewAck() of parent
-  virtual void DupAck (const TcpHeader& t, uint32_t count);  // Treat 3 dupack as timeout
-  virtual void Retransmit (void); // Retransmit time out
-
-  // Implementing ns3::TcpSocket -- Attribute get/set
-  virtual void     SetSegSize (uint32_t size);
-  virtual void     SetInitialSSThresh (uint32_t threshold);
-  virtual uint32_t GetInitialSSThresh (void) const;
-  virtual void     SetInitialCwnd (uint32_t cwnd);
-  virtual uint32_t GetInitialCwnd (void) const;
-  virtual void ScaleSsThresh (uint8_t scaleFactor);
-private:
-  /**
-   * \brief Set the congestion window when connection starts
-   */
-  void InitializeCwnd (void);
-
-protected:
-  TracedValue<uint32_t>  m_cWnd;         //!< Congestion window
-  TracedValue<uint32_t>  m_ssThresh;     //!< Slow Start Threshold
-  uint32_t               m_initialCWnd;  //!< Initial cWnd value
-  uint32_t               m_initialSsThresh;  //!< Initial Slow Start Threshold value
-  uint32_t               m_retxThresh;   //!< Fast Retransmit threshold
+  virtual uint32_t GetSsThresh (Ptr<const TcpSocketState> state);
 };
 
 } // namespace ns3

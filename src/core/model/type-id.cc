@@ -102,18 +102,28 @@ public:
                      Ptr<const AttributeValue> initialValue,
                      Ptr<const AttributeAccessor> spec,
                      Ptr<const AttributeChecker> checker);
+  void AddDeprecatedAttribute (uint16_t uid, const std::string &oldName,
+                               const std::string &oldClass, const std::string &msg);
   void SetAttributeInitialValue(uint16_t uid,
                                 uint32_t i,
                                 Ptr<const AttributeValue> initialValue);
   uint32_t GetAttributeN (uint16_t uid) const;
+  uint32_t GetDeprecatedAttributeN (uint16_t uid) const;
   struct TypeId::AttributeInformation GetAttribute(uint16_t uid, uint32_t i) const;
+  struct TypeId::DeprecatedAttributeInformation GetDeprecatedAttribute (uint16_t uid,
+                                                                        uint32_t i) const;
   void AddTraceSource (uint16_t uid,
                        std::string name, 
                        std::string help,
                        Ptr<const TraceSourceAccessor> accessor,
                        std::string callback);
+  void AddDeprecatedTraceSource(uint16_t uid, const std::string &oldName,
+                                const std::string &oldClass, const std::string &msg);
   uint32_t GetTraceSourceN (uint16_t uid) const;
+  uint32_t GetDeprecatedTraceSourceN (uint16_t uid) const;
   struct TypeId::TraceSourceInformation GetTraceSource(uint16_t uid, uint32_t i) const;
+  struct TypeId::DeprecatedTraceSourceInformation GetDeprecatedTraceSource (uint16_t uid,
+                                                                            uint32_t i) const;
   bool MustHideFromDocumentation (uint16_t uid) const;
 
 private:
@@ -131,7 +141,9 @@ private:
     Callback<ObjectBase *> constructor;
     bool mustHideFromDocumentation;
     std::vector<struct TypeId::AttributeInformation> attributes;
+    std::vector<struct TypeId::DeprecatedAttributeInformation> deprecatedAttributes;
     std::vector<struct TypeId::TraceSourceInformation> traceSources;
+    std::vector<struct TypeId::DeprecatedTraceSourceInformation> deprecatedTraceSources;
   };
   typedef std::vector<struct IidInformation>::const_iterator Iterator;
 
@@ -436,6 +448,20 @@ IidManager::AddAttribute (uint16_t uid,
   info.checker = checker;
   information->attributes.push_back (info);
 }
+
+void
+IidManager::AddDeprecatedAttribute(uint16_t uid, const std::string &oldName,
+                                   const std::string &oldClass, const std::string &msg)
+{
+  NS_LOG_FUNCTION (this << oldName << oldClass);
+  struct IidInformation *information = LookupInformation (uid);
+  struct TypeId::DeprecatedAttributeInformation info;
+  info.oldName = oldName;
+  info.oldClass = oldClass;
+  info.msg = msg;
+  information->deprecatedAttributes.push_back (info);
+}
+
 void 
 IidManager::SetAttributeInitialValue(uint16_t uid,
                                      uint32_t i,
@@ -447,8 +473,6 @@ IidManager::SetAttributeInitialValue(uint16_t uid,
   information->attributes[i].initialValue = initialValue;
 }
 
-
-
 uint32_t 
 IidManager::GetAttributeN (uint16_t uid) const
 {
@@ -456,6 +480,15 @@ IidManager::GetAttributeN (uint16_t uid) const
   struct IidInformation *information = LookupInformation (uid);
   return information->attributes.size ();
 }
+
+uint32_t
+IidManager::GetDeprecatedAttributeN (uint16_t uid) const
+{
+  NS_LOG_FUNCTION (this << uid);
+  struct IidInformation *information = LookupInformation (uid);
+  return information->deprecatedAttributes.size ();
+}
+
 struct TypeId::AttributeInformation 
 IidManager::GetAttribute(uint16_t uid, uint32_t i) const
 {
@@ -463,6 +496,15 @@ IidManager::GetAttribute(uint16_t uid, uint32_t i) const
   struct IidInformation *information = LookupInformation (uid);
   NS_ASSERT (i < information->attributes.size ());
   return information->attributes[i];
+}
+
+struct TypeId::DeprecatedAttributeInformation
+IidManager::GetDeprecatedAttribute (uint16_t uid, uint32_t i) const
+{
+  NS_LOG_FUNCTION (this << uid << i);
+  struct IidInformation *information = LookupInformation (uid);
+  NS_ASSERT (i < information->deprecatedAttributes.size ());
+  return information->deprecatedAttributes[i];
 }
 
 bool
@@ -514,6 +556,20 @@ IidManager::AddTraceSource (uint16_t uid,
   source.callback = callback;
   information->traceSources.push_back (source);
 }
+
+void
+IidManager::AddDeprecatedTraceSource (uint16_t uid, const std::string &oldName,
+                                      const std::string &oldClass, const std::string &msg)
+{
+  NS_LOG_FUNCTION (this << uid << oldName << oldClass);
+  struct IidInformation *information = LookupInformation (uid);
+  struct TypeId::DeprecatedTraceSourceInformation source;
+  source.oldName = oldName;
+  source.oldClass = oldClass;
+  source.msg = msg;
+  information->deprecatedTraceSources.push_back (source);
+}
+
 uint32_t 
 IidManager::GetTraceSourceN (uint16_t uid) const
 {
@@ -521,6 +577,15 @@ IidManager::GetTraceSourceN (uint16_t uid) const
   struct IidInformation *information = LookupInformation (uid);
   return information->traceSources.size ();
 }
+
+uint32_t
+IidManager::GetDeprecatedTraceSourceN (uint16_t uid) const
+{
+  NS_LOG_FUNCTION (this << uid);
+  struct IidInformation *information = LookupInformation (uid);
+  return information->deprecatedTraceSources.size ();
+}
+
 struct TypeId::TraceSourceInformation 
 IidManager::GetTraceSource(uint16_t uid, uint32_t i) const
 {
@@ -529,6 +594,16 @@ IidManager::GetTraceSource(uint16_t uid, uint32_t i) const
   NS_ASSERT (i < information->traceSources.size ());
   return information->traceSources[i];
 }
+
+struct TypeId::DeprecatedTraceSourceInformation
+IidManager::GetDeprecatedTraceSource(uint16_t uid, uint32_t i) const
+{
+  NS_LOG_FUNCTION (this << uid << i);
+  struct IidInformation *information = LookupInformation (uid);
+  NS_ASSERT (i < information->deprecatedTraceSources.size ());
+  return information->deprecatedTraceSources[i];
+}
+
 bool 
 IidManager::MustHideFromDocumentation (uint16_t uid) const
 {
@@ -631,6 +706,23 @@ TypeId::LookupAttributeByName (std::string name, struct TypeId::AttributeInforma
         }
       nextTid = tid.GetParent ();
     } while (nextTid != tid);
+
+  nextTid = *this;
+  do {
+      tid = nextTid;
+      for (uint32_t i = 0; i < tid.GetDeprecatedAttributeN (); ++i)
+        {
+          struct TypeId::DeprecatedAttributeInformation tmp = tid.GetDeprecatedAttribute (i);
+          if (tmp.oldName == name)
+            {
+              NS_LOG_UNCOND ("ATTENTION: Deprecated attribute " << name <<
+                             " in class " << tmp.oldClass << "." << tmp.msg);
+              return false;
+            }
+        }
+      nextTid = tid.GetParent ();
+    } while (nextTid != tid);
+
   return false;
 }
 
@@ -750,6 +842,22 @@ TypeId::AddAttribute (std::string name,
   return *this;
 }
 
+TypeId
+TypeId::DeprecateAttribute (const std::string &oldName, const std::string &oldClass,
+                            const std::string &msg)
+{
+  Singleton<IidManager>::Get ()->AddDeprecatedAttribute (m_tid, oldName, oldClass, msg);
+  return *this;
+}
+
+TypeId
+TypeId::DeprecateTraceSource (const std::string &oldName, const std::string &oldClass,
+                              const std::string &msg)
+{
+  Singleton<IidManager>::Get ()->AddDeprecatedTraceSource (m_tid, oldName, oldClass, msg);
+  return *this;
+}
+
 bool 
 TypeId::SetAttributeInitialValue(uint32_t i, 
                                  Ptr<const AttributeValue> initialValue)
@@ -783,12 +891,28 @@ TypeId::GetAttributeN (void) const
   uint32_t n = Singleton<IidManager>::Get ()->GetAttributeN (m_tid);
   return n;
 }
+
+uint32_t
+TypeId::GetDeprecatedAttributeN (void) const
+{
+  NS_LOG_FUNCTION (this);
+  uint32_t n = Singleton<IidManager>::Get ()->GetDeprecatedAttributeN (m_tid);
+  return n;
+}
 struct TypeId::AttributeInformation 
 TypeId::GetAttribute(uint32_t i) const
 {
   NS_LOG_FUNCTION (this << i);
   return Singleton<IidManager>::Get ()->GetAttribute(m_tid, i);
 }
+
+struct TypeId::DeprecatedAttributeInformation
+TypeId::GetDeprecatedAttribute (uint32_t i) const
+{
+  NS_LOG_FUNCTION (this << i);
+  return Singleton<IidManager>::Get ()->GetDeprecatedAttribute (m_tid, i);
+}
+
 std::string 
 TypeId::GetAttributeFullName (uint32_t i) const
 {
@@ -803,11 +927,26 @@ TypeId::GetTraceSourceN (void) const
   NS_LOG_FUNCTION (this);
   return Singleton<IidManager>::Get ()->GetTraceSourceN (m_tid);
 }
+
+uint32_t
+TypeId::GetDeprecatedTraceSourceN (void) const
+{
+  NS_LOG_FUNCTION (this);
+  return Singleton<IidManager>::Get ()->GetDeprecatedTraceSourceN (m_tid);
+}
+
 struct TypeId::TraceSourceInformation 
 TypeId::GetTraceSource(uint32_t i) const
 {
   NS_LOG_FUNCTION (this << i);
   return Singleton<IidManager>::Get ()->GetTraceSource(m_tid, i);
+}
+
+struct TypeId::DeprecatedTraceSourceInformation
+TypeId::GetDeprecatedTraceSource (uint32_t i) const
+{
+  NS_LOG_FUNCTION (this << i);
+  return Singleton<IidManager>::Get ()->GetDeprecatedTraceSource (m_tid, i);
 }
 
 TypeId 
@@ -856,6 +995,23 @@ TypeId::LookupTraceSourceByName (std::string name) const
         }
       nextTid = tid.GetParent ();
     } while (nextTid != tid);
+
+  nextTid = *this;
+  do {
+      tid = nextTid;
+      for (uint32_t i = 0; i < tid.GetDeprecatedTraceSourceN (); ++i)
+        {
+          struct TypeId::DeprecatedTraceSourceInformation tmp = tid.GetDeprecatedTraceSource (i);
+          if (tmp.oldName == name)
+            {
+              NS_LOG_UNCOND ("ATTENTION: Deprecated attribute " << name <<
+                             " in class " << tmp.oldClass << "." << tmp.msg);
+              return 0;
+            }
+        }
+      nextTid = tid.GetParent ();
+    } while (nextTid != tid);
+
   return 0;
 }
 

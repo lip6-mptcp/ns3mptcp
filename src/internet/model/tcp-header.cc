@@ -176,9 +176,9 @@ TcpHeader::GetUrgentPointer () const
   return m_urgentPointer;
 }
 
-void
-TcpHeader::InitializeChecksum (Ipv4Address source,
-                               Ipv4Address destination,
+void 
+TcpHeader::InitializeChecksum (const Ipv4Address &source,
+                               const Ipv4Address &destination,
                                uint8_t protocol)
 {
   m_source = source;
@@ -186,9 +186,9 @@ TcpHeader::InitializeChecksum (Ipv4Address source,
   m_protocol = protocol;
 }
 
-void
-TcpHeader::InitializeChecksum (Ipv6Address source,
-                               Ipv6Address destination,
+void 
+TcpHeader::InitializeChecksum (const Ipv6Address &source,
+                               const Ipv6Address &destination,
                                uint8_t protocol)
 {
   m_source = source;
@@ -196,9 +196,9 @@ TcpHeader::InitializeChecksum (Ipv6Address source,
   m_protocol = protocol;
 }
 
-void
-TcpHeader::InitializeChecksum (Address source,
-                               Address destination,
+void 
+TcpHeader::InitializeChecksum (const Address &source,
+                               const Address &destination,
                                uint8_t protocol)
 {
   m_source = source;
@@ -522,6 +522,13 @@ operator== (const TcpHeader &lhs, const TcpHeader &rhs)
     lhs.m_windowSize      == rhs.m_windowSize      &&
     lhs.m_urgentPointer   == rhs.m_urgentPointer
     );
+}
+
+std::ostream&
+operator<< (std::ostream& os, TcpHeader const & tc)
+{
+  tc.Print (os);
+  return os;
 }
 
 } // namespace ns3

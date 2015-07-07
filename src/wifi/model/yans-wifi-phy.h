@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
- * Author: ghada Badawy <gbadawy@gmail.com>
+ * Authors: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+ *          Ghada Badawy <gbadawy@gmail.com>
  */
 
 #ifndef YANS_WIFI_PHY_H
@@ -31,12 +31,12 @@
 #include "ns3/nstime.h"
 #include "ns3/ptr.h"
 #include "ns3/random-variable-stream.h"
+#include "ns3/mobility-model.h"
 #include "wifi-phy.h"
 #include "wifi-mode.h"
 #include "wifi-preamble.h"
 #include "wifi-phy-standard.h"
 #include "interference-helper.h"
-
 
 namespace ns3 {
 
@@ -75,7 +75,6 @@ public:
    * \param channel the YansWifiChannel this YansWifiPhy is to be connected to
    */
   void SetChannel (Ptr<YansWifiChannel> channel);
-
   /**
    * Set the current channel number.
    *
@@ -96,7 +95,7 @@ public:
    * Return current center channel frequency in MHz.
    *
    * \return the current center channel frequency in MHz
-   */  
+   */
   double GetChannelFrequencyMhz () const;
 
   /**
@@ -106,22 +105,22 @@ public:
    * \param rxPowerDbm the receive power in dBm
    * \param txVector the TXVECTOR of the arriving packet
    * \param preamble the preamble of the arriving packet
-   * \param packetType The type of the received packet (values: 0 not an A-MPDU, 1 corresponds to any packets in an A-MPDU except the last one, 2 is the last packet in an A-MPDU) 
+   * \param packetType The type of the received packet (values: 0 not an A-MPDU, 1 corresponds to any packets in an A-MPDU except the last one, 2 is the last packet in an A-MPDU)
    * \param rxDuration the duration needed for the reception of the packet
    */
-  void StartReceivePlcp (Ptr<Packet> packet,
-                         double rxPowerDbm,
-                         WifiTxVector txVector,
-                         WifiPreamble preamble,
-                         uint8_t packetType,
-                         Time rxDuration);
+  void StartReceivePreambleAndHeader (Ptr<Packet> packet,
+                                      double rxPowerDbm,
+                                      WifiTxVector txVector,
+                                      WifiPreamble preamble,
+                                      uint8_t packetType,
+                                      Time rxDuration);
   /**
    * Starting receiving the payload of a packet (i.e. the first bit of the packet has arrived).
    *
    * \param packet the arriving packet
    * \param txVector the TXVECTOR of the arriving packet
    * \param preamble the preamble of the arriving packet
-   * \param packetType The type of the received packet (values: 0 not an A-MPDU, 1 corresponds to any packets in an A-MPDU except the last one, 2 is the last packet in an A-MPDU) 
+   * \param packetType The type of the received packet (values: 0 not an A-MPDU, 1 corresponds to any packets in an A-MPDU except the last one, 2 is the last packet in an A-MPDU)
    * \param event the corresponding event of the first time the packet arrives
    */
   void StartReceivePacket (Ptr<Packet> packet,
@@ -150,7 +149,7 @@ public:
   void SetTxPowerEnd (double end);
   /**
    * Sets the number of transmission power levels available between the
-   * minimum level and the maximum level.  Transmission power levels are
+   * minimum level and the maximum level. Transmission power levels are
    * equally separated (in dBm) with the minimum and the maximum included.
    *
    * \param n the number of available levels
@@ -177,7 +176,7 @@ public:
    */
   void SetEdThreshold (double threshold);
   /**
-   * Sets the CCA threshold (dBm).  The energy of a received signal
+   * Sets the CCA threshold (dBm). The energy of a received signal
    * should be higher than this threshold to allow the PHY
    * layer to declare CCA BUSY state.
    *
@@ -195,13 +194,18 @@ public:
    *
    * \param device the device this PHY is associated with
    */
-  void SetDevice (Ptr<Object> device);
+  void SetDevice (Ptr<NetDevice> device);
   /**
-   * Sets the mobility model.
+   * \brief assign a mobility model to this device
+   *
+   * This method allows a user to specify a mobility model that should be
+   * associated with this physical layer.  Calling this method is optional
+   * and only necessary if the user wants to override the mobility model
+   * that is aggregated to the node.
    *
    * \param mobility the mobility model this PHY is associated with
    */
-  void SetMobility (Ptr<Object> mobility);
+  void SetMobility (Ptr<MobilityModel> mobility);
   /**
    * Return the RX noise figure (dBm).
    *
@@ -243,14 +247,17 @@ public:
    *
    * \return the device this PHY is associated with
    */
-  Ptr<Object> GetDevice (void) const;
+  Ptr<NetDevice> GetDevice (void) const;
   /**
    * Return the mobility model this PHY is associated with.
+   * This method will return either the mobility model that has been
+   * explicitly set by a call to YansWifiPhy::SetMobility(), or else
+   * will return the mobility model (if any) that has been aggregated
+   * to the node.
    *
    * \return the mobility model this PHY is associated with
    */
-  Ptr<Object> GetMobility (void);
-
+  Ptr<MobilityModel> GetMobility (void);
   /**
    * Return the minimum available transmission power level (dBm).
    * \return the minimum available transmission power level (dBm)
@@ -267,6 +274,7 @@ public:
    * \return the number of available transmission power levels
    */
   virtual uint32_t GetNTxPower (void) const;
+
   virtual void SetReceiveOkCallback (WifiPhy::RxOkCallback callback);
   virtual void SetReceiveErrorCallback (WifiPhy::RxErrorCallback callback);
   virtual void SendPacket (Ptr<const Packet> packet, WifiTxVector txvector, enum WifiPreamble preamble, uint8_t packetType);
@@ -290,17 +298,17 @@ public:
   virtual bool IsMcsSupported (WifiMode mode);
   virtual double CalculateSnr (WifiMode txMode, double ber) const;
   virtual Ptr<WifiChannel> GetChannel (void) const;
-  
+
   virtual void ConfigureStandard (enum WifiPhyStandard standard);
 
- /**
-  * Assign a fixed random variable stream number to the random variables
-  * used by this model.  Return the number of streams (possibly zero) that
-  * have been assigned.
-  *
-  * \param stream first stream index to use
-  * \return the number of stream indices assigned by this model
-  */
+  /**
+   * Assign a fixed random variable stream number to the random variables
+   * used by this model.  Return the number of streams (possibly zero) that
+   * have been assigned.
+   *
+   * \param stream first stream index to use
+   * \return the number of stream indices assigned by this model
+   */
   int64_t AssignStreams (int64_t stream);
 
   /**
@@ -315,11 +323,14 @@ public:
    * \param tx the number of transmitters on this node.
    */
   virtual void SetNumberOfTransmitAntennas (uint32_t tx);
+  /**
+   * \return the number of transmitters on this node.
+   */
   virtual uint32_t GetNumberOfTransmitAntennas (void) const;
   /**
    * \param rx the number of receivers on this node.
    */
-  virtual void SetNumberOfReceiveAntennas (uint32_t rx) ;
+  virtual void SetNumberOfReceiveAntennas (uint32_t rx);
   /**
    * \return the number of receivers on this node.
    */
@@ -354,7 +365,7 @@ public:
    */
   virtual void SetStbc (bool stbc);
   /**
-   * Return whether STBC is supported. 
+   * Return whether STBC is supported.
    *
    * \return true if STBC is supported, false otherwise
    */
@@ -373,20 +384,21 @@ public:
   virtual bool GetGreenfield (void) const;
   /**
    * Return whether channel bonding is supported.
-   * 
+   *
    * \return true if channel bonding is supported, false otherwise
    */
-  virtual bool GetChannelBonding (void) const ;
+  virtual bool GetChannelBonding (void) const;
   /**
    * Enable or disable channel bonding support.
-   * 
+   *
    * \param channelbonding Enable or disable channel bonding
    */
-  virtual void SetChannelBonding (bool channelbonding) ;
+  virtual void SetChannelBonding (bool channelbonding);
 
   virtual uint32_t GetNBssMembershipSelectors (void) const;
   virtual uint32_t GetBssMembershipSelector (uint32_t selector) const;
-  virtual WifiModeList GetMembershipSelectorModes(uint32_t selector);
+  virtual WifiModeList GetMembershipSelectorModes (uint32_t selector);
+
   /**
    * \return the number of MCS supported by this phy
    */
@@ -396,9 +408,11 @@ public:
   virtual uint32_t WifiModeToMcs (WifiMode mode);
   virtual WifiMode McsToWifiMode (uint8_t mcs);
 
+
 private:
-  //YansWifiPhy (const YansWifiPhy &o);
+  virtual void DoInitialize (void);
   virtual void DoDispose (void);
+
   /**
    * Configure YansWifiPhy with appropriate channel frequency and
    * supported rates for 802.11a standard.
@@ -440,6 +454,7 @@ private:
    * Convert from dBm to Watts.
    *
    * \param dbm the power in dBm
+   *
    * \return the equivalent Watts for the given dBm
    */
   double DbmToW (double dbm) const;
@@ -447,6 +462,7 @@ private:
    * Convert from dB to ratio.
    *
    * \param db
+   *
    * \return ratio
    */
   double DbToRatio (double db) const;
@@ -454,6 +470,7 @@ private:
    * Convert from Watts to dBm.
    *
    * \param w the power in Watts
+   *
    * \return the equivalent dBm for the given Watts
    */
   double WToDbm (double w) const;
@@ -461,6 +478,7 @@ private:
    * Convert from ratio to dB.
    *
    * \param ratio
+   *
    * \return dB
    */
   double RatioToDb (double ratio) const;
@@ -469,6 +487,7 @@ private:
    * In YansWifiPhy implementation, the power levels are equally spaced (in dBm).
    *
    * \param power the power level
+   *
    * \return the transmission power in dBm at the given power level
    */
   double GetPowerDbm (uint8_t power) const;
@@ -482,9 +501,6 @@ private:
    */
   void EndReceive (Ptr<Packet> packet, enum WifiPreamble preamble, uint8_t packetType, Ptr<InterferenceHelper::Event> event);
 
-private:
-  virtual void DoInitialize (void);
-  
   bool     m_initialized;         //!< Flag for runtime initialization
   double   m_edThresholdW;        //!< Energy detection threshold in watts
   double   m_ccaMode1ThresholdW;  //!< Clear channel assessment (CCA) threshold in watts
@@ -496,13 +512,13 @@ private:
 
   Ptr<YansWifiChannel> m_channel;        //!< YansWifiChannel that this YansWifiPhy is connected to
   uint16_t             m_channelNumber;  //!< Operating channel number
-  Ptr<Object>          m_device;         //!< Pointer to the device
-  Ptr<Object>          m_mobility;       //!< Pointer to the mobility model
+  Ptr<NetDevice>       m_device;         //!< Pointer to the device
+  Ptr<MobilityModel>   m_mobility;       //!< Pointer to the mobility model
 
   uint32_t m_numberOfTransmitters;  //!< Number of transmitters
   uint32_t m_numberOfReceivers;     //!< Number of receivers
   bool     m_ldpc;                  //!< Flag if LDPC is used
-  bool     m_stbc;                  //!< Flag if STBC is used      
+  bool     m_stbc;                  //!< Flag if STBC is used
   bool     m_greenfield;            //!< Flag if GreenField format is supported
   bool     m_guardInterval;         //!< Flag if short guard interval is used
   bool     m_channelBonding;        //!< Flag if channel bonding is used
@@ -545,7 +561,7 @@ private:
    * mandatory rates".
    */
   WifiModeList m_deviceRateSet;
-  
+
   std::vector<uint32_t> m_bssMembershipSelectorSet;
   std::vector<uint8_t> m_deviceMcsSet;
   EventId m_endRxEvent;
@@ -560,7 +576,6 @@ private:
   bool m_plcpSuccess;                   //!< Flag if the PLCP of the packet or the first MPDU in an A-MPDU has been received
 };
 
-} // namespace ns3
-
+} //namespace ns3
 
 #endif /* YANS_WIFI_PHY_H */
