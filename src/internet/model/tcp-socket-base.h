@@ -259,6 +259,22 @@ public:
    */
   void SetCongestionControlAlgorithm (Ptr<TcpCongestionOps> algo);
 
+  // HACK MATT
+  virtual void GenerateEmptyPacketHeader(TcpHeader& header, uint8_t flags);
+
+  // TODO pass on data
+  /**
+  SendPacket should be called straightaway
+  uint8_t flags,
+  **/
+//  virtual void
+//  GenerateDataPacketHeader(TcpHeader& header, SequenceNumber32 seq, bool withAck);
+
+
+  // this one should be private
+//private:
+  // pacekt can be null ?
+//  virtual void SendPacket(TcpHeader header, Ptr<Packet> p);
 
   // Necessary implementations of null functions from ns3::Socket
   virtual enum SocketErrno GetErrno (void) const;    // returns m_errno
@@ -430,7 +446,14 @@ protected:
    * \param withAck forces an ACK to be sent
    * \returns true if some data have been sent
    */
-  bool SendPendingData (bool withAck = false);
+  virtual bool SendPendingData (bool withAck = false);
+
+  /**
+   * \Brief Will generate the header and forward it to its overload.
+   *
+   * \see SendDataPacket
+   */
+  virtual uint32_t SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool withAck);
 
   /**
    * \brief Extract at most maxSize bytes from the TxBuffer at sequence seq, add the
@@ -441,19 +464,34 @@ protected:
    * \param withAck forces an ACK to be sent
    * \returns the number of bytes sent
    */
-  uint32_t SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool withAck);
+  virtual uint32_t SendDataPacket (TcpHeader& header, SequenceNumber32 seq, uint32_t maxSize);
+
+  /**
+   * \brief Generates the header and calls its overload
+   *
+   * \see SendEmptyPacket
+   */
+  virtual void SendEmptyPacket (uint8_t flags);
 
   /**
    * \brief Send a empty packet that carries a flag, e.g. ACK
    *
    * \param flags the packet's flags
    */
-  void SendEmptyPacket (uint8_t flags);
+  virtual void SendEmptyPacket (TcpHeader& header);
+
+  /**
+   * \brief
+   *
+   * \param header A valid TCP header
+   * \param p Packet to send. May be empty.
+   */
+  virtual void SendPacket(TcpHeader header, Ptr<Packet> p);
 
   /**
    * \brief Send reset and tear down this socket
    */
-  void SendRST (void);
+  virtual void SendRST (void);
 
   /**
    * \brief Check if a sequence number range is within the rx window
@@ -462,7 +500,7 @@ protected:
    * \param tail end of the Sequence window
    * \returns true if it is in range
    */
-  bool OutOfRange (SequenceNumber32 head, SequenceNumber32 tail) const;
+  virtual bool OutOfRange (SequenceNumber32 head, SequenceNumber32 tail) const;
 
 
   // Helper functions: Connection close
@@ -506,22 +544,22 @@ protected:
    * \param p the packet
    * \param tcpHeader the packet's TCP header
    */
-  void PeerClose (Ptr<Packet> p, const TcpHeader& tcpHeader);
+  virtual void PeerClose (Ptr<Packet> p, const TcpHeader& tcpHeader);
 
   /**
    * \brief FIN is in sequence, notify app and respond with a FIN
    */
-  void DoPeerClose (void);
+  virtual void DoPeerClose (void);
 
   /**
    * \brief Cancel all timer when endpoint is deleted
    */
-  void CancelAllTimers (void);
+  virtual void CancelAllTimers (void);
 
   /**
    * \brief Move from CLOSING or FIN_WAIT_2 to TIME_WAIT state
    */
-  void TimeWait (void);
+  virtual void TimeWait (void);
 
   // State transition functions
 
@@ -533,7 +571,7 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  void ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeader); // Received a packet upon ESTABLISHED state
+  virtual void ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeader); // Received a packet upon ESTABLISHED state
 
   /**
    * \brief Received a packet upon LISTEN state.
@@ -543,7 +581,7 @@ protected:
    * \param fromAddress the source address
    * \param toAddress the destination address
    */
-  void ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
+  virtual void ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
                       const Address& fromAddress, const Address& toAddress);
 
   /**
@@ -552,7 +590,7 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  void ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
   /**
    * \brief Received a packet upon SYN_RCVD.
@@ -562,7 +600,7 @@ protected:
    * \param fromAddress the source address
    * \param toAddress the destination address
    */
-  void ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
+  virtual void ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
                        const Address& fromAddress, const Address& toAddress);
 
   /**
@@ -571,7 +609,7 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  void ProcessWait (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ProcessWait (Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
   /**
    * \brief Received a packet upon CLOSING
@@ -579,7 +617,7 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  void ProcessClosing (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ProcessClosing (Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
   /**
    * \brief Received a packet upon LAST_ACK
@@ -587,7 +625,7 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  void ProcessLastAck (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ProcessLastAck (Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
   // Window management
 
@@ -622,10 +660,10 @@ protected:
   virtual uint16_t AdvertisedWindowSize (void);
 
   /**
-   * \brief Update the receiver window (RWND) based on the value of the 
+   * \brief Update the receiver window (RWND) based on the value of the
    * window field in the header.
    *
-   * This method suppresses updates unless one of the following three 
+   * This method suppresses updates unless one of the following three
    * conditions holds:  1) segment contains new data (advancing the right
    * edge of the receive buffer), 2) segment does not contain new data
    * but the segment acks new data (highest sequence number acked advances),
@@ -702,7 +740,7 @@ protected:
 
   /**
    * \brief Read TCP options from incoming packets
-   *  
+   *
    * This method sequentially checks each kind of option, and if it
    * is present in the header, starts its processing.
    *
