@@ -180,6 +180,15 @@ public:
   virtual void SetRtt (Ptr<RttEstimator> rtt);
 
   /**
+   * \brief Set the first Tx byte not acknowledged yet
+   * \param seq First byte unacknowledged
+   */
+  virtual void SetTxHead(const SequenceNumber32& seq);
+
+
+  virtual SequenceNumber32 FirstUnackedSeq() const;
+
+  /**
    * \brief Sets the Minimum RTO.
    * \param minRto The minimum RTO.
    */
@@ -861,6 +870,7 @@ protected:
   Ptr<RttEstimator> m_rtt; //!< Round trip time estimator
 
   // Rx and Tx buffer management
+  TracedValue<SequenceNumber32> m_firstTxUnack;   //!< First unacknowledged seq nb  (SND.UNA)
   TracedValue<SequenceNumber32> m_nextTxSequence; //!< Next seqnum to be sent (SND.NXT), ReTx pushes it back
   TracedValue<SequenceNumber32> m_highTxMark;     //!< Highest seqno ever sent, regardless of ReTx
   Ptr<TcpRxBuffer>              m_rxBuffer;       //!< Rx buffer (reordering buffer)
