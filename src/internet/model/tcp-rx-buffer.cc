@@ -61,6 +61,25 @@ TcpRxBuffer::~TcpRxBuffer ()
 }
 
 SequenceNumber32
+TcpRxBuffer::HeadSequence(void) const
+{
+  return NextRxSequence()-Available();
+}
+
+void
+TcpRxBuffer::Dump() const
+{
+  NS_LOG_DEBUG("=== Dumping content of RxBuffer");
+  NS_LOG_DEBUG("> nextRxSeq=" << m_nextRxSeq << " Occupancy=" << m_size);
+  std::map<SequenceNumber32, Ptr<Packet> >::const_iterator i = m_data.begin ();
+  for( ; i != m_data.end (); ++i)
+    {
+      NS_LOG_DEBUG( "head:" << i->first << " of size:" << i->second->GetSize());
+    }
+  NS_LOG_DEBUG("=== End of dump");
+}
+
+SequenceNumber32
 TcpRxBuffer::NextRxSequence (void) const
 {
   return m_nextRxSeq;
@@ -140,10 +159,16 @@ TcpRxBuffer::Finished (void)
 bool
 TcpRxBuffer::Add (Ptr<Packet> p, TcpHeader const& tcph)
 {
-  NS_LOG_FUNCTION (this << p << tcph);
+    Add (p, tcph.GetSequenceNumber());
+}
+
+bool
+TcpRxBuffer::Add (Ptr<Packet> p,  SequenceNumber32 const& _headSeq)
+{
+  NS_LOG_FUNCTION (this << p << _headSeq);
 
   uint32_t pktSize = p->GetSize ();
-  SequenceNumber32 headSeq = tcph.GetSequenceNumber ();
+  SequenceNumber32 headSeq = _headSeq;
   SequenceNumber32 tailSeq = headSeq + SequenceNumber32 (pktSize);
   NS_LOG_LOGIC ("Add pkt " << p << " len=" << pktSize << " seq=" << headSeq
                            << ", when NextRxSeq=" << m_nextRxSeq << ", buffsize=" << m_size);
@@ -188,7 +213,7 @@ TcpRxBuffer::Add (Ptr<Packet> p, TcpHeader const& tcph)
     }
   else
     {
-      uint32_t start = headSeq - tcph.GetSequenceNumber ();
+      uint32_t start = headSeq - _headSeq;
       uint32_t length = tailSeq - headSeq;
       p = p->CreateFragment (start, length);
       NS_ASSERT (length == p->GetSize ());

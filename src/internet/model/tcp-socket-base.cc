@@ -81,6 +81,12 @@ TcpSocketBase::GetTypeId (void)
                    UintegerValue (65535),
                    MakeUintegerAccessor (&TcpSocketBase::m_maxWinSize),
                    MakeUintegerChecker<uint16_t> ())
+    .AddAttribute ("NullISN",
+                   "Set to false if you want to enable random isn",
+                   BooleanValue (true),
+            //      MakeBooleanAccessor (&TcpSocketBase::SetQosSupported,&RegularWifiMac::GetQosSupported)
+                   MakeBooleanAccessor (&TcpSocketBase::m_nullIsn),
+                   MakeBooleanChecker ())
     .AddAttribute ("IcmpCallback", "Callback invoked whenever an icmp error is received on this socket.",
                    CallbackValue (),
                    MakeCallbackAccessor (&TcpSocketBase::m_icmpCallback),
@@ -94,7 +100,7 @@ TcpSocketBase::GetTypeId (void)
                    MakeBooleanAccessor (&TcpSocketBase::m_winScalingEnabled),
                    MakeBooleanChecker ())
     .AddAttribute ("Timestamp", "Enable or disable Timestamp option",
-                   BooleanValue (true),
+                   BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_timestampEnabled),
                    MakeBooleanChecker ())
     .AddAttribute ("MinRto",
@@ -563,8 +569,8 @@ TcpSocketBase::Bind (const Address &address)
 void
 TcpSocketBase::InitializeCwnd (void)
 {
-  m_tcb->m_cWnd = m_tcb->m_initialCWnd * m_tcb->m_segmentSize;
-  m_tcb->m_ssThresh = m_tcb->m_initialSsThresh;
+  m_tcb->m_cWnd = GetInitialCwnd() * GetSegSize();
+  m_tcb->m_ssThresh = GetInitialSSThresh();
 }
 
 void
@@ -1877,8 +1883,6 @@ TcpSocketBase::GenerateEmptyPacketHeader(TcpHeader& header, uint8_t flags)
 
   SequenceNumber32 s = m_nextTxSequence;
 
-
-
   if (flags & TcpHeader::FIN)
     {
       flags |= TcpHeader::ACK;
@@ -1893,7 +1897,8 @@ TcpSocketBase::GenerateEmptyPacketHeader(TcpHeader& header, uint8_t flags)
   header.SetFlags (flags);
   header.SetSequenceNumber (s);
 
-  if(flags & TcpHeader::ACK){
+  if(flags & TcpHeader::ACK)
+    {
         header.SetAckNumber (m_rxBuffer->NextRxSequence ());
   }
 //  header.SetAckNumber (m_rxBuffer->NextRxSequence ());
@@ -2489,9 +2494,10 @@ TcpSocketBase::EstimateRtt (const TcpHeader& tcpHeader)
         { // Ok to use this sample
           if (m_timestampEnabled && tcpHeader.HasOption (TcpOption::TS))
             {
-              Ptr<TcpOptionTS> ts;
-              ts = DynamicCast<TcpOptionTS> (tcpHeader.GetOption (TcpOption::TS));
-              m = TcpOptionTS::ElapsedTimeFromTsValue (ts->GetEcho ());
+                NS_LOG_WARN("Reenable that");
+//              Ptr<TcpOptionTS> ts;
+//              ts = DynamicCast<TcpOptionTS> (tcpHeader.GetOption (TcpOption::TS));
+//              m = TcpOptionTS::ElapsedTimeFromTsValue (ts->GetEcho ());
             }
           else
             {
@@ -2518,6 +2524,12 @@ TcpSocketBase::EstimateRtt (const TcpHeader& tcpHeader)
     }
 }
 
+Time
+TcpSocketBase::ComputeRTO() const
+{
+    Max (m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation ()*4), m_minRto);
+}
+
 // Called by the ReceivedAck() when new ACK received and by ProcessSynRcvd()
 // when the three-way handshake completed. This cancels retransmission timer
 // and advances Tx window
@@ -2533,7 +2545,7 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack)
       m_retxEvent.Cancel ();
       // On receiving a "New" ack we restart retransmission timer .. RFC 6298
       // RFC 6298, clause 2.4
-      m_rto = Max (m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation ()*4), m_minRto);
+      m_rto = ComputeRTO();
 
       NS_LOG_LOGIC (this << " Schedule ReTxTimeout at time " <<
                     Simulator::Now ().GetSeconds () << " to expire at time " <<
@@ -2555,6 +2567,9 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack)
   // Note the highest ACK and tell app to send more
   NS_LOG_LOGIC ("TCP " << this << " NewAck " << ack <<
                 " numberAck " << (ack - FirstUnackedSeq())); // Number bytes ack'ed
+
+  m_firstTxUnack = ack;
+
   m_txBuffer->DiscardUpTo (ack);
   if (GetTxAvailable () > 0)
     {
@@ -2868,28 +2883,40 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
 {
   NS_LOG_FUNCTION (this << header);
 
-  if ((header.GetFlags () & TcpHeader::SYN))
-    {
-      if (m_winScalingEnabled)
-        {
-          m_winScalingEnabled = false;
+  TcpHeader::TcpOptionList options;
+  header.GetOptions (options);
 
-          if (header.HasOption (TcpOption::WINSCALE))
+  for(TcpHeader::TcpOptionList::const_iterator it(options.begin()); it != options.end(); ++it)
+  {
+      //!
+      Ptr<const TcpOption> option = *it;
+      switch(option->GetKind())
+      {
+        case TcpOption::WINSCALE:
+          if ((header.GetFlags () & TcpHeader::SYN) && m_winScalingEnabled && m_state < ESTABLISHED)
             {
-              m_winScalingEnabled = true;
-              ProcessOptionWScale (header.GetOption (TcpOption::WINSCALE));
+              ProcessOptionWScale (option);
               ScaleSsThresh (m_sndScaleFactor);
             }
-        }
-    }
+            break;
 
-  m_timestampEnabled = false;
+        case TcpOption::TS:
+            if (m_timestampEnabled)
+            {
+                ProcessOptionTimestamp (option);
+            }
+            break;
+        case TcpOption::NOP:
+            {
 
-  if (header.HasOption (TcpOption::TS))
-    {
-      m_timestampEnabled = true;
-      ProcessOptionTimestamp (header.GetOption (TcpOption::TS));
-    }
+            }
+            break;
+        default:
+            NS_LOG_WARN("Unsupported option [" << option->GetKind() << "]");
+            break;
+      };
+  }
+
 }
 
 void
@@ -2910,11 +2937,33 @@ TcpSocketBase::AddOptions (TcpHeader& header)
 }
 
 void
+TcpSocketBase::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
+{
+    //!
+    NS_LOG_DEBUG("Does nothing");
+}
+
+void
 TcpSocketBase::ProcessOptionWScale (const Ptr<const TcpOption> option)
 {
   NS_LOG_FUNCTION (this << option);
 
   Ptr<const TcpOptionWinScale> ws = DynamicCast<const TcpOptionWinScale> (option);
+
+//   // TODO inverser pr que cela retourne avant de finir
+//  if ((header.GetFlags () & TcpHeader::SYN))
+//    {
+//      if (m_winScalingEnabled)
+//        {
+//          m_winScalingEnabled = false;
+//
+//          if (header.HasOption (TcpOption::WINSCALE))
+//            {
+//              m_winScalingEnabled = true;
+
+//            }
+//        }
+//    }
 
   // In naming, we do the contrary of RFC 1323. The received scaling factor
   // is Rcv.Wind.Scale (and not Snd.Wind.Scale)
@@ -2982,8 +3031,16 @@ TcpSocketBase::ProcessOptionTimestamp (const Ptr<const TcpOption> option)
   Ptr<const TcpOptionTS> ts = DynamicCast<const TcpOptionTS> (option);
   m_timestampToEcho = ts->GetTimestamp ();
 
+  // TODO move (part of) EstimateRtt here
   NS_LOG_INFO (m_node->GetId () << " Got timestamp=" <<
                m_timestampToEcho << " and Echo="     << ts->GetEcho ());
+}
+
+
+TcpSocket::TcpStates_t
+TcpSocketBase::GetState() const
+{
+    return m_state;
 }
 
 void
@@ -3001,7 +3058,8 @@ TcpSocketBase::AddOptionTimestamp (TcpHeader& header)
                option->GetTimestamp () << " echo=" << m_timestampToEcho);
 }
 
-void TcpSocketBase::UpdateWindowSize (const TcpHeader &header)
+bool
+TcpSocketBase::UpdateWindowSize (const TcpHeader &header)
 {
   NS_LOG_FUNCTION (this << header);
   //  If the connection is not established, the window size is always
@@ -3013,7 +3071,7 @@ void TcpSocketBase::UpdateWindowSize (const TcpHeader &header)
     {
       m_rWnd = receivedWindow;
       NS_LOG_DEBUG ("State less than ESTABLISHED; updating rWnd to " << m_rWnd);
-      return;
+      return false;
     }
 
   // Test for conditions that allow updating of the window
@@ -3043,6 +3101,7 @@ void TcpSocketBase::UpdateWindowSize (const TcpHeader &header)
       m_rWnd = receivedWindow;
       NS_LOG_DEBUG ("updating rWnd to " << m_rWnd);
     }
+  return update;
 }
 
 void

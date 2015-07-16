@@ -183,7 +183,7 @@ public:
    * \param kind the option to retrieve
    * \return Whether the header contains a specific kind of option, or 0
    */
-  Ptr<TcpOption> GetOption (uint8_t kind) const;
+//  Ptr<TcpOption> GetOption (uint8_t kind) const;
 
   typedef std::list< Ptr<TcpOption> > TcpOptionList; /**< List of TcpOption */
 
@@ -192,8 +192,7 @@ public:
    * \note The list should be empty
    * \param options Return a copy of the options
    */
-  void
-  GetOptions (TcpHeader::TcpOptionList& options) const;
+  void GetOptions (TcpHeader::TcpOptionList& options) const;
 
   /**
    * \brief Check if the header has the option specified
@@ -343,6 +342,29 @@ private:
   uint8_t m_optionsLen; //!< Tcp options length.
   static const uint8_t m_maxOptionsLen = 40; //!< Maximum options length
 };
+
+/**
+ * \brief Helper function to find an MPTCP option
+ *
+ * \param ret save found option in ret, otherwise
+ * \return true if matching option type found. If false, ret should be considered invalid
+*/
+template<class T>
+bool
+GetTcpOption (const TcpHeader& header, Ptr<T>& ret)
+{
+  TcpHeader::TcpOptionList l;
+  header.GetOptions (l);
+  for (TcpHeader::TcpOptionList::const_iterator it = l.begin (); it != l.end (); ++it)
+    {
+      if ( (*it)->GetInstanceTypeId () == T::GetTypeId())
+        {
+              ret = DynamicCast<T> ( *it );
+              return (ret != 0);
+        }
+    }
+  return false;
+}
 
 } // namespace ns3
 

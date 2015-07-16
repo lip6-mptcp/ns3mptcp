@@ -39,6 +39,65 @@ TcpSocket::TcpStateName[TcpSocket::LAST_STATE] = { "CLOSED", "LISTEN", "SYN_SENT
                                         "LAST_ACK", "FIN_WAIT_1", "FIN_WAIT_2",
                                         "CLOSING", "TIME_WAIT" };
 
+
+TcpState::TcpState() :
+    m_state(LISTEN)
+{
+
+}
+
+TcpState&
+TcpState::operator=(TcpState& rhs)
+{
+    //!
+    TcpStates_t newState = rhs.m_state;
+    switch(newState)
+    {
+        case LISTEN:
+            if(newState == SYN_SENT || newState == SYN_RCVD || newState == CLOSED){
+                m_state = newState;
+                return *this;
+            }
+            break;
+        case SYN_SENT:
+            if(newState == SYN_RCVD || newState == CLOSED || newState == CLOSED || newState == ESTABLISHED) {
+                m_state = newState;
+                return *this;
+            }
+            break;
+
+        case SYN_RCVD:
+            if(newState == CLOSE_WAIT || newState == FIN_WAIT_1) {
+                m_state = newState;
+                return *this;
+            }
+            break;
+
+        case ESTABLISHED:
+            break;
+
+        case FIN_WAIT_1:
+            if(newState == FIN_WAIT_2) {
+                m_state = newState;
+                return *this;
+            }
+            break;
+
+        case CLOSING:
+            if(newState == TIME_WAIT) {
+                m_state = newState;
+                return *this;
+            }
+            break;
+
+
+    };
+
+    NS_FATAL_ERROR("Wrong TCP transition");
+    return *this;
+}
+
+
 TypeId
 TcpSocket::GetTypeId (void)
 {

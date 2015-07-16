@@ -41,6 +41,7 @@
 #include "ipv6-routing-protocol.h"
 #include "tcp-socket-factory-impl.h"
 #include "tcp-socket-base.h"
+#include "mptcp-socket-base.h"
 #include "rtt-estimator.h"
 
 #include <vector>
@@ -79,6 +80,10 @@ TcpL4Protocol::GetTypeId (void)
                    TypeIdValue (TcpNewReno::GetTypeId ()),
                    MakeTypeIdAccessor (&TcpL4Protocol::m_congestionTypeId),
                    MakeTypeIdChecker ())
+    .AddAttribute ("EnableMpTcp", "Enable or disable MPTCP support",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpL4Protocol::m_mptcpEnabled),
+                   MakeBooleanChecker ())
     .AddAttribute ("SocketList", "The list of sockets associated to this protocol.",
                    ObjectVectorValue (),
                    MakeObjectVectorAccessor (&TcpL4Protocol::m_sockets),
@@ -88,7 +93,10 @@ TcpL4Protocol::GetTypeId (void)
 }
 
 TcpL4Protocol::TcpL4Protocol ()
-  : m_endPoints (new Ipv4EndPointDemux ()), m_endPoints6 (new Ipv6EndPointDemux ())
+  :
+    m_mptcpEnabled(false),
+    m_endPoints (new Ipv4EndPointDemux ()),
+    m_endPoints6 (new Ipv6EndPointDemux ())
 {
   NS_LOG_FUNCTION_NOARGS ();
   NS_LOG_LOGIC ("Made a TcpL4Protocol " << this);
@@ -181,9 +189,16 @@ TcpL4Protocol::CreateSocket (TypeId congestionTypeId)
   congestionAlgorithmFactory.SetTypeId (congestionTypeId);
 
   Ptr<RttEstimator> rtt = rttFactory.Create<RttEstimator> ();
-  Ptr<TcpSocketBase> socket = CreateObject<TcpSocketBase> ();
   Ptr<TcpCongestionOps> algo = congestionAlgorithmFactory.Create<TcpCongestionOps> ();
-
+  Ptr<TcpSocketBase> socket;
+  if(m_mptcpEnabled)
+  {
+    socket = CreateObject<MpTcpSocketBase> ();
+  }
+  else
+  {
+    socket = CreateObject<TcpSocketBase> ();
+  }
   socket->SetNode (m_node);
   socket->SetTcp (this);
   socket->SetRtt (rtt);

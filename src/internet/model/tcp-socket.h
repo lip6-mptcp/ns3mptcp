@@ -35,6 +35,51 @@ namespace ns3 {
 class Node;
 class Packet;
 
+
+/**
+ * \rename into FSM ?
+ */
+class TcpState
+{
+public:
+  /**
+   * \ingroup tcp
+   * \brief Names of the 11 TCP states
+   *
+   */
+  typedef enum {
+    CLOSED = 0,   /**< Socket is finished                                     */
+    LISTEN,       /**< Listening for a connection                             */
+    SYN_SENT,     /**< Sent a connection request, waiting for ack             */
+    SYN_RCVD,     /**< Received a connection request, sent ack,
+                    *  waiting for final ack in three-way handshake.          */
+    ESTABLISHED,  /**< Connection established                                 */
+    CLOSE_WAIT,   /**< Remote side has shutdown and is waiting for
+                    *  us to finish writing our data and to shutdown
+                    *  (we have to close() to move on to LAST_ACK)            */
+    LAST_ACK,     /**< Our side has shutdown after remote has
+                    *  shutdown.  There may still be data in our
+                    *  buffer that we have to finish sending                  */
+    FIN_WAIT_1,   /**< Our side has shutdown, waiting to complete
+                    *  transmission of remaining buffered data                */
+    FIN_WAIT_2,   /**< All buffered data sent, waiting for remote to shutdown */
+    CLOSING,      /**< Both sides have shutdown but we still have
+                    *  data we have to finish sending                         */
+    TIME_WAIT,    /**< Timeout to catch resent junk before entering
+                    *  closed, can only be entered from FIN_WAIT2
+                    *  or CLOSING.  Required because the other end
+                    *  may not have gotten our last ACK causing it
+                    *  to retransmit the data packet (which we ignore)        */
+    LAST_STATE    /**< Last state, used only in debug messages                */
+  } TcpStates_t;
+
+  TcpState();
+  TcpState& operator=(TcpState& state);
+
+private:
+  TcpStates_t m_state;
+};
+
 /**
  * \ingroup socket
  *
@@ -52,7 +97,7 @@ public:
    * \return the object TypeId
    */
   static TypeId GetTypeId (void);
- 
+
   TcpSocket (void);
   virtual ~TcpSocket (void);
 

@@ -316,6 +316,19 @@ TcpOptionMpTcpCapable::HasReceiverKey (void) const
 /////////////////////////////////////////////////////////
 ////////  MP_JOIN Initial SYN
 /////////////////////////////////////////////////////////
+
+TypeId
+TcpOptionMpTcpJoin::GetTypeId (void)
+{
+    //!
+  static TypeId tid = TypeId ("ns3::TcpOptionMpTcpJoin")
+    .SetParent<TcpOptionMpTcpMain> ()
+    .AddConstructor<TcpOptionMpTcpJoin> ()
+  ;
+  return tid;
+}
+
+
 TcpOptionMpTcpJoin::TcpOptionMpTcpJoin ()
   : TcpOptionMpTcp (),
     m_mode (Uninitialized),
@@ -623,52 +636,65 @@ TcpOptionMpTcpDSS::~TcpOptionMpTcpDSS ()
   NS_LOG_FUNCTION (this);
 }
 
-
 void
-TcpOptionMpTcpDSS::AddDataFin (const uint64_t& dfin, const bool& send_as_32bits)
+TcpOptionMpTcpDSS::TruncateDSS(bool truncate)
 {
-  NS_ASSERT_MSG ( (GetFlags () & DataFin ) == 0, "You already set a DATA FIN");
-  NS_LOG_LOGIC ("Setting datafin to " << dfin);
+    NS_ASSERT_MSG(m_flags & DSNMappingPresent, "Call it only after setting the mapping");
 
-  //! If already a mapping registered
-  if ( m_flags & DSNMappingPresent)
-    {
-      // check we can increment length without wrapping
-      uint16_t temp = 0;
-      temp = ~temp;
-      NS_LOG_DEBUG ("TEMP => " << temp); //~(uint16_t) 0
-      NS_ASSERT_MSG ( (m_dataLevelLength < temp ), "Datafin increments DSS length by 1");
-      NS_ASSERT_MSG ( m_dsn + m_dataLevelLength + 1 == dfin, "DFIN dsn does not match already registered mapping data");
-    }
-  else
-    {
-      m_dsn = dfin;
-    }
+    if(truncate) {
+        m_flags &=  ~(0xff & DSNOfEightBytes);
 
-  m_dataLevelLength++;
-  m_flags |=  DataFin | DSNMappingPresent;
+    }
+    else {
+        m_flags |= DSNOfEightBytes;
+    }
 }
 
 
+//void
+//TcpOptionMpTcpDSS::AddDataFin (
+////        const uint64_t& dfin, const bool& send_as_32bits
+//        )
+//{
+//  NS_ASSERT_MSG ( (GetFlags () & DataFin ) == 0, "You already set a DATA FIN");
+//  NS_LOG_LOGIC ("Setting datafin to " << dfin);
+//
+//  //! If already a mapping registered
+//  if ( m_flags & DSNMappingPresent)
+//    {
+//      // check we can increment length without wrapping
+//      uint16_t temp = 0;
+//      temp = ~temp;
+////      NS_LOG_DEBUG ("TEMP => " << temp); //~(uint16_t) 0
+//      NS_ASSERT_MSG ( (m_dataLevelLength < temp ), "Datafin increments DSS length by 1");
+//      NS_ASSERT_MSG ( m_dsn + m_dataLevelLength + 1 == dfin, "DFIN dsn does not match already registered mapping data");
+//    }
+//  else
+//    {
+//      m_dsn = dfin;
+//    }
+//
+//  m_dataLevelLength++;
+//  m_flags |=  DataFin | DSNMappingPresent;
+//}
+
+
 void
-TcpOptionMpTcpDSS::SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits)
+TcpOptionMpTcpDSS::SetMapping (uint64_t headDsn, uint32_t headSsn, uint16_t length, bool enable_dfin)
 {
   NS_ASSERT_MSG ( !(m_flags & DataFin), "For now you can't set mapping after enabling datafin");
-  NS_ASSERT_MSG ( !(m_flags & DSNMappingPresent), "You already set a mapping");
+//  NS_ASSERT_MSG ( !(m_flags & DSNMappingPresent), "You already set a mapping");
 
   m_dsn = headDsn;
-  if (trunc_to_32bits)
-    {
-      m_dsn = TRUNC_TO_32 (m_dsn);
-    }
-  else
-    {
-      m_flags |= DSNOfEightBytes;
-    }
   m_ssn = headSsn;
   // += in case there is a datafin
-  m_dataLevelLength += length;
+  m_dataLevelLength = length;
   m_flags |= DSNMappingPresent;
+
+  if(enable_dfin)
+  {
+    m_flags |= DataFin;
+  }
 }
 
 

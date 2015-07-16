@@ -44,7 +44,7 @@ class Ipv6EndPoint;
 /**
  * \ingroup tcp
  * \brief Tcp socket creation and multiplexing/demultiplexing
- * 
+ *
  * A single instance of this class is held by one instance of class Node.
  *
  * The creation of TcpSocket are handled in the method CreateSocket, which is
@@ -279,6 +279,7 @@ protected:
 
 private:
   Ptr<Node> m_node;                //!< the node this stack is associated with
+  bool     m_mptcpEnabled;         //!< MpTcp option enabled
   Ipv4EndPointDemux *m_endPoints;  //!< A list of IPv4 end points.
   Ipv6EndPointDemux *m_endPoints6; //!< A list of IPv6 end points.
   TypeId m_rttTypeId;              //!< The RTT Estimator TypeId

@@ -28,6 +28,7 @@
 #include "ns3/inet-socket-address.h"
 #include "ns3/inet6-socket-address.h"
 #include "ns3/mptcp-crypto.h"
+#include "ns3/sequence-number.h"
 #include <vector>
 
 /**
@@ -369,6 +370,8 @@ public:
     Ack    = 24   /**< Send sender full hmac */
   };
 
+  static TypeId GetTypeId (void);
+
   TcpOptionMpTcpJoin (void);
   virtual ~TcpOptionMpTcpJoin (void);
 
@@ -553,6 +556,12 @@ public:
    */
   virtual bool DataFinMappingOnly () const;
 
+
+  /**
+   *
+   */
+  virtual void TruncateDSS(bool truncate);
+
   /**
    * \brief This returns a copy
    * \warning Asserts if flags
@@ -561,14 +570,14 @@ public:
   // Disabled to remove dependancy towards MpTcpMapping
   // ToDo prepare a wrapper to create mapping from that
 //  MpTcpMapping GetMapping(void) const;
-  void GetMapping (uint64_t& dsn, uint32_t& ssn, uint16_t& length) const;
+  virtual void GetMapping (uint64_t& dsn, uint32_t& ssn, uint16_t& length) const;
 
   /**
    * \brief
    * \param trunc_to_32bits Set to true to send a 32bit DSN
    * \warn Mapping can be set only once, otherwise it will crash ns3
    */
-  virtual void SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
+  virtual void SetMapping (uint64_t headDsn, uint32_t headSsn, uint16_t length, bool enable_dfin);
 
   /**
    * \brief A DSS length depends on what content it embeds. This is defined by the flags.
@@ -591,8 +600,7 @@ public:
   *
   * \warning  check the flags to know if the returned value is a 32 or 64 bits DSN
   */
-  virtual uint64_t
-  GetDataAck (void) const;
+  virtual uint64_t GetDataAck (void) const;
 
   /**
    * \brief Unimplemented
@@ -610,7 +618,7 @@ public:
    * \param send_as_32bits Set to true to truncate final_dsn to its 32 bits version
    *
    */
-  virtual void AddDataFin (const uint64_t& final_dsn, const bool& send_as_32bits = false);
+//  virtual void AddDataFin ();
 
   /**
   * \return If DFIN is set, returns its associated DSN

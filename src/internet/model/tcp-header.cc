@@ -176,7 +176,7 @@ TcpHeader::GetUrgentPointer () const
   return m_urgentPointer;
 }
 
-void 
+void
 TcpHeader::InitializeChecksum (const Ipv4Address &source,
                                const Ipv4Address &destination,
                                uint8_t protocol)
@@ -186,7 +186,7 @@ TcpHeader::InitializeChecksum (const Ipv4Address &source,
   m_protocol = protocol;
 }
 
-void 
+void
 TcpHeader::InitializeChecksum (const Ipv6Address &source,
                                const Ipv6Address &destination,
                                uint8_t protocol)
@@ -196,7 +196,7 @@ TcpHeader::InitializeChecksum (const Ipv6Address &source,
   m_protocol = protocol;
 }
 
-void 
+void
 TcpHeader::InitializeChecksum (const Address &source,
                                const Address &destination,
                                uint8_t protocol)
@@ -247,6 +247,13 @@ TcpHeader::CalculateHeaderChecksum (uint16_t size) const
   it = buf.Begin ();
   /* we don't CompleteChecksum ( ~ ) now */
   return ~(it.CalculateIpChecksum (hdrSize));
+}
+
+
+void
+TcpHeader::GetOptions (TcpHeader::TcpOptionList& l) const
+{
+  l = m_options;
 }
 
 bool
@@ -478,21 +485,21 @@ TcpHeader::AppendOption (Ptr<TcpOption> option)
   return false;
 }
 
-Ptr<TcpOption>
-TcpHeader::GetOption (uint8_t kind) const
-{
-  TcpOptionList::const_iterator i;
-
-  for (i = m_options.begin (); i != m_options.end (); ++i)
-    {
-      if ((*i)->GetKind () == kind)
-        {
-          return (*i);
-        }
-    }
-
-  return 0;
-}
+//Ptr<TcpOption>
+//TcpHeader::GetOption (uint8_t kind) const
+//{
+//  TcpOptionList::const_iterator i;
+//
+//  for (i = m_options.begin (); i != m_options.end (); ++i)
+//    {
+//      if ((*i)->GetKind () == kind)
+//        {
+//          return (*i);
+//        }
+//    }
+//
+//  return 0;
+//}
 
 bool
 TcpHeader::HasOption (uint8_t kind) const

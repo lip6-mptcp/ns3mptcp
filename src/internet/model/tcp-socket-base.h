@@ -188,6 +188,8 @@ public:
 
   virtual SequenceNumber32 FirstUnackedSeq() const;
 
+  virtual TcpSocket::TcpStates_t GetState() const;
+
   /**
    * \brief Sets the Minimum RTO.
    * \param minRto The minimum RTO.
@@ -448,7 +450,8 @@ protected:
   void ForwardIcmp6 (Ipv6Address icmpSource, uint8_t icmpTtl, uint8_t icmpType, uint8_t icmpCode, uint32_t icmpInfo);
 
   /**
-   * \brief Send as much pending data as possible according to the Tx window.
+   * \brief Send as much pending data as possible according to the Tx
+   .
    *
    * Note that this function did not implement the PSH flag.
    *
@@ -680,7 +683,7 @@ protected:
    *
    * \param header TcpHeader from which to extract the new window value
    */
-  void UpdateWindowSize (const TcpHeader& header);
+  virtual bool UpdateWindowSize (const TcpHeader& header);
 
 
   // Manage data tx/rx
@@ -753,9 +756,7 @@ protected:
    * This method sequentially checks each kind of option, and if it
    * is present in the header, starts its processing.
    *
-   * To deal with hosts which don't have the option enabled (or
-   * implemented) we disable all options, and then re-enable them
-   * if in the packet there is the option itself.
+   * \note tcp_parse_options in the linux kernel
    *
    * \param tcpHeader the packet's TCP header
    */
@@ -778,7 +779,13 @@ protected:
    *
    * \param option Window scale option read from the header
    */
-  void ProcessOptionWScale (const Ptr<const TcpOption> option);
+  virtual void ProcessOptionWScale (const Ptr<const TcpOption> option);
+
+  /**
+   * Does nothing
+   */
+  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
+
   /**
    * \brief Add the window scale option to the header
    *
@@ -837,6 +844,13 @@ protected:
    */
   virtual void InitializeCwnd ();
 
+  /**
+   *
+   */
+  virtual Time ComputeRTO() const;
+
+
+
 protected:
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event
@@ -892,6 +906,7 @@ protected:
   TracedValue<SequenceNumber32> m_highRxMark;     //!< Highest seqno received
   TracedValue<SequenceNumber32> m_highRxAckMark;  //!< Highest ack received
   uint32_t                      m_bytesAckedNotProcessed;  //!< Bytes acked, but not processed
+  bool m_nullIsn;       //< Should the ISN be null ?
 
   // Options
   bool    m_winScalingEnabled;    //!< Window Scale option enabled
