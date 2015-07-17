@@ -85,9 +85,9 @@ public:
    * \param incomingInterface the incoming interface
    * \return list of IPv4EndPoints (could be 0 element)
    */
-  EndPoints Lookup (Ipv4Address daddr, 
-                    uint16_t dport, 
-                    Ipv4Address saddr, 
+  EndPoints Lookup (Ipv4Address daddr,
+                    uint16_t dport,
+                    Ipv4Address saddr,
                     uint16_t sport,
                     Ptr<Ipv4Interface> incomingInterface);
 
@@ -99,10 +99,16 @@ public:
    * \param sport source port to test
    * \return IPv4EndPoint (0 if not found)
    */
-  Ipv4EndPoint *SimpleLookup (Ipv4Address daddr, 
-                              uint16_t dport, 
-                              Ipv4Address saddr, 
+  Ipv4EndPoint *SimpleLookup (Ipv4Address daddr,
+                              uint16_t dport,
+                              Ipv4Address saddr,
                               uint16_t sport);
+
+  /**
+   * Returns endpoints with tokens
+   * \return list of it in case of token collisions
+   */
+//  EndPoints LookupMpTcpToken (Ipv4Address addr, uint32_t token);
 
   /**
    * \brief Allocate a Ipv4EndPoint.
@@ -140,9 +146,9 @@ public:
    * \param peerPort peer port
    * \return an Ipv4EndPoint instance
    */
-  Ipv4EndPoint *Allocate (Ipv4Address localAddress, 
+  Ipv4EndPoint *Allocate (Ipv4Address localAddress,
                           uint16_t localPort,
-                          Ipv4Address peerAddress, 
+                          Ipv4Address peerAddress,
                           uint16_t peerPort);
 
   /**

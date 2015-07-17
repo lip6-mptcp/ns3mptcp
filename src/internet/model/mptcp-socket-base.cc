@@ -2228,7 +2228,8 @@ MpTcpSocketBase::GenerateKey()
     m_nextTxSequence = (uint32_t)idsn;
   }
 
-  SetTxHead(m_nextTxSequence);
+//  SetTxHead(m_nextTxSequence);
+  m_firstTxUnack = m_nextTxSequence;
   m_highTxMark = m_nextTxSequence;
 
 

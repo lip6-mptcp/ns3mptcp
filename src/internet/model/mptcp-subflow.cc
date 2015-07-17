@@ -1158,7 +1158,8 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
       m_retxEvent.Cancel();
       m_rxBuffer->SetNextRxSequence(tcpHeader.GetSequenceNumber() + SequenceNumber32(1));
       m_highTxMark = ++m_nextTxSequence;
-      SetTxHead(m_nextTxSequence);
+//      SetTxHead(m_nextTxSequence);
+      m_firstTxUnack = m_nextTxSequence;
 
       // TODO support IPv6
       GetIdManager()->AddRemoteAddr(addressId, m_endPoint->GetPeerAddress(), m_endPoint->GetPeerPort() );
@@ -1349,8 +1350,9 @@ MpTcpSubflow::ProcessSynRcvd(Ptr<Packet> packet, const TcpHeader& tcpHeader, con
       m_connected = true;
       m_retxEvent.Cancel();
       m_highTxMark = ++m_nextTxSequence;
-      SetTxHead(m_nextTxSequence);
-
+//      SetTxHead(m_nextTxSequence);
+      m_txBuffer->SetHeadSequence (m_nextTxSequence);
+      m_firstTxUnack = m_nextTxSequence;
 //      NS_LOG_LOGIC("Updating receive window");
 //      GetMeta()->SetRemoteWindow(tcpHeader.GetWindowSize());
 
@@ -1421,7 +1423,9 @@ MpTcpSubflow::ProcessSynRcvd(Ptr<Packet> packet, const TcpHeader& tcpHeader, con
           m_connected = true;
           m_retxEvent.Cancel();
           m_highTxMark = ++m_nextTxSequence;
-          SetTxHead(m_nextTxSequence);
+//          SetTxHead(m_nextTxSequence);
+          m_txBuffer->SetHeadSequence (m_nextTxSequence);
+          m_firstTxUnack = m_nextTxSequence;
           if (m_endPoint)
             {
               m_endPoint->SetPeer(InetSocketAddress::ConvertFrom(fromAddress).GetIpv4(),

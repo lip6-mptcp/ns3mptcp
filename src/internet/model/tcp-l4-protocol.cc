@@ -42,6 +42,7 @@
 #include "tcp-socket-factory-impl.h"
 #include "tcp-socket-base.h"
 #include "mptcp-socket-base.h"
+#include "tcp-option-mptcp.h"
 #include "rtt-estimator.h"
 
 #include <vector>
@@ -446,6 +447,97 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
                                    incomingIpHeader.GetSource (),
                                    incomingTcpHeader.GetSourcePort (),
                                    incomingInterface);
+
+
+  /**
+  TODO clean this part, maybe TcpL4protocol should be reworked a bit
+  **/
+  if (endPoints.empty())
+  {
+      NS_LOG_LOGIC ("No Ipv4 endpoints matched on TcpL4Protocol, checking if it's a MPTCP JOIN"<<this);
+    // MPTCP related modification----------------------------
+    // Extract MPTCP options if there is any
+    Ptr<TcpOptionMpTcpJoin> join;
+//    if(GetTcpOption(incomingTcpHeader, join)) {
+//        endPoints = m_endPoints->Lookup (
+//    }
+    // If it is a SYN packet with an MP_JOIN option
+    if( (incomingTcpHeader.GetFlags() & TcpHeader::SYN)
+        && join->GetMode() == TcpOptionMpTcpJoin::Syn
+        && GetTcpOption(incomingTcpHeader, join)
+       )
+    {
+
+  //! We should find the token
+        NS_LOG_INFO("TODO find the TOKEN " << join->GetPeerToken()
+            << " among " << m_sockets.size() << " sockets "
+            );
+
+        /* We go through all the metas to find one with the correct token */
+        for(std::vector<Ptr<TcpSocketBase> >::iterator it = m_sockets.begin(), last(m_sockets.end());
+          it != last;
+          it++
+         )
+        {
+
+          Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>( *it );
+          Address addr;
+          (*it)->GetSockName(addr);
+          NS_LOG_DEBUG("Socket ipv4: " << InetSocketAddress::ConvertFrom(addr).GetIpv4() );
+          if(!meta) {
+            NS_LOG_DEBUG("this is not an mptcp socket");
+            continue;
+          }
+
+          if(meta->GetToken() != join->GetPeerToken() )
+          {
+            NS_LOG_DEBUG("Token " << meta->GetToken() << " differ from MP_JOIN token " << join->GetPeerToken());
+            continue;
+          }
+
+            // TODO check that
+            // ipHeader.GetDestination()
+            // belongs to the remote host !!
+            // for now we assume it is ok
+            NS_LOG_DEBUG("Found meta matching MP_JOIN token " << join->GetPeerToken());
+
+            Ipv4EndPoint *endP =  meta->NewSubflowRequest(
+                  incomingTcpHeader,
+                  InetSocketAddress(incomingIpHeader.GetSource(), incomingTcpHeader.GetSourcePort() ),
+                  InetSocketAddress(incomingIpHeader.GetDestination(), incomingTcpHeader.GetDestinationPort() ) ,
+                  join
+                  );
+
+            NS_LOG_DEBUG("value of endP=" << endP);
+//            Simulator::Schedule()
+            // Return RX_OK
+            // TODO check that it sends a RST otherwise
+            if(endP)
+            {
+              NS_LOG_DEBUG("subflow endpoint pushed in vector");
+              endPoints.push_back(endP);
+
+              // if we don't break here, then it will infintely loop, each time pushing a new SocketBase with a valid token
+              break;
+              //return IpL4Protocol::RX_OK;
+            }
+          }
+
+
+
+        }
+
+
+//        NS_ASSERT_MSG(endPoints.size () == 1, "Demux returned more or less than one endpoint");
+//        (*endPoints.begin())->ForwardUp(packet, ipHeader, tcpHeader.GetSourcePort(), incomingInterface);
+
+  //    }
+  //    else {
+  //      NS_LOG_DEBUG("Ignore MP_JOIN with state " << join->GetState());
+  //    }
+
+
+  }
 
   if (endPoints.empty ())
     {
