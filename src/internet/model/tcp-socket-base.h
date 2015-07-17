@@ -183,7 +183,7 @@ public:
    * \brief Set the first Tx byte not acknowledged yet
    * \param seq First byte unacknowledged
    */
-  virtual void SetTxHead(const SequenceNumber32& seq);
+//  virtual void SetTxHead(const SequenceNumber32& seq);
 
 
   virtual SequenceNumber32 FirstUnackedSeq() const;
