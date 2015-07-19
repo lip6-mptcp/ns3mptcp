@@ -87,6 +87,10 @@ TcpSocketBase::GetTypeId (void)
             //      MakeBooleanAccessor (&TcpSocketBase::SetQosSupported,&RegularWifiMac::GetQosSupported)
                    MakeBooleanAccessor (&TcpSocketBase::m_nullIsn),
                    MakeBooleanChecker ())
+    .AddAttribute ("EnableMpTcp", "Enable or disable MPTCP support",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpSocketBase::m_mptcpEnabled),
+                   MakeBooleanChecker ())
     .AddAttribute ("IcmpCallback", "Callback invoked whenever an icmp error is received on this socket.",
                    CallbackValue (),
                    MakeCallbackAccessor (&TcpSocketBase::m_icmpCallback),
@@ -325,6 +329,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_rWnd (sock.m_rWnd),
     m_highRxMark (sock.m_highRxMark),
     m_highRxAckMark (sock.m_highRxAckMark),
+    m_mptcpEnabled (sock.m_mptcpEnabled),
     m_winScalingEnabled (sock.m_winScalingEnabled),
     m_sndScaleFactor (sock.m_sndScaleFactor),
     m_rcvScaleFactor (sock.m_rcvScaleFactor),
@@ -1194,7 +1199,7 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
           h.SetDestinationPort (tcpHeader.GetSourcePort ());
 //          h.SetWindowSize (AdvertisedWindowSize ());
           // Do we really need that in a RST ?
-          AddOptions (h);
+//          AddOptions (h);
           SendPacket(h, Create<Packet> ());
 //          m_tcp->SendPacket (Create<Packet> (), h, toAddress, fromAddress, m_boundnetdevice);
         }
@@ -1954,6 +1959,9 @@ TcpSocketBase::SendPacket(TcpHeader header, Ptr<Packet> p)
       p->AddPacketTag (ipHopLimitTag);
     }
 
+  // TODO addOptions
+  AddOptions (header);
+
   if (m_endPoint != 0)
     {
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
@@ -1998,6 +2006,7 @@ TcpSocketBase::SendEmptyPacket (TcpHeader& header)
     }
 
   // RFC 6298, clause 2.4
+  // TODO GetRTO
   m_rto = Max (m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation ()*4), m_minRto);
   uint8_t flags = header.GetFlags();
   bool hasSyn = flags & TcpHeader::SYN;
@@ -2217,7 +2226,7 @@ TcpSocketBase::SendDataPacket (TcpHeader& header, SequenceNumber32 seq, uint32_t
     }
 
   header.SetSequenceNumber (seq);
-  AddOptions (header);
+//  AddOptions (header);
 
   if (m_retxEvent.IsExpired () )
     {
@@ -2891,7 +2900,11 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
               ScaleSsThresh (m_sndScaleFactor);
             }
             break;
-
+        case TcpOption::MPTCP:
+            {
+//                ProcessOptionMpTcp();
+            }
+            break;
         case TcpOption::TS:
             if (m_timestampEnabled)
             {
@@ -2911,10 +2924,71 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
 
 }
 
+bool
+TcpSocketBase::IsTcpOptionAllowed(TcpOption::Kind kind)
+{
+    return m_allowedOptions.find
+}
+
+
+uint64_t
+TcpSocketBase::GenerateUniqueMpTcpKey()
+{
+  // TODO rather use NS3 random generator
+  NS_ASSERT_MSG( m_mptcpLocalKey == 0, "Key already generated");
+
+  do {
+  //! arbitrary function, TODO replace with ns3 random gneerator
+  m_localKey = (rand() % 1000 + 1);
+
+  }
+  while(m_tcp->LookupToken())
+//  uint64_t idsn = 0;
+//  GenerateTokenForKey( HMAC_SHA1, m_localKey, m_localToken, idsn );
+//
+//  /**
+//
+//  /!\ seq nb must be 64 bits for mptcp but that would mean rewriting lots of code so
+//
+//  TODO add a SetInitialSeqNb member into TcpSocketBase
+//  **/
+//  if(m_nullIsn)
+//  {
+//    m_nextTxSequence = (uint32_t)0;
+//  }
+//  else
+//  {
+//    m_nextTxSequence = (uint32_t)idsn;
+//  }
+//
+////  SetTxHead(m_nextTxSequence);
+//  m_firstTxUnack = m_nextTxSequence;
+//  m_highTxMark = m_nextTxSequence;
+
+
+  // TODO update m_endPoint
+//  m_endPoint->m_mptcpLocalKey = m_localKey;
+//  m_endPoint->m_mptcpToken = m_localToken;
+
+  return m_localKey;
+}
+
+
 void
 TcpSocketBase::AddOptions (TcpHeader& header)
 {
   NS_LOG_FUNCTION (this << header);
+
+  if(m_mptcpEnabled && (GetState() && (header.GetFlags () & TcpHeader::SYN)))
+  {
+    // if token not generated yet
+    if(m_mptcpLocalKey == 0)
+    {
+        //!
+        m_mptcpLocalKey = GenerateUniqueMpTcpKey();
+
+    }
+  }
 
   // The window scaling option is set only on SYN packets
   if (m_winScalingEnabled && (header.GetFlags () & TcpHeader::SYN))

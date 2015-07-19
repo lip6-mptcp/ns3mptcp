@@ -172,35 +172,35 @@ MpTcpSubflow::CancelAllTimers()
 
 
 
-void
-MpTcpSubflow::SetSSThresh(uint32_t threshold)
-{
-  // TOODO there is a minimum value decided by meta
-  m_ssThresh = threshold;
-}
+//void
+//MpTcpSubflow::SetSSThresh(uint32_t threshold)
+//{
+//  // TOODO there is a minimum value decided by meta
+//  m_ssThresh = threshold;
+//}
 
 
-uint32_t
-MpTcpSubflow::GetSSThresh(void) const
-{
-//  return GetMeta()->GetSSThresh();
-  return m_ssThresh;
-}
+//uint32_t
+//MpTcpSubflow::GetSSThresh(void) const
+//{
+////  return GetMeta()->GetSSThresh();
+//  return m_ssThresh;
+//}
 
 /** TODO remve those 2, use the meta's **/
-void
-MpTcpSubflow::SetInitialCwnd(uint32_t cwnd)
-{
-  NS_LOG_WARN("NOOP: Use meta socket SetInitialCwnd instead");
-//  NS_ABORT_MSG_UNLESS(m_state == CLOSED, "MpTcpsocketBase::SetInitialCwnd() cannot change initial cwnd after connection started.");
-//  m_initialCWnd = cwnd;
-}
+//void
+//MpTcpSubflow::SetInitialCwnd(uint32_t cwnd)
+//{
+//  NS_LOG_WARN("NOOP: Use meta socket SetInitialCwnd instead");
+////  NS_ABORT_MSG_UNLESS(m_state == CLOSED, "MpTcpsocketBase::SetInitialCwnd() cannot change initial cwnd after connection started.");
+////  m_initialCWnd = cwnd;
+//}
 
-uint32_t
-MpTcpSubflow::GetInitialCwnd(void) const
-{
-  return GetMeta()->GetInitialCwnd();
-}
+//uint32_t
+//MpTcpSubflow::GetInitialCwnd(void) const
+//{
+//  return GetMeta()->GetInitialCwnd();
+//}
 
 
 

@@ -850,6 +850,11 @@ protected:
   virtual Time ComputeRTO() const;
 
 
+  /**
+   * Generate a unique key for this host
+   *
+   */
+  virtual uint64_t GenerateUniqueMpTcpKey() const;
 
 protected:
   // Counters and events
@@ -909,6 +914,10 @@ protected:
   bool m_nullIsn;       //< Should the ISN be null ?
 
   // Options
+  bool    m_mptcpEnabled;         //!< Window Scale option enabled
+  bool    m_mptcpLocalKey;        //!< MPTCP key
+  bool    m_mptcpLocalToken;      //!< Hash of the key
+
   bool    m_winScalingEnabled;    //!< Window Scale option enabled
   uint8_t m_sndScaleFactor;       //!< Sent Window Scale (i.e., the one of the node)
   uint8_t m_rcvScaleFactor;       //!< Received Window Scale (i.e., the one of the peer)

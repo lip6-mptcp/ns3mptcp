@@ -398,19 +398,19 @@ protected:
   virtual void
   ConnectionSucceeded(void);
 
-
-  /**
-   * \brief NOOP. Initial cwnd should be set by meta.
-   */
-  virtual void
-  SetSSThresh(uint32_t threshold);
-
-
-  /**
-   * \brief NOOP. Initial cwnd should be set by meta.
-   */
-  virtual void
-  SetInitialCwnd(uint32_t cwnd);
+//
+//  /**
+//   * \brief NOOP. Initial cwnd should be set by meta.
+//   */
+//  virtual void
+//  SetSSThresh(uint32_t threshold);
+//
+//
+//  /**
+//   * \brief NOOP. Initial cwnd should be set by meta.
+//   */
+//  virtual void
+//  SetInitialCwnd(uint32_t cwnd);
 
 
   /**
