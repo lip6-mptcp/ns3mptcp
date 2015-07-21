@@ -168,11 +168,6 @@ public:
                     uint8_t icmpType, uint8_t icmpCode,
                     uint32_t icmpInfo);
 
-  /**
-   * \brief MPTCP token key
-   */
-   uint32_t m_mptcpToken;
-
 private:
   /**
    * \brief ForwardUp wrapper.

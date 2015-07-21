@@ -159,7 +159,7 @@ TcpRxBuffer::Finished (void)
 bool
 TcpRxBuffer::Add (Ptr<Packet> p, TcpHeader const& tcph)
 {
-    Add (p, tcph.GetSequenceNumber());
+    return Add (p, tcph.GetSequenceNumber());
 }
 
 bool

@@ -489,7 +489,7 @@ def configure(conf):
     # These flags are used for the implicitly dependent modules.
     if env['ENABLE_STATIC_NS3']:
         if sys.platform == 'darwin':
-            env.STLIB_MARKER = '-Wl,-all_load'
+           env.STLIB_MARKER = '-Wl,-all_load'
         else:
             env.STLIB_MARKER = '-Wl,--whole-archive,-Bstatic'
             env.SHLIB_MARKER = '-Wl,-Bdynamic,--no-whole-archive'
@@ -504,6 +504,10 @@ def configure(conf):
 
     have_crypto = conf.check_cxx( msg="Checking for libgcrypt", lib="gcrypt",
         define_name="HAVE_CRYPTO", mandatory=False)
+    conf.env['HAVE_CRYPTO'] = have_crypto
+	output = subprocess.check_output(['libgcrypt-config --libs'])
+	print(output)
+	add_gcc_flag(output)
     conf.report_optional_feature("libgcrypt", "gcrypt library",
                                  have_crypto, "libgcrypt not found")
 

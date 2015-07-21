@@ -2386,7 +2386,8 @@ MpTcpSocketBase::OnSubflowCreated(Ptr<MpTcpSubflow> subflow)
   {
     NS_LOG_LOGIC("Master subflow created, copying its endpoint");
     m_endPoint = subflow->m_endPoint;
-    m_endPoint->m_mptcpToken = GetToken();
+
+//    m_endPoint->m_mptcpToken = GetToken();
     if(m_state == SYN_SENT || m_state == SYN_RCVD)
     {
       NS_LOG_LOGIC("Meta " << TcpStateName[m_state] << " -> ESTABLISHED");

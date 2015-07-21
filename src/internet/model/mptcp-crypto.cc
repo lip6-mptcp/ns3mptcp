@@ -51,7 +51,7 @@ void
 GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint64_t& idsn)
 {
 
-  NS_LOG_UNCOND("Generating token/key from key=" << key);
+  NS_LOG_LOGIC("Generating token/key from key=" << key);
 
 
 //  uint8_t digest[DIGEST_SIZE_IN_BYTES];
@@ -107,8 +107,8 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
     In the following, the idsn = the key (could be 0) and the token a truncated key
 
     */
-    idsn = 0;
-    token = key >> 32;
+    idsn = key;
+    token = (uint32_t)key;
 //    std::hash<std::string> hash_fn;
     // every hash_fn should return a size_t
 //    std::hash<uint64_t> hash_fn;

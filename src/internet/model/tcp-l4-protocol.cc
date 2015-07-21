@@ -444,7 +444,7 @@ TcpL4Protocol::LookupMpTcpToken (uint32_t token)
 
 
   //! We should find the token
-    NS_LOG_INFO("TODO find the TOKEN " << token
+    NS_LOG_INFO("token=" << token
         << " among " << m_sockets.size() << " sockets "
         );
 
@@ -466,6 +466,7 @@ TcpL4Protocol::LookupMpTcpToken (uint32_t token)
 
           if(meta->GetToken() == token)
           {
+              NS_LOG_DEBUG("Found match " << &meta);
               return meta;
 
     //        NS_LOG_DEBUG("Token " << meta->GetToken() << " differ from MP_JOIN token " << join->GetPeerToken());
@@ -474,6 +475,8 @@ TcpL4Protocol::LookupMpTcpToken (uint32_t token)
 
 
     }
+
+    return 0;
 }
 
 

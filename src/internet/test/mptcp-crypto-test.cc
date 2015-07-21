@@ -115,8 +115,13 @@ public:
       .nonceSynAck = 786372555,
       .expectedHmacSynAck = 17675966670101668951U,
       .expectedHmacAck = 0,
+      #ifdef HAVE_CRYPTO
       .expectedIdsnClient =2027218329290435821U,
       .expectedIdsnServer  = 14296996231892742347U
+      #else
+      .expectedIdsnClient = keyClient,
+      .expectedIdsnServer  = keyServer
+      #endif
     };
 
     AddTestCase( new MpTcpCryptoTest(c), QUICK );

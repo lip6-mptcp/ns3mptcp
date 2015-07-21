@@ -2581,7 +2581,7 @@ TcpSocketBase::EstimateRtt (const TcpHeader& tcpHeader)
 Time
 TcpSocketBase::ComputeRTO() const
 {
-    Max (m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation ()*4), m_minRto);
+    return Max (m_rtt->GetEstimate () + Max (m_clockGranularity, m_rtt->GetVariation ()*4), m_minRto);
 }
 
 // Called by the ReceivedAck() when new ACK received and by ProcessSynRcvd()
