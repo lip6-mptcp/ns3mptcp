@@ -65,14 +65,14 @@ public:
   but in the long term we should do as with single TCP and  replicate code in
   subclasses
   **/
-  virtual void OpenCwndInCA(uint32_t acked) = 0;
-  virtual void ReduceCwnd() = 0;
+//  virtual void OpenCwndInCA(uint32_t acked) = 0;
+//  virtual void ReduceCwnd() = 0;
 
   /**
    * \return Value defined by meta socket GetSSThresh
    */
-  virtual uint32_t
-  GetSSThresh(void) const;
+//  virtual uint32_t
+//  GetSSThresh(void) const;
 
   static TypeId
   GetTypeId(void);
@@ -95,11 +95,12 @@ public:
   **/
   MpTcpSubflow();
 
+  MpTcpSubflow(const TcpSocketBase& sock);
   MpTcpSubflow(const MpTcpSubflow&);
   virtual ~MpTcpSubflow();
 
-  TcpStates_t
-  GetState() const;
+//  TcpStates_t
+//  GetState() const;
 
   virtual uint32_t
   UnAckDataCount();
@@ -289,8 +290,8 @@ public:
   * \
   * Why do I need this already :/ ?
   */
-  virtual Ptr<MpTcpSubflow>
-  ForkAsSubflow(void) = 0;
+//  virtual Ptr<MpTcpSubflow>
+//  ForkAsSubflow(void) = 0;
 
   /**
   * This should
@@ -416,8 +417,8 @@ protected:
   /**
    * \return Value defined by meta socket GetInitialCwnd
    */
-  virtual uint32_t
-  GetInitialCwnd(void) const;
+//  virtual uint32_t
+//  GetInitialCwnd(void) const;
 
   int
   DoConnect();
@@ -484,8 +485,8 @@ protected:
   virtual void
   SendEmptyPacket(TcpHeader& header);
 
-  virtual Ptr<TcpSocketBase>
-  Fork(void); // Call CopyObject<> to clone me
+//  virtual Ptr<TcpSocketBase>
+//  Fork(void); // Call CopyObject<> to clone me
 
 
 // N'existe plus dans TcpSocketBase

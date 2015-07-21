@@ -849,12 +849,17 @@ protected:
    */
   virtual Time ComputeRTO() const;
 
+  /**
+   *
+   */
+  bool
+  IsTcpOptionAllowed(TcpOption::Kind kind) const;
 
   /**
    * Generate a unique key for this host
-   *
+   * \see mptcp_set_key_sk
    */
-  virtual uint64_t GenerateUniqueMpTcpKey() const;
+  virtual uint64_t GenerateUniqueMpTcpKey() ;
 
 protected:
   // Counters and events
@@ -914,6 +919,7 @@ protected:
   bool m_nullIsn;       //< Should the ISN be null ?
 
   // Options
+  bool    m_mptcpAllow;           //!< Window Scale option enabled
   bool    m_mptcpEnabled;         //!< Window Scale option enabled
   bool    m_mptcpLocalKey;        //!< MPTCP key
   bool    m_mptcpLocalToken;      //!< Hash of the key
@@ -922,6 +928,7 @@ protected:
   uint8_t m_sndScaleFactor;       //!< Sent Window Scale (i.e., the one of the node)
   uint8_t m_rcvScaleFactor;       //!< Received Window Scale (i.e., the one of the peer)
 
+  bool     m_acceptTimestamp;     //!< Timestamp option enabled
   bool     m_timestampEnabled;    //!< Timestamp option enabled
   uint32_t m_timestampToEcho;     //!< Timestamp to echo
 

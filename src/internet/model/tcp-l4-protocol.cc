@@ -48,6 +48,7 @@
 #include <vector>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 
 namespace ns3 {
 
@@ -88,7 +89,7 @@ TcpL4Protocol::GetTypeId (void)
     .AddAttribute ("SocketList", "The list of sockets associated to this protocol.",
                    ObjectVectorValue (),
                    MakeObjectVectorAccessor (&TcpL4Protocol::m_sockets),
-                   MakeObjectVectorChecker<TcpSocketBase> ())
+                   MakeObjectVectorChecker<TcpSocket> ())
   ;
   return tid;
 }
@@ -180,8 +181,15 @@ TcpL4Protocol::DoDispose (void)
   IpL4Protocol::DoDispose ();
 }
 
+
 Ptr<Socket>
 TcpL4Protocol::CreateSocket (TypeId congestionTypeId)
+{
+    return CreateSocket(congestionTypeId, TcpSocketBase::GetTypeId());
+}
+
+Ptr<Socket>
+TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
 {
   NS_LOG_FUNCTION_NOARGS ();
   ObjectFactory rttFactory;
@@ -192,14 +200,24 @@ TcpL4Protocol::CreateSocket (TypeId congestionTypeId)
   Ptr<RttEstimator> rtt = rttFactory.Create<RttEstimator> ();
   Ptr<TcpCongestionOps> algo = congestionAlgorithmFactory.Create<TcpCongestionOps> ();
   Ptr<TcpSocketBase> socket;
-  if(m_mptcpEnabled)
-  {
-    socket = CreateObject<MpTcpSocketBase> ();
-  }
-  else
-  {
-    socket = CreateObject<TcpSocketBase> ();
-  }
+
+  // TODO allocate the max between children of tcpsocketbase ?
+  MpTcpSocketBase *addr = new MpTcpSocketBase;
+  addr->~MpTcpSocketBase();
+
+//  if(m_mptcpEnabled)
+//  {
+    // MPTCP Meta
+
+
+    // now we should call the destructor ourself
+    TcpSocketBase *temp = new (addr) TcpSocketBase();
+    socket = CompleteConstruct(temp);
+//  }
+//  else
+//  {
+//    socket = CreateObject<TcpSocketBase> ();
+//  }
   socket->SetNode (m_node);
   socket->SetTcp (this);
   socket->SetRtt (rtt);
@@ -420,18 +438,18 @@ TcpL4Protocol::NoEndPointsFound (const TcpHeader &incomingHeader,
     }
 }
 
-Ptr<TcpSocketBase>
+Ptr<TcpSocket>
 TcpL4Protocol::LookupMpTcpToken (uint32_t token)
 {
 
 
   //! We should find the token
-    NS_LOG_INFO("TODO find the TOKEN " << join->GetPeerToken()
+    NS_LOG_INFO("TODO find the TOKEN " << token
         << " among " << m_sockets.size() << " sockets "
         );
 
     /* We go through all the metas to find one with the correct token */
-    for(std::vector<Ptr<TcpSocketBase> >::iterator it = m_sockets.begin(), last(m_sockets.end());
+    for(std::vector<Ptr<TcpSocket> >::iterator it = m_sockets.begin(), last(m_sockets.end());
       it != last;
       it++
      )
@@ -497,6 +515,7 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
     // MPTCP related modification----------------------------
     // Extract MPTCP options if there is any
     Ptr<TcpOptionMpTcpJoin> join;
+    Ptr<MpTcpSocketBase> meta;
 
     // If it is a SYN packet with an MP_JOIN option
     if( (incomingTcpHeader.GetFlags() & TcpHeader::SYN)
@@ -504,35 +523,32 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
         && GetTcpOption(incomingTcpHeader, join)
        )
     {
-        Ptr<MpTcpSocketBase> meta = LookupMpTcpToken(join->GetPeerToken());
-        if(!meta)
-            break;
+        meta = DynamicCast<MpTcpSocketBase>(LookupMpTcpToken(join->GetPeerToken()));
+        if(meta) {
 
-        NS_LOG_DEBUG("Found meta matching MP_JOIN token " << join->GetPeerToken());
 
-        Ipv4EndPoint *endP =  meta->NewSubflowRequest(
-              incomingTcpHeader,
-              InetSocketAddress(incomingIpHeader.GetSource(), incomingTcpHeader.GetSourcePort() ),
-              InetSocketAddress(incomingIpHeader.GetDestination(), incomingTcpHeader.GetDestinationPort() ) ,
-              join
-              );
+            NS_LOG_DEBUG("Found meta matching MP_JOIN token " << join->GetPeerToken());
 
-        NS_LOG_DEBUG("value of endP=" << endP);
-    //            Simulator::Schedule()
-        // Return RX_OK
-        // TODO check that it sends a RST otherwise
-        if(endP)
-        {
-          NS_LOG_DEBUG("subflow endpoint pushed in vector");
-          endPoints.push_back(endP);
+            Ipv4EndPoint *endP =  meta->NewSubflowRequest(
+                  incomingTcpHeader,
+                  InetSocketAddress(incomingIpHeader.GetSource(), incomingTcpHeader.GetSourcePort() ),
+                  InetSocketAddress(incomingIpHeader.GetDestination(), incomingTcpHeader.GetDestinationPort() ) ,
+                  join
+                  );
 
-          // if we don't break here, then it will infintely loop, each time pushing a new SocketBase with a valid token
-          break;
-          //return IpL4Protocol::RX_OK;
+            NS_LOG_DEBUG("value of endP=" << endP);
+
+            // TODO check that it sends a RST otherwise
+            if(endP)
+            {
+              NS_LOG_DEBUG("subflow endpoint pushed in vector");
+              endPoints.push_back(endP);
+
+              // if we don't break here, then it will infintely loop, each time pushing a new SocketBase with a valid token
+              //return IpL4Protocol::RX_OK;
+            }
         }
-
     }
-
 
 //        NS_ASSERT_MSG(endPoints.size () == 1, "Demux returned more or less than one endpoint");
 //        (*endPoints.begin())->ForwardUp(packet, ipHeader, tcpHeader.GetSourcePort(), incomingInterface);
@@ -788,27 +804,30 @@ TcpL4Protocol::SendPacket (Ptr<Packet> pkt, const TcpHeader &outgoing,
 }
 
 void
-TcpL4Protocol::AddSocket (Ptr<TcpSocketBase> socket)
+TcpL4Protocol::AddSocket (Ptr<TcpSocket> socket)
 {
-  std::vector<Ptr<TcpSocketBase> >::iterator it = m_sockets.begin ();
+//  std::vector<Ptr<TcpSocketBase> >::iterator it = m_sockets.begin ();
 
-  while (it != m_sockets.end ())
-    {
-      if (*it == socket)
-        {
-          return;
-        }
+//  while (it != m_sockets.end ())
+//    {
+//      if (*it == socket)
+//        {
+//          return;
+//        }
+//
+//      ++it;
+//    }
 
-      ++it;
-    }
-
-  m_sockets.push_back (socket);
+  std::vector<Ptr<TcpSocket> >::iterator it = std::find(m_sockets.begin(), m_sockets.end(), socket);
+  if (it == m_sockets.end())
+    m_sockets.push_back (socket);
 }
 
 bool
-TcpL4Protocol::RemoveSocket (Ptr<TcpSocketBase> socket)
+TcpL4Protocol::RemoveSocket (Ptr<TcpSocket> socket)
 {
-  std::vector<Ptr<TcpSocketBase> >::iterator it = m_sockets.begin ();
+  std::vector<Ptr<TcpSocket> >::iterator it = m_sockets.begin ();
+
 
   while (it != m_sockets.end ())
     {
@@ -822,6 +841,7 @@ TcpL4Protocol::RemoveSocket (Ptr<TcpSocketBase> socket)
     }
 
   return false;
+//  std::remove(m_sockets.begin(), m_sockets.end(), socket);
 }
 
 void

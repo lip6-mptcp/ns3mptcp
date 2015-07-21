@@ -50,6 +50,10 @@
 #include "tcp-option-winscale.h"
 #include "tcp-option-ts.h"
 #include "rtt-estimator.h"
+#include "mptcp-crypto.h"
+#include "mptcp-subflow.h"
+#include "mptcp-socket-base.h"
+#include "tcp-option-mptcp.h"
 
 #include <math.h>
 #include <algorithm>
@@ -1556,6 +1560,8 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       m_highTxMark = ++m_nextTxSequence;
       m_txBuffer->SetHeadSequence (m_nextTxSequence);
       m_firstTxUnack = m_nextTxSequence;
+
+
       if (m_endPoint)
         {
           m_endPoint->SetPeer (InetSocketAddress::ConvertFrom (fromAddress).GetIpv4 (),
@@ -1569,8 +1575,55 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       // Always respond to first data packet to speed up the connection.
       // Remove to get the behaviour of old NS-3 code.
       m_delAckCount = m_delAckMaxCount;
+      // TODO do it afterwards, schedule it for instance ?
       ReceivedAck (packet, tcpHeader);
+
+
+
+      // TODO copy this socket into a subflow
+      // or create
+//      Ptr<MpTcpSubflow> sf = CopyObject<MpTcpSubflow>();
+
+      if(IsTcpOptionAllowed(TcpOption::MPTCP))
+      {
+          //!
+          Ptr<TcpOptionMpTcpCapable> mpc;
+
+          if(GetTcpOption(tcpHeader, mpc))
+          {
+              if(mpc->HasReceiverKey())
+              {
+                  // This assumes that MPTCP handling can be done from socket base
+                  //<MpTcpSubflow>
+//                  Ptr<TcpSocketBase> master = Fork();
+                  Ptr<MpTcpSubflow> master =  CreateObject<MpTcpSubflow>(*this);
+            //      sf = *this;
+
+            //      void* addr = this;
+            // Ne pas appeler sinon désalloue le endpoint
+            //      this->~TcpSocketBase();
+
+                  MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
+                  // CreateSubflow et CreateSubflowAndCompleteFork existent
+            //      meta->m_subflows[Others].push_back( sf );
+            //      sf->SetMeta(meta);
+            //      sf->SendPendingData();
+
+                  // Renvoyer la meta ?
+                  NotifyNewConnectionCreated (this, fromAddress);
+                  //Schedule() le ProcessSynRcvd sur le master
+                  NS_LOG_UNCOND("MATT");
+            //      NS_LOG_UNCOND( typeof(this));
+                  NS_LOG_UNCOND( "Checksum " << dynamic_cast<MpTcpSocketBase*>(this)->GetToken());
+                  return;
+              }
+          }
+
+
+      }
+
       NotifyNewConnectionCreated (this, fromAddress);
+
       // As this connection is established, the socket is available to send data now
       if (GetTxAvailable () > 0)
         {
@@ -2917,17 +2970,34 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
             }
             break;
         default:
-            NS_LOG_WARN("Unsupported option [" << option->GetKind() << "]");
+            NS_LOG_WARN("Unsupported option [" << (int)option->GetKind() << "]");
             break;
       };
   }
 
 }
 
+// TODO add
+//IsTcpOptionEnabled()
+//{
+//
+//}
 bool
-TcpSocketBase::IsTcpOptionAllowed(TcpOption::Kind kind)
+TcpSocketBase::IsTcpOptionAllowed(TcpOption::Kind kind) const
 {
-    return m_allowedOptions.find
+    switch(kind)
+    {
+    case TcpOption::TS:
+        return m_timestampEnabled;
+    case TcpOption::WINSCALE:
+        return m_winScalingEnabled;
+    case TcpOption::MPTCP:
+        return m_mptcpEnabled;
+    default:
+        return false;
+    };
+
+
 }
 
 
@@ -2937,12 +3007,18 @@ TcpSocketBase::GenerateUniqueMpTcpKey()
   // TODO rather use NS3 random generator
   NS_ASSERT_MSG( m_mptcpLocalKey == 0, "Key already generated");
 
-  do {
-  //! arbitrary function, TODO replace with ns3 random gneerator
-  m_localKey = (rand() % 1000 + 1);
+  uint64_t localKey, idsn;
+  uint32_t localToken;
 
+  do {
+    //! arbitrary function, TODO replace with ns3 random gneerator
+    localKey = (rand() % 1000 + 1);
+    GenerateTokenForKey( HMAC_SHA1, localKey, localToken, idsn );
   }
-  while(m_tcp->LookupToken())
+  while(m_tcp->LookupMpTcpToken(localToken));
+
+  m_mptcpLocalToken = localToken;
+  m_mptcpLocalKey = localKey;
 //  uint64_t idsn = 0;
 //  GenerateTokenForKey( HMAC_SHA1, m_localKey, m_localToken, idsn );
 //
@@ -2970,7 +3046,7 @@ TcpSocketBase::GenerateUniqueMpTcpKey()
 //  m_endPoint->m_mptcpLocalKey = m_localKey;
 //  m_endPoint->m_mptcpToken = m_localToken;
 
-  return m_localKey;
+  return localKey;
 }
 
 

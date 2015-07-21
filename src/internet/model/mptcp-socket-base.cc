@@ -1231,6 +1231,8 @@ MpTcpSocketBase::CreateSubflow(bool masterSocket)
 // Subflow got no endpoint yet
   // TODO pass CC
 //  m_congestionControl->GetInstanceTypeId()
+//GetMpTcpSubflowTypeId
+//MpTcp::
   Ptr<Socket> sock = m_tcp->CreateSocket();
 
   Ptr<MpTcpSubflow> sFlow = DynamicCast<MpTcpSubflow>(sock);
@@ -1246,12 +1248,6 @@ MpTcpSocketBase::CreateSubflow(bool masterSocket)
   We need to update MPTCP level cwin every time a subflow window is updated,
   thus we resort to the tracing system to track subflows cwin
   **/
-  NS_ASSERT(sFlow->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this)));
-
-
-  //! We need to act on certain subflow state transitions according to doc "There is not a version with bound arguments."
-//  NS_ASSERT(sFlow->TraceConnect ("State", "State", MakeCallback(&MpTcpSocketBase::OnSubflowNewState, this)) );
-  NS_ASSERT(sFlow->TraceConnectWithoutContext ("State", MakeBoundCallback(&onSubflowNewState, this, sFlow)) );
 
 // this makes no sense *lol*
 //  sFlow->SetInitialCwnd( GetInitialCwnd() );  //! Could be done maybe in SetMeta ?
@@ -1263,6 +1259,31 @@ MpTcpSocketBase::CreateSubflow(bool masterSocket)
   NS_LOG_INFO ( "subflow " << sFlow << " associated with node " << sFlow->m_node);
   return sFlow;
 }
+
+//
+//  Ptr<MpTcpSubflow>
+//Ptr<MpTcpSubflow>
+void
+MpTcpSocketBase::AddSubflow(
+    Ptr<TcpSocketBase> sflow
+    )
+{
+
+  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
+  NS_ASSERT(sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this)));
+
+
+  //! We need to act on certain subflow state transitions according to doc "There is not a version with bound arguments."
+//  NS_ASSERT(sFlow->TraceConnect ("State", "State", MakeCallback(&MpTcpSocketBase::OnSubflowNewState, this)) );
+  NS_ASSERT(sf->TraceConnectWithoutContext ("State", MakeBoundCallback(&onSubflowNewState, this, sf)) );
+
+    //!
+    sf->SetMeta(this);
+    m_subflows[Others].push_back( sf );
+
+
+}
+
 
 
 /**

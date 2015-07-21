@@ -108,15 +108,15 @@ MpTcpSubflow::DumpInfo() const
           );
 }
 
-Ptr<TcpSocketBase>
-MpTcpSubflow::Fork(void)
-{
-  // Call CopyObject<> to clone me
-//  NS_LOG_ERROR("Not implemented");
-
-
-  return ForkAsSubflow();
-}
+//Ptr<TcpSocketBase>
+//MpTcpSubflow::Fork(void)
+//{
+//  // Call CopyObject<> to clone me
+////  NS_LOG_ERROR("Not implemented");
+//
+//
+//  return ForkAsSubflow();
+//}
 
 //Ptr<MpTcpSubflow>
 //MpTcpSubflow::ForkAsSubflow(void)
@@ -207,12 +207,12 @@ MpTcpSubflow::CancelAllTimers()
 
 
 
-TcpSocket::TcpStates_t
-MpTcpSubflow::GetState() const
-{
-  //!
-  return m_state;
-}
+//TcpSocket::TcpStates_t
+//MpTcpSubflow::GetState() const
+//{
+//  //!
+//  return m_state;
+//}
 
 
 int
@@ -282,6 +282,13 @@ MpTcpSubflow::Close(void)
 
 
 
+////!
+MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
+    : TcpSocketBase(sock)
+{
+    NS_LOG_FUNCTION (this << &sock);
+}
+
 // Does this constructor even make sense ? no ? to remove ?
 MpTcpSubflow::MpTcpSubflow(const MpTcpSubflow& sock)
   : TcpSocketBase(sock),
@@ -296,7 +303,7 @@ MpTcpSubflow::MpTcpSubflow(const MpTcpSubflow& sock)
 //    m_retxThresh (sock.m_retxThresh),
 //    m_inFastRec (false),
 {
-  NS_LOG_FUNCTION (this);
+  NS_LOG_FUNCTION (this << &sock);
   NS_LOG_LOGIC ("Invoked the copy constructor");
 }
 
@@ -617,8 +624,8 @@ MpTcpSubflow::Retransmit(void)
   m_nextTxSequence = m_txBuffer->HeadSequence (); // Restart from highest Ack
   NS_LOG_INFO ("RTO. "
 //               << m_rtt->RetransmitTimeout()
-               << " Reset cwnd to " << m_cWnd <<
-               ", ssthresh to " << GetSSThresh()
+               << " Reset cwnd to " << m_cWnd
+//               ", ssthresh to " << GetSSThresh()
                << ", restart from seqnum " << m_nextTxSequence
                );
 
@@ -730,7 +737,7 @@ MpTcpSubflow::ProcessListen(Ptr<Packet> packet, const TcpHeader& tcpHeader, cons
 
   // Clone the socket, simulate fork
 //  Ptr<MpTcpSubflow> newSock = Fork();
-  Ptr<MpTcpSubflow> newSock = ForkAsSubflow();
+  Ptr<MpTcpSubflow> newSock = DynamicCast<MpTcpSubflow>(Fork());
   NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
   // TODO TcpSocketBase::
   Simulator::ScheduleNow(
@@ -1774,7 +1781,7 @@ MpTcpSubflow::NewAck(SequenceNumber32 const& ack)
 
       // Congestion avoidance mode, increase by (segSize*segSize)/cwnd. (RFC2581, sec.3.1)
 //
-      OpenCwndInCA(0);
+//      OpenCwndInCA(0);
 
       // To increase cwnd for one segSize per RTT, it should be (ackBytes*segSize)/cwnd
 //      double adder = static_cast<double> (m_segmentSize * m_segmentSize) / m_cWnd.Get ();

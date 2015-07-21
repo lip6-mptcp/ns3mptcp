@@ -51,6 +51,19 @@ class OutputStreamWrapper;
 
 
 /**
+TODO move all the supplementary stuff to MpTcpSocketState
+
+*/
+class MpTcpSocketState : TcpSocketState
+{
+
+public:
+    MpTcpSocketState();
+    ~MpTcpSocketState();
+
+};
+
+/**
  * \class MpTcpSocketBase
 
 This is the MPTCP meta socket the application talks with
@@ -78,7 +91,7 @@ and the second time when it sees
 
 TODO:
 -rename in MetaSocket ?
--should inherit from TcpSocket rather TcpSocketBase
+-Ideally it could & should inherit from TcpSocket rather TcpSocketBase
 -should use 64 bits based buffer / sq nb
 -the children should parse MPTCP option and relay them to the father
 //  ProcessJoin(Ptr<TcpOptionMpTcpJoin>, Ptr<MpTcpSubflow> sf);
@@ -337,6 +350,11 @@ public:
   Ptr<MpTcpSubflow> CreateSubflow(
     bool masterSocket
     );
+
+   void AddSubflow(
+    Ptr<TcpSocketBase> sf
+    );
+
 
   // Path management related functions
 
