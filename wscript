@@ -311,6 +311,8 @@ def configure(conf):
         env.append_value('LINKFLAGS', '-lgcov')
         env.append_value('LINKFLAGS', '-coverage')
 
+    #env.append_value('LINKFLAGS', '-lgcrypt')
+
     if Options.options.build_profile == 'debug':
         env.append_value('DEFINES', 'NS3_ASSERT_ENABLE')
         env.append_value('DEFINES', 'NS3_LOG_ENABLE')
@@ -502,18 +504,60 @@ def configure(conf):
                                  conf.env['ENABLE_GSL'],
                                  "GSL not found")
 
+#https://groups.google.com/forum/#!searchin/waf-users/link$20order/waf-users/DrkpsGnnpGw/aQVgeud37QkJ
     have_crypto = conf.check_cxx( msg="Checking for libgcrypt", lib="gcrypt",
-        define_name="HAVE_CRYPTO", mandatory=False)
+		define_name="HAVE_CRYPTO", mandatory=False)
+    have_crypto = True
     conf.env['HAVE_CRYPTO'] = have_crypto
-	output = subprocess.check_output(['libgcrypt-config --libs'])
-	print(output)
-	add_gcc_flag(output)
+	#output = subprocess.check_output(['libgcrypt-config --libs'])
+	#print(output)
+	#add_gcc_flag(output)
     conf.report_optional_feature("libgcrypt", "gcrypt library",
                                  have_crypto, "libgcrypt not found")
 
+    #@feature('c', 'cxx', 'd', 'fc', 'javac', 'cs', 'uselib', 'asm')                                                                       
+    #@after_method('process_use')
+    def my_propagate_uselib_vars(self):
+            """
+            Process uselib variables for adding flags. For example, the following target::
+
+                    def build(bld):
+                            bld.env.AFLAGS_aaa = ['bar']
+                            from waflib.Tools.ccroot import USELIB_VARS
+                            USELIB_VARS['aaa'] = set('AFLAGS')
+
+                            tg = bld(features='aaa', aflags='test')
+
+            The *aflags* attribute will be processed and this method will set::
+
+                            tg.env.AFLAGS = ['bar', 'test']
+            """
+            _vars = self.get_uselib_vars()
+            env = self.env
+            app = env.append_value
+            feature_uselib = self.features + self.to_list(getattr(self, 'uselib', []))
+            for var in _vars:
+                    y = var.lower()
+                    val = getattr(self, y, [])
+                    if val:
+                            app(var, self.to_list(val))
+
+                    for x in feature_uselib:
+                            val = env['%s_%s' % (var, x)]
+                            if val:
+                                    app(var, val)
+                    print("Val=", val)
+    setattr(TaskGen.task_gen, 'propagate_uselib_vars', my_propagate_uselib_vars)
+
+    @TaskGen.feature('my_precious')
+    @TaskGen.after('apply_link')
+    def i_mess_with_the_link_flags(self):
+        print("toto")
+        self.link_task.env.LINKFLAGS.insert("-lgcrypt",0)
 
     # for compiling C code, copy over the CXX* flags
     conf.env.append_value('CCFLAGS', conf.env['CXXFLAGS'])
+    #setattr(TaskGen.task_gen, 'apply_lib_vars', my_apply_lib_vars)
 
     def add_gcc_flag(flag):
         if env['COMPILER_CXX'] == 'g++' and 'CXXFLAGS' not in os.environ:
@@ -631,7 +675,7 @@ def create_ns3_program(bld, name, dependencies=('core',)):
             # All ELF platforms are impacted but only the gcc compiler has a flag to fix it.
             if 'gcc' in (program.env.CXX_NAME, program.env.CC_NAME):
                 program.env.append_value ('SHLIB_MARKER', '-Wl,--no-as-needed')
-
+    program.env.append_value("LINKFLAGS","-lgcrypt")
     return program
 
 def register_ns3_script(bld, name, dependencies=('core',)):
@@ -651,7 +695,7 @@ def add_scratch_programs(bld):
     all_modules = [mod[len("ns3-"):] for mod in bld.env['NS3_ENABLED_MODULES']]
     for filename in os.listdir("scratch"):
         if filename.startswith('.') or filename == 'CVS':
-	    continue
+		continue
         if os.path.isdir(os.path.join("scratch", filename)):
             obj = bld.create_ns3_program(filename, all_modules)
             obj.path = obj.path.find_dir('scratch').find_dir(filename)

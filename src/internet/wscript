@@ -101,10 +101,14 @@ def configure(conf):
     else:
         conf.report_optional_feature("nsc", "Network Simulation Cradle", True, "")
 
+    # conf.env.append_value ( "LINKFLAGS", " -lgcrypt" )
 
 def build(bld):
     # bridge and mpi dependencies are due to global routing
+    #print(bld.env.LINKFLAGS)
+    #bld.env.LINKFLAGS.insert(0," -lgcrypt" )
     obj = bld.create_ns3_module('internet', ['bridge', 'mpi', 'network', 'core'])
+    #obj.uselib = "gcrypt"
     obj.source = [
         'model/ip-l4-protocol.cc',
         'model/udp-header.cc',
