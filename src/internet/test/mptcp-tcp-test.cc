@@ -420,7 +420,7 @@ MpTcpTestCase::SetupDefaultSim (void)
   p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
   p2p.SetChannelAttribute ("Delay", StringValue ("10ms"));
   NetDeviceContainer cont = p2p.Install(node0,node1);
-  p2p.EnablePcapAll("test", true);
+  p2p.EnablePcapAll("mptcp-tcp", true);
 
   Ipv4AddressHelper ipv4;
   ipv4.SetBase(ipaddr0,netmask);
@@ -571,7 +571,7 @@ public:
     // 4) server write size, and 5) server read size
     // with units of bytes
     AddTestCase (new MpTcpTestCase (13, 200, 200, 200, 200, false), TestCase::QUICK);
-    AddTestCase (new MpTcpTestCase (13, 1, 1, 1, 1, false), TestCase::QUICK);
+//    AddTestCase (new MpTcpTestCase (13, 1, 1, 1, 1, false), TestCase::QUICK);
 //    AddTestCase (new MpTcpTestCase (100000, 100, 50, 100, 20, false), TestCase::QUICK);
 
 // here it's a test where I lower streamsize to see where it starts failing.

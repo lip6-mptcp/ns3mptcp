@@ -83,7 +83,7 @@ void
 MpTcpSubflow::SetMeta(Ptr<MpTcpSocketBase> metaSocket)
 {
   NS_ASSERT(metaSocket);
-  NS_ASSERT(m_state == CLOSED);
+//  NS_ASSERT(m_state == CLOSED);
   NS_LOG_FUNCTION(this);
   m_metaSocket = metaSocket;
 
@@ -230,7 +230,7 @@ MpTcpSubflow::DoConnect()
 
       // code moved inside SendEmptyPacket
 
-      AppendMpTcp3WHSOption(header);
+      AddOptionMpTcp3WHS(header);
 
       TcpSocketBase::SendEmptyPacket(header);
 //      NS_ASSERT( header.)
@@ -282,9 +282,12 @@ MpTcpSubflow::Close(void)
 
 
 
-////!
+/*
+If copied from a legacy socket, then it's a master socket
+*/
 MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
-    : TcpSocketBase(sock)
+    : TcpSocketBase(sock),
+    m_masterSocket(true)
 {
     NS_LOG_FUNCTION (this << &sock);
 }
@@ -295,7 +298,7 @@ MpTcpSubflow::MpTcpSubflow(const MpTcpSubflow& sock)
   m_cWnd(sock.m_cWnd),
   m_ssThresh(sock.m_ssThresh),
   m_initialCWnd (sock.m_initialCWnd),
-  m_masterSocket(sock.m_masterSocket),
+  m_masterSocket(sock.m_masterSocket),  //!false
   m_localNonce(sock.m_localNonce)
 
 // , m_remoteToken(sock.m_remoteToken)
@@ -788,9 +791,36 @@ MpTcpSubflow::ProcessEstablished(Ptr<Packet> packet, const TcpHeader& header)
   TcpSocketBase::ProcessEstablished(packet,header);
 }
 
+
+void
+MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
+{
+    NS_LOG_FUNCTION(this);
+    // TODO look for the mapping
+    if((header.GetFlags () & TcpHeader::SYN))
+    {
+//         if token not generated yet
+//        if(m_mptcpLocalKey == 0)
+//        {
+//            !
+//            m_mptcpLocalKey = GenerateUniqueMpTcpKey();
+//        }
+        // Append the MPTCP capable option
+//        Ptr<TcpOptionMpTcpCapable> mpc = CreateObject<TcpOptionMpTcpCapable>();
+//        mpc->SetSenderKey( m_mptcpLocalKey );
+//        header.AppendOption(mpc);
+        //!
+        // TODO assert on the state ?
+//    case LISTEN:
+//    case SYNRCVD:
+//    case SYNSENT:
+        AddOptionMpTcp3WHS(header);
+//        break;
+    }
+}
+
 /**
 I ended up duplicating this code to update the meta r_Wnd, which would have been hackish otherwise
-
 **/
 void
 MpTcpSubflow::DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface)
@@ -981,59 +1011,7 @@ MpTcpSubflow::CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fro
   NS_LOG_INFO( this << "Completing fork of MPTCP subflow");
   // Get port and address from peer (connecting host)
   // TODO upstream ns3 should assert that to and from Address are of the same kind
-
-    if (InetSocketAddress::IsMatchingType(toAddress))
-      {
-        m_endPoint = m_tcp->Allocate(InetSocketAddress::ConvertFrom(toAddress).GetIpv4(),
-            InetSocketAddress::ConvertFrom(toAddress).GetPort(), InetSocketAddress::ConvertFrom(fromAddress).GetIpv4(),
-            InetSocketAddress::ConvertFrom(fromAddress).GetPort());
-        m_endPoint6 = 0;
-      }
-    else if (Inet6SocketAddress::IsMatchingType(toAddress))
-      {
-        m_endPoint6 = m_tcp->Allocate6(Inet6SocketAddress::ConvertFrom(toAddress).GetIpv6(),
-            Inet6SocketAddress::ConvertFrom(toAddress).GetPort(), Inet6SocketAddress::ConvertFrom(fromAddress).GetIpv6(),
-            Inet6SocketAddress::ConvertFrom(fromAddress).GetPort());
-        m_endPoint = 0;
-      }
-
-//    m_tcp->m_sockets.push_back(this);
-
-//  if(IsMaster())
-//  {
-//
-//    NS_LOG_LOGIC("Is master, setting endpoint token");
-//
-//  }
-
-  // Change the cloned socket from LISTEN state to SYN_RCVD
-  NS_LOG_INFO ( TcpStateName[m_state] << " -> SYN_RCVD");
-  m_state = SYN_RCVD;
-  m_cnCount = m_cnRetries;
-
-  InitializeCwnd();
-
-  SetupCallback();
-
-  // TODO make it so that m_txBuffer becomes useless (it is used only to assign
-  // SSN <-> DSN mappings
-//  m_TxMappings.m_txBuffer = &m_txBuffer;
-//  m_RxMappings.m_rxBuffer = &m_rxBuffer;
-
-  // Set the sequence number and send SYN+ACK (ok)
-  m_rxBuffer->SetNextRxSequence(h.GetSequenceNumber() + SequenceNumber32(1));
-
-
-
-  TcpHeader answerHeader;
-  GenerateEmptyPacketHeader(answerHeader, TcpHeader::SYN | TcpHeader::ACK );
-
-
-
-  AppendMpTcp3WHSOption(answerHeader);
-
-//  NS_ASSERT( answerHeader.HasOption(TcpOption::P))
-  SendEmptyPacket(answerHeader);
+  TcpSocketBase::CompleteFork(p, h, fromAddress, toAddress);
 }
 
 Ptr<MpTcpPathIdManager>
@@ -1043,18 +1021,18 @@ MpTcpSubflow::GetIdManager()
 }
 
 
-void
-MpTcpSubflow::InitializeCwnd (void)
-{
-  NS_LOG_LOGIC(this << "InitialCWnd:" << m_initialCWnd << " SegmentSize:" << GetSegSize());
-  /*
-   * Initialize congestion window, default to 1 MSS (RFC2001, sec.1) and must
-   * not be larger than 2 MSS (RFC2581, sec.3.1). Both m_initiaCWnd and
-   * m_segmentSize are set by the attribute system in ns3::TcpSocket.
-   */
-  m_cWnd = GetInitialCwnd() * GetSegSize();
-  NS_LOG_DEBUG("m_cWnd set to " << m_cWnd);
-}
+//void
+//MpTcpSubflow::InitializeCwnd (void)
+//{
+//  NS_LOG_LOGIC(this << "InitialCWnd:" << m_initialCWnd << " SegmentSize:" << GetSegSize());
+//  /*
+//   * Initialize congestion window, default to 1 MSS (RFC2001, sec.1) and must
+//   * not be larger than 2 MSS (RFC2581, sec.3.1). Both m_initiaCWnd and
+//   * m_segmentSize are set by the attribute system in ns3::TcpSocket.
+//   */
+//  m_cWnd = GetInitialCwnd() * GetSegSize();
+//  NS_LOG_DEBUG("m_cWnd set to " << m_cWnd);
+//}
 
 
 /**
@@ -1115,6 +1093,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 
       uint8_t addressId = 0;
 
+      // TODO move that to MpTcpSubflow
       // Check cryptographic materials
       if( IsMaster())
       {
@@ -1128,7 +1107,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 
         // Expect an MP_CAPABLE option
         Ptr<TcpOptionMpTcpCapable> mpcRcvd;
-        NS_ASSERT_MSG( GetMpTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
+        NS_ASSERT_MSG( GetTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
 
         GetMeta()->SetPeerKey( mpcRcvd->GetSenderKey() );
 
@@ -1153,7 +1132,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         Ptr<TcpOptionMpTcpJoin> join;
         // TODO should be less restrictive in case there is a loss
 
-        NS_ASSERT_MSG( GetMpTcpOption(tcpHeader, join), "There must be an MP_JOIN option in the SYN Packet" );
+        NS_ASSERT_MSG( GetTcpOption(tcpHeader, join), "There must be an MP_JOIN option in the SYN Packet" );
         NS_ASSERT_MSG( join && join->GetMode() == TcpOptionMpTcpJoin::SynAck, "the MPTCP join option received is not of the expected 1 out of 3 MP_JOIN types." );
 
         addressId = join->GetAddressId();
@@ -1173,7 +1152,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 
       TcpHeader answerHeader;
       GenerateEmptyPacketHeader(answerHeader, TcpHeader::ACK);
-      AppendMpTcp3WHSOption(answerHeader);
+      AddOptionMpTcp3WHS(answerHeader);
 
       NS_LOG_INFO ("SYN_SENT -> ESTABLISHED");
       m_state = ESTABLISHED;
@@ -1229,12 +1208,86 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 //
 //  }
 //}
+void
+MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
+{
+   #if 0
+      if( IsMaster())
+      {
+        /**
+        * Here is how the MPTCP 3WHS works:
+        *  o  SYN (A->B): A's Key for this connection.
+        *  o  SYN/ACK (B->A): B's Key for this connection.
+        *  o  ACK (A->B): A's Key followed by B's Key.
+        *
+        */
 
+        // Expect an MP_CAPABLE option
+        Ptr<TcpOptionMpTcpCapable> mpcRcvd;
+        NS_ASSERT_MSG( GetTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
+
+        GetMeta()->SetPeerKey( mpcRcvd->GetSenderKey() );
+
+      }
+      else
+      {
+        /**
+               |             |   SYN + MP_JOIN(Token-B, R-A)  |
+               |             |------------------------------->|
+               |             |<-------------------------------|
+               |             | SYN/ACK + MP_JOIN(HMAC-B, R-B) |
+               |             |                                |
+               |             |     ACK + MP_JOIN(HMAC-A)      |
+               |             |------------------------------->|
+               |             |<-------------------------------|
+               |             |             ACK                |
+
+         HMAC-A = HMAC(Key=(Key-A+Key-B), Msg=(R-A+R-B))
+         HMAC-B = HMAC(Key=(Key-B+Key-A), Msg=(R-B+R-A))
+          */
+
+        Ptr<TcpOptionMpTcpJoin> join;
+        // TODO should be less restrictive in case there is a loss
+
+        NS_ASSERT_MSG( GetTcpOption(tcpHeader, join), "There must be an MP_JOIN option in the SYN Packet" );
+        NS_ASSERT_MSG( join && join->GetMode() == TcpOptionMpTcpJoin::SynAck, "the MPTCP join option received is not of the expected 1 out of 3 MP_JOIN types." );
+
+        addressId = join->GetAddressId();
+        // TODO Here we should check the tokens
+//        uint8_t buf[20] =
+//        opt3->GetTruncatedHmac();
+      }
+  #endif
+
+}
+
+
+void
+MpTcpSubflow::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
+{
+    //!
+    NS_LOG_DEBUG("Does nothing");
+    switch(m_state)
+    {
+        //!
+    case LISTEN:
+    case SYN_RCVD:
+        ProcessOptionMpTcpSynSent(option);
+        break;
+    case SYN_SENT:
+        ProcessOptionMpTcpSynSent(option);
+//        AddOptionMpTcp3WHS(TcpHeader& hdr);
+        break;
+
+    default:
+        break;
+    };
+}
 
 //TcpOptionMpTcpJoin::State
 // TODO move to meta and adapt meta state
 void
-MpTcpSubflow::AppendMpTcp3WHSOption(TcpHeader& hdr) const
+MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
 {
   //NS_ASSERT(m_state == SYN_SENT || m_state == SYN_RCVD);
   NS_LOG_FUNCTION(this << hdr);
@@ -1334,7 +1387,23 @@ MpTcpSubflow::NotifySend (uint32_t spaceAvailable)
   GetMeta()->NotifySend(spaceAvailable);
 }
 
+
+/*
+if one looks at the linux kernel, tcp_synack_options
+*/
+
+
+void
+MpTcpSubflow::ProcessSynRcvd(Ptr<Packet> packet, const TcpHeader& tcpHeader, const Address& fromAddress,
+    const Address& toAddress)
+{
+  //!
+  NS_LOG_FUNCTION (this << tcpHeader);
+
+}
+
 // TODO and normally I should wait for a fourth ack
+#if 0
 void
 MpTcpSubflow::ProcessSynRcvd(Ptr<Packet> packet, const TcpHeader& tcpHeader, const Address& fromAddress,
     const Address& toAddress)
@@ -1492,7 +1561,7 @@ MpTcpSubflow::ProcessSynRcvd(Ptr<Packet> packet, const TcpHeader& tcpHeader, con
 //  TcpSocketBase::ProcessSynRcvd( packet, tcpHeader, fromAddress, toAddress);
 
 }
-
+#endif
 bool
 MpTcpSubflow::SendPendingData(bool withAck)
 {

@@ -302,6 +302,22 @@ def configure(conf):
 
     env = conf.env
 
+    #have_crypto = False
+#    conf.env['HAVE_CRYPTO'] = have_crypto
+    #def debug_matt():
+        #print(conf.env['HAVE_GCRYPT']) 
+        #print(conf.env.LIB_GCRYPT)
+        #print(conf.env.LIBPATH_GCRYPT)
+        #print(conf.env.INCLUDES_GCRYPT)
+
+    #debug_matt()
+    conf.env.LIB_GCRYPT = ['gcrypt']
+    conf.env.HAVE_GCRYPT = True
+    #conf.env.LIBPATH_GCRYPT = ['/folder/to/gcrypt/lib']
+    #conf.env.INCLUDES_GCRYPT = ['/folder/to/gcrypt/includes']
+    #debug_matt()
+
+
     if Options.options.enable_gcov:
         env['GCOV_ENABLED'] = True
         env.append_value('CCFLAGS', '-fprofile-arcs')
@@ -311,7 +327,6 @@ def configure(conf):
         env.append_value('LINKFLAGS', '-lgcov')
         env.append_value('LINKFLAGS', '-coverage')
 
-    #env.append_value('LINKFLAGS', '-lgcrypt')
 
     if Options.options.build_profile == 'debug':
         env.append_value('DEFINES', 'NS3_ASSERT_ENABLE')
@@ -504,56 +519,71 @@ def configure(conf):
                                  conf.env['ENABLE_GSL'],
                                  "GSL not found")
 
+
+
 #https://groups.google.com/forum/#!searchin/waf-users/link$20order/waf-users/DrkpsGnnpGw/aQVgeud37QkJ
     have_crypto = conf.check_cxx( msg="Checking for libgcrypt", lib="gcrypt",
 		define_name="HAVE_CRYPTO", mandatory=False)
-    have_crypto = True
-    conf.env['HAVE_CRYPTO'] = have_crypto
-	#output = subprocess.check_output(['libgcrypt-config --libs'])
+		# doc here https://waf.io/apidocs/tools/c_config.html#waflib.Tools.c_config.check_cfg
+    #have_crypto = conf.check_cfg(path='libgcrypt-config', args='--libs', package="GCRYPT",
+         #uselib_store='GCRYPT', mandatory=False, msg="gcrypt check", okmsg=" libgcrypt found", errmsg=" erreur" ,
+    conf.env['HAVE_CRYPTO'] = True
+         #define_name="HAVE_CRYPTO")
+#output = subprocess.check_output(['libgcrypt-config --libs'])
 	#print(output)
 	#add_gcc_flag(output)
     conf.report_optional_feature("libgcrypt", "gcrypt library",
                                  have_crypto, "libgcrypt not found")
 
-    #@feature('c', 'cxx', 'd', 'fc', 'javac', 'cs', 'uselib', 'asm')                                                                       
-    #@after_method('process_use')
-    def my_propagate_uselib_vars(self):
-            """
-            Process uselib variables for adding flags. For example, the following target::
 
-                    def build(bld):
-                            bld.env.AFLAGS_aaa = ['bar']
-                            from waflib.Tools.ccroot import USELIB_VARS
-                            USELIB_VARS['aaa'] = set('AFLAGS')
+#@before('apply_link')
+#def _custom_link(self):
+        #link_str = '${LINK_CXX} ${CXXLNK_SRC_F}${SRC} ${CXXLNK_TGT_F}${TGT}'
 
-                            tg = bld(features='aaa', aflags='test')
+                ## resolve circular references between libraries
+                        #link_str += ' -Wl,--start-group ${LINKFLAGS} -Wl,--end-group'
 
-            The *aflags* attribute will be processed and this method will set::
+    #Task.simple_task_type('CUSTOM_LINK', link_str, color='YELLOW', ext_in='.o')
+        #self.link = 'CUSTOM_LINK'
+    ##@feature('c', 'cxx', 'd', 'fc', 'javac', 'cs', 'uselib', 'asm')                                                                       
+    ##@after_method('process_use')
+    #def my_propagate_uselib_vars(self):
+            #"""
+            #Process uselib variables for adding flags. For example, the following target::
 
-                            tg.env.AFLAGS = ['bar', 'test']
-            """
-            _vars = self.get_uselib_vars()
-            env = self.env
-            app = env.append_value
-            feature_uselib = self.features + self.to_list(getattr(self, 'uselib', []))
-            for var in _vars:
-                    y = var.lower()
-                    val = getattr(self, y, [])
-                    if val:
-                            app(var, self.to_list(val))
+                    #def build(bld):
+                            #bld.env.AFLAGS_aaa = ['bar']
+                            #from waflib.Tools.ccroot import USELIB_VARS
+                            #USELIB_VARS['aaa'] = set('AFLAGS')
 
-                    for x in feature_uselib:
-                            val = env['%s_%s' % (var, x)]
-                            if val:
-                                    app(var, val)
-                    print("Val=", val)
-    setattr(TaskGen.task_gen, 'propagate_uselib_vars', my_propagate_uselib_vars)
+                            #tg = bld(features='aaa', aflags='test')
 
-    @TaskGen.feature('my_precious')
-    @TaskGen.after('apply_link')
-    def i_mess_with_the_link_flags(self):
-        print("toto")
-        self.link_task.env.LINKFLAGS.insert("-lgcrypt",0)
+            #The *aflags* attribute will be processed and this method will set::
+
+                            #tg.env.AFLAGS = ['bar', 'test']
+            #"""
+            #_vars = self.get_uselib_vars()
+            #env = self.env
+            #app = env.append_value
+            #feature_uselib = self.features + self.to_list(getattr(self, 'uselib', []))
+            #for var in _vars:
+                    #y = var.lower()
+                    #val = getattr(self, y, [])
+                    #if val:
+                            #app(var, self.to_list(val))
+
+                    #for x in feature_uselib:
+                            #val = env['%s_%s' % (var, x)]
+                            #if val:
+                                    #app(var, val)
+                    #print("Val=", val)
+    #setattr(TaskGen.task_gen, 'propagate_uselib_vars', my_propagate_uselib_vars)
+
+    #@TaskGen.feature('my_precious')
+    #@TaskGen.after('apply_link')
+    #def i_mess_with_the_link_flags(self):
+        #print("toto")
+        #self.link_task.env.LINKFLAGS.insert("-lgcrypt",0)
 
     # for compiling C code, copy over the CXX* flags
     conf.env.append_value('CCFLAGS', conf.env['CXXFLAGS'])
@@ -664,6 +694,7 @@ def create_ns3_program(bld, name, dependencies=('core',)):
     program.ns3_module_dependencies = ['ns3-'+dep for dep in dependencies]
     program.includes = "#"
     program.use = program.ns3_module_dependencies
+    program.use.append('GCRYPT')
     if program.env['ENABLE_STATIC_NS3']:
         if sys.platform == 'darwin':
             program.env.STLIB_MARKER = '-Wl,-all_load'
@@ -675,7 +706,6 @@ def create_ns3_program(bld, name, dependencies=('core',)):
             # All ELF platforms are impacted but only the gcc compiler has a flag to fix it.
             if 'gcc' in (program.env.CXX_NAME, program.env.CC_NAME):
                 program.env.append_value ('SHLIB_MARKER', '-Wl,--no-as-needed')
-    program.env.append_value("LINKFLAGS","-lgcrypt")
     return program
 
 def register_ns3_script(bld, name, dependencies=('core',)):

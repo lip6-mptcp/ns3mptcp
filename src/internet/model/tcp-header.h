@@ -357,6 +357,9 @@ GetTcpOption (const TcpHeader& header, Ptr<T>& ret)
   header.GetOptions (l);
   for (TcpHeader::TcpOptionList::const_iterator it = l.begin (); it != l.end (); ++it)
     {
+      std::cout << "comparing " << ((*it)->GetInstanceTypeId ().GetName())
+                    << " with " << T::GetTypeId().GetName()
+                    ;
       if ( (*it)->GetInstanceTypeId () == T::GetTypeId())
         {
               ret = DynamicCast<T> ( *it );

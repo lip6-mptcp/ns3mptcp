@@ -155,6 +155,12 @@ static const std::string containerNames[MpTcpSocketBase::Maximum] = {
 
 };
 
+MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
+    TcpSocketBase(sock)
+{
+    //
+    NS_LOG_FUNCTION(this);
+}
 
 MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
   TcpSocketBase(sock),
@@ -175,6 +181,7 @@ MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
   m_newSubflowConnected(sock.m_newSubflowConnected)
 
 {
+  NS_LOG_FUNCTION(this);
   //! Scheduler may have some states, thus generate a new one
   m_remotePathIdManager = Create<MpTcpPathIdManagerImpl>();
   m_scheduler = Create<MpTcpSchedulerRoundRobin>();
@@ -425,6 +432,12 @@ MpTcpSocketBase::ProcessOptionMpTcp(const Ptr<const TcpOption> opt)
 void
 MpTcpSocketBase::ProcessListen(Ptr<Packet> packet, const TcpHeader& mptcpHeader, const Address& fromAddress, const Address& toAddress)
 {
+
+
+  // TODO removed
+  NS_FATAL_ERROR("disabled");
+
+#if 0
   NS_LOG_FUNCTION (this << mptcpHeader);
 
   // Extract the flags. PSH and URG are not honoured.
@@ -467,6 +480,7 @@ MpTcpSocketBase::ProcessListen(Ptr<Packet> packet, const TcpHeader& mptcpHeader,
   Ptr<MpTcpSocketBase> newSock = DynamicCast<MpTcpSocketBase>(Fork());
   // NS_LOG_DEBUG ("Clone new MpTcpSocketBase new connection. ListenerSocket " << this << " AcceptedSocket "<< newSock);
   Simulator::ScheduleNow(&MpTcpSocketBase::CompleteFork, newSock, packet, mptcpHeader, fromAddress, toAddress);
+  #endif
 }
 
 
@@ -492,7 +506,7 @@ MpTcpSocketBase::CompleteFork(
 //  NS_ASSERT(InetSocketAddress::ConvertFrom(fromAddress).GetIpv4() == m_endPoint->GetPeerAddress());
 //  NS_ASSERT(InetSocketAddress::ConvertFrom(fromAddress).GetPort() == m_endPoint->GetPeerPort());
   Ptr<TcpOptionMpTcpCapable> mpc;
-  NS_ASSERT( GetMpTcpOption(mptcpHeader, mpc) );
+  NS_ASSERT( GetTcpOption(mptcpHeader, mpc) );
 
   m_server = true;
 
@@ -500,6 +514,7 @@ MpTcpSocketBase::CompleteFork(
   SetPeerKey( mpc->GetSenderKey() );
 
   // got moved to constructor
+  // TODO generate unique key
   m_localKey = GenerateKey();
 
   // We only setup destroy callback for MPTCP connection's endPoints, not on subflows endpoints.
@@ -509,25 +524,17 @@ MpTcpSocketBase::CompleteFork(
   // TODO this is wrong, TcpL4Protocol now gives CreateSocket etc...
 //  m_tcp->m_sockets.push_back(this);
   m_tcp->AddSocket ( this) ;
-
   // TODO move out to an helper
 //  SetupMetaTracing(m_tracePrefix);
 
   // Create new master subflow (master subsock) and assign its endpoint to the connection endpoint
-  Ptr<MpTcpSubflow> sFlow = CreateSubflowAndCompleteFork(true, mptcpHeader, fromAddress, toAddress);
+//  Ptr<MpTcpSubflow> sFlow = CreateSubflowAndCompleteFork(true, mptcpHeader, fromAddress, toAddress);
 
-//  Simulator::ScheduleNow(&MpTcpSubflow::CompleteFork, sFlow, p, mptcpHeader, fromAddress, toAddress);
-
-  ComputeTotalCWND();
+//  ComputeTotalCWND();
 
   m_state = SYN_RCVD; // Think of updating it
   NS_LOG_INFO(this << " LISTEN -> SYN_RCVD");
-  NS_ASSERT_MSG(sFlow,"Contact ns3 team");
-
-  // upon subflow destruction this m_endpoint should be .
-
-
-//  Simulator::ScheduleNow(&MpTcpSocketBase:: , this, fromAddress);
+//  NS_ASSERT_MSG(sFlow,"Contact ns3 team");
 
   // TODO remove that, it should be done by the subflow complete fork
   m_connected = true;
@@ -1193,8 +1200,16 @@ TODO do it so that it does not return the subflow. Should make for fewer mistake
 
 C'est là qu'il faut activer le socket tracing
 */
+//Ptr<MpTcpSubflow>
+//MpTcpSocketBase::CreateSubflow(Ptr<TcpSocketBase> orig)
+//{
+//    //
+//}
+
 Ptr<MpTcpSubflow>
-MpTcpSocketBase::CreateSubflow(bool masterSocket)
+MpTcpSocketBase::CreateSubflow(
+                               bool masterSocket
+                               )
 {
   NS_LOG_FUNCTION(this);
 //  NS_ASSERT_MSG(
@@ -1265,7 +1280,8 @@ MpTcpSocketBase::CreateSubflow(bool masterSocket)
 //Ptr<MpTcpSubflow>
 void
 MpTcpSocketBase::AddSubflow(
-    Ptr<TcpSocketBase> sflow
+//    Ptr<TcpSocketBase> sflow
+    Ptr<MpTcpSubflow> sflow
     )
 {
 
@@ -1337,8 +1353,10 @@ Ptr<TcpOptionMpTcpJoin> join
   }
 
   //! accepted subflow false => not master
+  // TODO move part of the code here really
   Ptr<MpTcpSubflow> subflow = CreateSubflowAndCompleteFork(
       false,
+// TODO pass the packet
       header,
       fromAddress,
       toAddress

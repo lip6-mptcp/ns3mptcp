@@ -102,7 +102,9 @@ TODO:
 
 // TODO inherit MpTcpSocket or TcpSocket but  would need to recreate 64bits buffer
 **/
-class MpTcpSocketBase : public TcpSocketBase
+class MpTcpSocketBase :
+    public TcpSocketBase
+// public TcpSocket
 
 {
 public:
@@ -123,6 +125,7 @@ public:
 
   MpTcpSocketBase();
   MpTcpSocketBase(const MpTcpSocketBase&);
+  MpTcpSocketBase(const TcpSocketBase&);
 //  MpTcpSocketBase(Ptr<Node> node);
   virtual ~MpTcpSocketBase();
 
@@ -352,7 +355,7 @@ public:
     );
 
    void AddSubflow(
-    Ptr<TcpSocketBase> sf
+    Ptr<MpTcpSubflow> sf
     );
 
 
@@ -412,6 +415,8 @@ public: // public variables
 
 
 
+  virtual void
+  CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
 
 protected: // protected methods
 
@@ -431,8 +436,6 @@ protected: // protected methods
   // Same as parent's
 //  virtual int  SetupEndpoint (void); // Configure local address for given remote address in a host - it query a routing protocol to find a source
 
-  virtual void
-  CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
 
   // TODO remove should be done by helper instead
 //  bool InitiateSubflows();            // Initiate new subflows

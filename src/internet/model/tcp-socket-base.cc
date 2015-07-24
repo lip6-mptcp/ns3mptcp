@@ -273,6 +273,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_highRxAckMark (0),
     m_sndScaleFactor (0),
     m_rcvScaleFactor (0),
+    m_mptcpEnabled(false),
     m_timestampEnabled (true),
     m_timestampToEcho (0),
     m_retxThresh (3),
@@ -300,6 +301,9 @@ TcpSocketBase::TcpSocketBase (void)
   ok = m_tcb->TraceConnectWithoutContext ("AckState",
                                           MakeCallback (&TcpSocketBase::UpdateAckState, this));
   NS_ASSERT (ok == true);
+
+  // for the sake of simplicity, we generate a key even if unused
+  m_mptcpLocalKey = GenerateUniqueMpTcpKey();
 }
 
 TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
@@ -1470,11 +1474,61 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
     {
       return;
     }
-  // Clone the socket, simulate fork
+
+  // Todo one can move that to CompleteFork
+  Ptr<TcpOptionMpTcpCapable> mpc;
+
+  if(GetTcpOption(tcpHeader, mpc)){
+    NS_LOG_UNCOND("found MP_CAPABLE");
+  }
+  else {
+    NS_LOG_UNCOND("MP_CAPABLE not found");
+  }
+  //!TcpOptionMpTcpMain::CreateMpTcpOption
+  if(IsTcpOptionAllowed(TcpOption::MPTCP) && GetTcpOption(tcpHeader, mpc))
+  {
+
+    NS_LOG_UNCOND("MP_CAPABLE, upgrading to meta socket");
+  // TODO if MPTCP on crée une méta et un sous flot
+  // Clone the socket, simulate fork UpgradeToMeta
+//      m_tcp->CreateSocket( m_congestionControl, MpTcpSubflow);
+      // CopyObject, ForkAs()
+//      Ptr<MpTcpSubflow> master =  CopyObject<MpTcpSubflow>(*this);
+//      Ptr<T> p = Ptr<T> (new T (*PeekPointer (object)), false);
+      // TODO use a ForkAs() function
+      Ptr<MpTcpSubflow> master =  new MpTcpSubflow(*this);
+      // TODO use
+//      m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSubflow::GetTypeId());
+//      DynamicCast<MpTcpSocketBase> meta = m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSocketBase::GetTypeId());
+      // to register the
+      MpTcpSocketBase* meta = new MpTcpSocketBase(*this);
+      meta->AddSubflow(master);
+//      meta->AddSubflow(master); // should add it to m_socketsList
+      Simulator::ScheduleNow (&MpTcpSocketBase::CompleteFork, meta,
+                          packet, tcpHeader,
+//                          master
+                          fromAddress, toAddress
+                          );
+
+      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
+                          packet, tcpHeader, fromAddress, toAddress);
+//      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
+//                          packet, tcpHeader, fromAddress, toAddress);
+
+      return;
+  }
+
+
   Ptr<TcpSocketBase> newSock = Fork ();
   NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
   Simulator::ScheduleNow (&TcpSocketBase::CompleteFork, newSock,
                           packet, tcpHeader, fromAddress, toAddress);
+
+// ORIGINAL CODE
+//  Ptr<TcpSocketBase> newSock = Fork ();
+//  NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
+//  Simulator::ScheduleNow (&TcpSocketBase::CompleteFork, newSock,
+//                          packet, tcpHeader, fromAddress, toAddress);
 }
 
 /* Received a packet upon SYN_SENT */
@@ -1537,6 +1591,70 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
     }
 }
 
+
+//static
+//void UpgradeSocketToMpTcpMetaSocket(Ptr<TcpSocketBase> base, Ptr<TcpOptionMpTcpCapable> mpc)
+//{
+//    NS_LOG_UNCOND("MPTCP SOCKET /!\\");
+////              if(mpc->HasReceiverKey())
+////              {
+//      // This assumes that MPTCP handling can be done from socket base
+//      //<MpTcpSubflow>
+////                  Ptr<TcpSocketBase> master = Fork();
+//      Ptr<MpTcpSubflow> master =  CreateObject<MpTcpSubflow>(*base);
+////      sf = *this;
+//
+////      void* addr = this;
+//// Ne pas appeler sinon désalloue le endpoint
+////      this->~TcpSocketBase();
+//
+//      MpTcpSocketBase* meta = new (PeekPointer(base)) MpTcpSocketBase;
+//      // CreateSubflow et CreateSubflowAndCompleteFork existent
+////      meta->m_subflows[Others].push_back( sf );
+////      sf->SetMeta(meta);
+////      sf->SendPendingData();
+//
+//      // Renvoyer la meta ?
+////                  NotifyNewConnectionCreated (this, fromAddress);
+//      //Schedule() le ProcessSynRcvd sur le master
+//      NS_LOG_UNCOND("MATT");
+////      NS_LOG_UNCOND( typeof(this));
+//      NS_LOG_UNCOND( "Checksum " << dynamic_cast<MpTcpSocketBase*>(this)->GetToken());
+//
+//      master->ProcessSynRcvd();
+//}
+
+void
+TcpSocketBase::ProcessSynRcvdOptions(const TcpHeader& tcpHeader)
+{
+  NS_LOG_FUNCTION(tcpHeader);
+}
+
+//void
+//TcpSocketBase::ProcessListenOptions(const TcpHeader& tcpHeader)
+//{
+//  NS_LOG_FUNCTION(tcpHeader);
+//  //!
+//  if(IsTcpOptionAllowed(TcpOption::MPTCP))
+//  {
+//      //!
+//      Ptr<TcpOptionMpTcpCapable> mpc;
+//
+//      if(GetTcpOption(tcpHeader, mpc))
+//      {
+//            NS_LOG_UNCOND("MPTCP SOCKET /!\\");
+//              Ptr<MpTcpSubflow> master =  CreateObject<MpTcpSubflow>(*this);
+//              MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
+//              meta->AddSubflow(master);
+//              NS_LOG_UNCOND("MATT");
+////              NS_LOG_UNCOND( "Checksum " << dynamic_cast<MpTcpSocketBase*>(this)->GetToken());
+////              master->ProcessSynRcvd();
+//              return;
+////              }
+//      }
+//  }
+//}
+
 /* Received a packet upon SYN_RCVD */
 void
 TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
@@ -1575,52 +1693,19 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       // Always respond to first data packet to speed up the connection.
       // Remove to get the behaviour of old NS-3 code.
       m_delAckCount = m_delAckMaxCount;
-      // TODO do it afterwards, schedule it for instance ?
-      ReceivedAck (packet, tcpHeader);
 
-
-
+      ProcessSynRcvdOptions(tcpHeader);
+//      if(){
+//        return;
+//      }
       // TODO copy this socket into a subflow
       // or create
 //      Ptr<MpTcpSubflow> sf = CopyObject<MpTcpSubflow>();
+      // TODO check a faire dans Listen aussi
 
-      if(IsTcpOptionAllowed(TcpOption::MPTCP))
-      {
-          //!
-          Ptr<TcpOptionMpTcpCapable> mpc;
+      // TODO do it afterwards, schedule it for instance ?
+      ReceivedAck (packet, tcpHeader);
 
-          if(GetTcpOption(tcpHeader, mpc))
-          {
-              if(mpc->HasReceiverKey())
-              {
-                  // This assumes that MPTCP handling can be done from socket base
-                  //<MpTcpSubflow>
-//                  Ptr<TcpSocketBase> master = Fork();
-                  Ptr<MpTcpSubflow> master =  CreateObject<MpTcpSubflow>(*this);
-            //      sf = *this;
-
-            //      void* addr = this;
-            // Ne pas appeler sinon désalloue le endpoint
-            //      this->~TcpSocketBase();
-
-                  MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
-                  // CreateSubflow et CreateSubflowAndCompleteFork existent
-            //      meta->m_subflows[Others].push_back( sf );
-            //      sf->SetMeta(meta);
-            //      sf->SendPendingData();
-
-                  // Renvoyer la meta ?
-                  NotifyNewConnectionCreated (this, fromAddress);
-                  //Schedule() le ProcessSynRcvd sur le master
-                  NS_LOG_UNCOND("MATT");
-            //      NS_LOG_UNCOND( typeof(this));
-                  NS_LOG_UNCOND( "Checksum " << dynamic_cast<MpTcpSocketBase*>(this)->GetToken());
-                  return;
-              }
-          }
-
-
-      }
 
       NotifyNewConnectionCreated (this, fromAddress);
 
@@ -2035,7 +2120,9 @@ TcpSocketBase::SendPacket(TcpHeader header, Ptr<Packet> p)
     }
 }
 
-/* Send an empty packet with specified TCP flags */
+/* Send an empty packet with specified TCP flags
+TODO pass on a sequence number ?
+*/
 void
 TcpSocketBase::SendEmptyPacket (uint8_t flags)
 {
@@ -2955,7 +3042,7 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
             break;
         case TcpOption::MPTCP:
             {
-//                ProcessOptionMpTcp();
+                ProcessOptionMpTcp(option);
             }
             break;
         case TcpOption::TS:
@@ -2985,6 +3072,8 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
 bool
 TcpSocketBase::IsTcpOptionAllowed(TcpOption::Kind kind) const
 {
+    NS_LOG_FUNCTION(this << (int)kind);
+
     switch(kind)
     {
     case TcpOption::TS:
@@ -2992,20 +3081,35 @@ TcpSocketBase::IsTcpOptionAllowed(TcpOption::Kind kind) const
     case TcpOption::WINSCALE:
         return m_winScalingEnabled;
     case TcpOption::MPTCP:
+        NS_LOG_INFO("MpTcp activé=" << m_mptcpEnabled);
         return m_mptcpEnabled;
     default:
-        return false;
+        break;
     };
-
-
+    return false;
 }
 
+//bool
+//TcpSocketBase::IsTcpOptionEnabled(TcpOption::Kind kind) const
+//{
+//    switch(kind)
+//    {
+//    case TcpOption::TS:
+//        return m_timestampEnabled;
+//    case TcpOption::WINSCALE:
+//        return m_winScalingEnabled;
+//    case TcpOption::MPTCP:
+//        return m_mptcpEnabled;
+//    default:
+//        return false;
+//    };
+//}
 
 uint64_t
 TcpSocketBase::GenerateUniqueMpTcpKey()
 {
   // TODO rather use NS3 random generator
-  NS_ASSERT_MSG( m_mptcpLocalKey == 0, "Key already generated");
+//  NS_ASSERT_MSG( m_mptcpLocalKey != 0, "Key already generated");
 
   uint64_t localKey, idsn;
   uint32_t localToken;
@@ -3051,23 +3155,31 @@ TcpSocketBase::GenerateUniqueMpTcpKey()
 
 
 void
+TcpSocketBase::AddMpTcpOptions (TcpHeader& header)
+{
+    NS_LOG_FUNCTION(this);
+    if((header.GetFlags () == TcpHeader::SYN))
+    {
+        // Append the MPTCP capable option
+        Ptr<TcpOptionMpTcpCapable> mpc = CreateObject<TcpOptionMpTcpCapable>();
+        mpc->SetSenderKey( m_mptcpLocalKey );
+        header.AppendOption(mpc);
+    }
+}
+
+void
 TcpSocketBase::AddOptions (TcpHeader& header)
 {
   NS_LOG_FUNCTION (this << header);
 
-  if(m_mptcpEnabled && (GetState() && (header.GetFlags () & TcpHeader::SYN)))
+  //GetState()
+  if(IsTcpOptionAllowed(TcpOption::MPTCP))
   {
-    // if token not generated yet
-    if(m_mptcpLocalKey == 0)
-    {
-        //!
-        m_mptcpLocalKey = GenerateUniqueMpTcpKey();
-
-    }
+    AddMpTcpOptions(header);
   }
 
   // The window scaling option is set only on SYN packets
-  if (m_winScalingEnabled && (header.GetFlags () & TcpHeader::SYN))
+  if (IsTcpOptionAllowed(TcpOption::WINSCALE) && (header.GetFlags () & TcpHeader::SYN))
     {
       AddOptionWScale (header);
     }

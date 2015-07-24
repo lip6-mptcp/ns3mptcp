@@ -201,6 +201,12 @@ TcpOptionMpTcpCapable::GetTypeId (void)
   return tid;
 }
 
+TypeId
+TcpOptionMpTcpCapable::GetInstanceTypeId (void) const
+{
+  return TcpOptionMpTcpCapable::GetTypeId ();
+}
+
 bool
 TcpOptionMpTcpCapable::operator== (const TcpOptionMpTcpCapable& opt) const
 {
@@ -328,6 +334,12 @@ TcpOptionMpTcpJoin::GetTypeId (void)
   return tid;
 }
 
+
+TypeId
+TcpOptionMpTcpJoin::GetInstanceTypeId (void) const
+{
+  return TcpOptionMpTcpJoin::GetTypeId ();
+}
 
 TcpOptionMpTcpJoin::TcpOptionMpTcpJoin ()
   : TcpOptionMpTcp (),
@@ -635,6 +647,25 @@ TcpOptionMpTcpDSS::~TcpOptionMpTcpDSS ()
 {
   NS_LOG_FUNCTION (this);
 }
+
+
+TypeId
+TcpOptionMpTcpDSS::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::TcpOptionMpTcpDSS")
+    .SetParent<TcpOptionMpTcpMain> ()
+    .AddConstructor<TcpOptionMpTcpDSS> ()
+  ;
+  return tid;
+}
+
+
+TypeId
+TcpOptionMpTcpDSS::GetInstanceTypeId (void) const
+{
+  return TcpOptionMpTcpDSS::GetTypeId ();
+}
+
 
 void
 TcpOptionMpTcpDSS::TruncateDSS(bool truncate)
@@ -1012,6 +1043,13 @@ TcpOptionMpTcpAddAddress::GetTypeId (void)
   return tid;
 }
 
+
+TypeId
+TcpOptionMpTcpAddAddress::GetInstanceTypeId (void) const
+{
+  return TcpOptionMpTcpAddAddress::GetTypeId ();
+}
+
 void
 TcpOptionMpTcpAddAddress::SetAddress (const Address& _address, uint8_t addrId
 //, bool advertise_port
@@ -1178,6 +1216,21 @@ TcpOptionMpTcpRemoveAddress::~TcpOptionMpTcpRemoveAddress ()
   NS_LOG_FUNCTION (this);
 }
 
+TypeId
+TcpOptionMpTcpRemoveAddress::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::TcpOptionMpTcpRemoveAddress")
+    .SetParent<TcpOptionMpTcpMain> ()
+    .AddConstructor<TcpOptionMpTcpRemoveAddress> ()
+  ;
+  return tid;
+}
+
+TypeId
+TcpOptionMpTcpRemoveAddress::GetInstanceTypeId (void) const
+{
+  return TcpOptionMpTcpRemoveAddress::GetTypeId ();
+}
 
 void
 TcpOptionMpTcpRemoveAddress::GetAddresses (std::vector<uint8_t>& addresses)
@@ -1280,6 +1333,24 @@ TcpOptionMpTcpChangePriority::~TcpOptionMpTcpChangePriority (void)
   NS_LOG_FUNCTION (this);
 }
 
+
+
+TypeId
+TcpOptionMpTcpChangePriority::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::TcpOptionMpTcpChangePriority")
+    .SetParent<TcpOptionMpTcpMain> ()
+    .AddConstructor<TcpOptionMpTcpChangePriority> ()
+  ;
+  return tid;
+}
+
+
+TypeId
+TcpOptionMpTcpChangePriority::GetInstanceTypeId (void) const
+{
+  return TcpOptionMpTcpChangePriority::GetTypeId ();
+}
 
 void
 TcpOptionMpTcpChangePriority::Print (std::ostream &os) const

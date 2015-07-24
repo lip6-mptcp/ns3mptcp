@@ -429,11 +429,14 @@ protected:
   * and thus it should be pushed in meta (would also remove the need for crypto accessors)
   */
   virtual void
-  AppendMpTcp3WHSOption(TcpHeader& hdr) const;
+  AddOptionMpTcp3WHS(TcpHeader& hdr) const;
 
-  void
+  // TO remove hopefully
+  virtual void
   ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
+  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
+  virtual void ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
   /**
     GetMeta()->m_rxBuffer.NextRxSequence().GetValue()
   **/
@@ -485,6 +488,7 @@ protected:
   virtual void
   SendEmptyPacket(TcpHeader& header);
 
+  virtual void AddMpTcpOptions (TcpHeader& header);
 //  virtual Ptr<TcpSocketBase>
 //  Fork(void); // Call CopyObject<> to clone me
 
@@ -506,7 +510,7 @@ protected:
 //  virtual bool Finished();
 //  DSNMapping *GetunAckPkt();
 
-  void InitializeCwnd (void);
+//  void InitializeCwnd (void);
 
   uint16_t m_routeId;   //!< Subflow's ID (TODO rename into subflowId ). Position of this subflow in MetaSock's subflows std::vector
 
@@ -537,26 +541,6 @@ protected:
   MpTcpMappingContainer m_RxMappings;  //!< List of mappings to receive
 
 
-//    uint32_t m_m_ssThresh;           // Slow start threshold
-
-  //plotting check with parents ?
-//  vector<pair<double, uint32_t> > cwndTracer;
-//  vector<pair<double, double> > ssthreshtrack;
-//  vector<pair<double, double> > CWNDtrack;
-//  vector<pair<double, uint32_t> > DATA;
-//  vector<pair<double, uint32_t> > ACK;
-//  vector<pair<double, uint32_t> > DROP;
-//  vector<pair<double, uint32_t> > RETRANSMIT;
-//  vector<pair<double, uint32_t> > DUPACK;
-//  vector<pair<double, double> > _ss;
-//  vector<pair<double, double> > _ca;
-//  vector<pair<double, double> > _FR_FA;
-//  vector<pair<double, double> > _FR_PA;
-//  vector<pair<double, double> > _FReTx;
-//  vector<pair<double, double> > _TimeOut;
-//  vector<pair<double, double> > _RTT;
-//  vector<pair<double, double> > _AvgRTT;
-//  vector<pair<double, double> > _RTO;
 
 protected:
   Ptr<MpTcpSocketBase> m_metaSocket;

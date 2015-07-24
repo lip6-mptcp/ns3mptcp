@@ -794,7 +794,12 @@ protected:
    *
    * \param header TcpHeader where the method should add the window scale option
    */
-  void AddOptionWScale (TcpHeader& header);
+  virtual void AddOptionWScale (TcpHeader& header);
+
+  /**
+   *
+   */
+  virtual void AddMpTcpOptions (TcpHeader& header);
 
   /**
    * \brief Calculate window scale value based on receive buffer space
@@ -849,11 +854,16 @@ protected:
    */
   virtual Time ComputeRTO() const;
 
+  virtual void ProcessSynRcvdOptions(const TcpHeader& hdr);
   /**
    *
    */
-  bool
-  IsTcpOptionAllowed(TcpOption::Kind kind) const;
+  bool IsTcpOptionAllowed(TcpOption::Kind kind) const;
+
+  /**
+   *
+   */
+//  bool IsTcpOptionEnabled(TcpOption::Kind kind) const;
 
   /**
    * Generate a unique key for this host

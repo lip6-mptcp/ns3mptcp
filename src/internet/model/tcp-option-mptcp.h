@@ -70,16 +70,9 @@ public:
   TcpOptionMpTcpMain (void);
   virtual ~TcpOptionMpTcpMain (void);
 
-  /**
-   * \brief Get the type ID.
-   * \return the object TypeId
-   */
   static TypeId GetTypeId (void);
-
   virtual TypeId GetInstanceTypeId (void) const;
-
-  virtual void
-  Print (std::ostream &os) const;
+  virtual void Print (std::ostream &os) const;
 
   /**
    * Converts a list of mptcp subtypes
@@ -209,7 +202,7 @@ public:
   virtual ~TcpOptionMpTcpCapable (void);
 
   static TypeId GetTypeId (void);
-
+  virtual TypeId GetInstanceTypeId (void) const;
 
 
   bool operator== (const TcpOptionMpTcpCapable&) const;
@@ -371,6 +364,7 @@ public:
   };
 
   static TypeId GetTypeId (void);
+  virtual TypeId GetInstanceTypeId (void) const;
 
   TcpOptionMpTcpJoin (void);
   virtual ~TcpOptionMpTcpJoin (void);
@@ -539,6 +533,9 @@ public:
 
   };
 
+  static TypeId GetTypeId (void);
+  virtual TypeId GetInstanceTypeId (void) const;
+
   TcpOptionMpTcpDSS (void);
   virtual ~TcpOptionMpTcpDSS (void);
 
@@ -698,11 +695,11 @@ class TcpOptionMpTcpAddAddress : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_AD
 {
 
 public:
+  static TypeId GetTypeId (void);
+  virtual TypeId GetInstanceTypeId (void) const;
+
   TcpOptionMpTcpAddAddress (void);
   virtual ~TcpOptionMpTcpAddAddress (void);
-
-
-  static TypeId GetTypeId (void);
 
 
   /**
@@ -789,6 +786,9 @@ class TcpOptionMpTcpRemoveAddress : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP
 {
 
 public:
+  static TypeId GetTypeId (void);
+  virtual TypeId GetInstanceTypeId (void) const;
+
   TcpOptionMpTcpRemoveAddress (void);
   virtual ~TcpOptionMpTcpRemoveAddress (void);
 
@@ -857,6 +857,9 @@ public:
   {
     Backup = 0 /**< Set this flag if you prefer not to receive data on path addressId*/
   };
+
+  static TypeId GetTypeId (void);
+  virtual TypeId GetInstanceTypeId (void) const;
 
   TcpOptionMpTcpChangePriority (void);
   virtual ~TcpOptionMpTcpChangePriority (void);
