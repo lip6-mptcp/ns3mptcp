@@ -3253,7 +3253,7 @@ TcpSocketBase::IsTcpOptionAllowed(uint8_t kind) const
 }
 
 //bool
-//TcpSocketBase::IsTcpOptionEnabled(TcpOption::Kind kind) const
+//TcpSocketBase::IsTcpOptionEnabled(uint8_t kind) const
 //{
 //    switch(kind)
 //    {

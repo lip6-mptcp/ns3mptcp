@@ -190,6 +190,8 @@ MpTcpTestCase::DoRun (void)
   memset (m_sourceRxPayload, 0, m_totalBytes);
   memset (m_serverRxPayload, 0, m_totalBytes);
 
+  Config::SetDefault ("ns3::TcpSocketBase::EnableMpTcp", BooleanValue(true) );
+
   if (m_useIpv6 == true)
     {
       SetupDefaultSim6 ();
@@ -563,7 +565,7 @@ public:
     // TODO addition by matt
 //    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue("ns3::MpTcpCCOlia") );
     Config::SetDefault ("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpNewReno") );
-    Config::SetDefault ("ns3::TcpSocketBase::EnableMpTcp", BooleanValue(true) );
+
 
     Time::SetResolution (Time::MS);
     // Arguments to these test cases are 1) totalStreamSize,

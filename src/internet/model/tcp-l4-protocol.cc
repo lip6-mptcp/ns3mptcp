@@ -83,10 +83,10 @@ TcpL4Protocol::GetTypeId (void)
                    TypeIdValue (TcpNewReno::GetTypeId ()),
                    MakeTypeIdAccessor (&TcpL4Protocol::m_congestionTypeId),
                    MakeTypeIdChecker ())
-    .AddAttribute ("EnableMpTcp", "Enable or disable MPTCP support",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&TcpL4Protocol::m_mptcpEnabled),
-                   MakeBooleanChecker ())
+//    .AddAttribute ("EnableMpTcp", "Enable or disable MPTCP support",
+//                   BooleanValue (false),
+//                   MakeBooleanAccessor (&TcpL4Protocol::m_mptcpEnabled),
+//                   MakeBooleanChecker ())
     .AddAttribute ("SocketList", "The list of sockets associated to this protocol.",
                    ObjectVectorValue (),
                    MakeObjectVectorAccessor (&TcpL4Protocol::m_sockets),
