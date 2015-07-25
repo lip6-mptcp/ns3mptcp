@@ -18,8 +18,6 @@
  * Author: Matthieu Coudron <matthieu.coudron@lip6.fr>
  */
 
-
-//#include "ns3/tcp-option-mptcp.h"
 #include <stdint.h>
 #include "ns3/mptcp-crypto.h"
 #include "ns3/log.h"
@@ -42,13 +40,19 @@ NS_LOG_COMPONENT_DEFINE ("MpTcpCrypto");
 
 namespace ns3 {
 
+//#ifdef HAVE_CRYPTO
+//static gcry_md_algos
+//map_ns_to_gcrypt_alg(mptcp_crypto_alg_t alg)
+//{
+//    return GCRY_MD_SHA1;
+//}
+//
+//#endif
 
-//#include <openssl/sha.h>
 
 //https://www.gnupg.org/documentation/manuals/gcrypt/Working-with-hash-algorithms.html#Working-with-hash-algorithms
-
 void
-GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint64_t& idsn)
+GenerateTokenForKey( mptcp_crypto_alg_t ns_alg, uint64_t key, uint32_t& token, uint64_t& idsn)
 {
 
   NS_LOG_LOGIC("Generating token/key from key=" << key);
@@ -56,9 +60,11 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
 
 //  uint8_t digest[DIGEST_SIZE_IN_BYTES];
   #ifdef HAVE_CRYPTO
-  NS_LOG_UNCOND("Used algorithm [" << gcry_md_algo_name(alg) << "]");
+//  gcry_md_algos gcry_algo = map_ns_to_gcrypt_alg(ns_alg);
+  gcry_md_algos gcry_algo = GCRY_MD_SHA1;
+//  NS_LOG_UNCOND("Used algorithm [" << gcry_md_algo_name(alg) << "]");
 
-  static const int KEY_SIZE_IN_BYTES = 8;
+  static const int KEY_SIZE_IN_BYTES = sizeof(key);
   /* converts the key into a buffer */
   Buffer keyBuff;
 
@@ -67,40 +73,32 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
   it.WriteHtonU64(key);
 
 
+    NS_LOG_DEBUG("Used algorithm [" << gcry_md_algo_name(GCRY_MD_SHA1) << "]");
+    int hash_length = gcry_md_get_algo_dlen( GCRY_MD_SHA1 );
+//    unsigned char digest[ hash_length ];
+    unsigned char digest[ 20 ];
 
+    NS_LOG_DEBUG("Key length=" <<KEY_SIZE_IN_BYTES << " and hash_len=" << hash_length);
 
+    Buffer digestBuf; /* to store the generated hash */
+    digestBuf.AddAtStart(hash_length);
 
-  switch(alg)
-  {
-    case HMAC_SHA1:
-        {
+    /*
+    gcry_md_hash_buffer (int algo, void *digest, const void *buffer, size_t length);
+    gcry_md_hash_buffer is a shortcut function to calculate a message digest of a buffer.
+    This function does not require a context and immediately returns the message digest
+    of the length bytes at buffer. digest must be allocated by the caller,
+    large enough to hold the message digest yielded by the the specified algorithm algo.
+    This required size may be obtained by using the function gcry_md_get_algo_dlen.
+    */
+    gcry_md_hash_buffer( GCRY_MD_SHA1, digest, keyBuff.PeekData(), KEY_SIZE_IN_BYTES );
 
-            int hash_length = gcry_md_get_algo_dlen( GCRY_MD_SHA1 );
-            unsigned char digest[ hash_length ];
-
-
-              Buffer digestBuf; /* to store the generated hash */
-              digestBuf.AddAtStart(hash_length);
-
-            /*
-            gcry_md_hash_buffer (int algo, void *digest, const void *buffer, size_t length);
-            */
-            gcry_md_hash_buffer( GCRY_MD_SHA1, digest, keyBuff.PeekData(), hash_length );
-
-            Buffer::Iterator it_digest = digestBuf.Begin();
-            it_digest.Write( digest , hash_length ); // strlen( (const char*)digest)
-            it_digest = digestBuf.Begin();
-            token = it_digest.ReadNtohU32();
-            it_digest.Next( 8 );
-
-            idsn = it_digest.ReadNtohU64();
-        }
-        break;
-
-    default:
-        NS_FATAL_ERROR("Only sha1 hmac currently supported (and standardised !)");
-        break;
-  };
+    Buffer::Iterator it_digest = digestBuf.Begin();
+    it_digest.Write( digest , hash_length ); // strlen( (const char*)digest)
+    it_digest = digestBuf.Begin();
+    token = it_digest.ReadNtohU32();
+    it_digest.Next( 8 );
+    idsn = it_digest.ReadNtohU64();
   #else
     /* the cryptographic library is not available so we rely on a ns3 specific implementation
     that does not comply with the standard.
@@ -109,44 +107,13 @@ GenerateTokenForKey( mptcp_crypto_alg_t alg, uint64_t key, uint32_t& token, uint
     */
     idsn = key;
     token = (uint32_t)key;
-//    std::hash<std::string> hash_fn;
-    // every hash_fn should return a size_t
-//    std::hash<uint64_t> hash_fn;
+
 //     Hasher hasher = Hasher ( Create<Hash::Function::Fnv1a> () );
 //uint32_t hash = Hasher.GetHash32 (data);
-
-     // GetHash32 / 64
 //     Create<Hash::Function::Fnv1a> ();
-
-//    std::size_t digest = hash_fn(key);
   #endif // HAVE_CRYPTO
 
-#if 0
-  const int DIGEST_SIZE_IN_BYTES = SHA_DIGEST_LENGTH; //20
-
-
-
-//  const int TOKEN_SIZE_IN_BYTES = 4;
-
-
-//  uint32_t result = 0;
-//  unsigned char *SHA1(const unsigned char *d, size_t n, unsigned char *md);
-  uint8_t digest[DIGEST_SIZE_IN_BYTES];
-
-    /*
-    This is the Openssl code
-    */
-//  const uint8_t* test = (const uint8_t*)&key;
-  // Convert to network order
-  // computes hash of KEY_SIZE_IN_BYTES bytes in keyBuff
-// TODO according to openssl doc (https://www.openssl.org/docs/crypto/EVP_DigestInit.html#)
-// we should use  EVP_MD_CTX *mdctx; instead of sha1
-	SHA1( keyBuff.PeekData(), KEY_SIZE_IN_BYTES, digest);
-    #endif
-
-
-
-  NS_LOG_UNCOND("Resulting token=" << token << " and idsn=" << idsn);
+  NS_LOG_DEBUG("Resulting token=" << token << " and idsn=" << idsn);
 }
 
 

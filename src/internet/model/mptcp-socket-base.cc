@@ -515,7 +515,7 @@ MpTcpSocketBase::CompleteFork(
 
   // got moved to constructor
   // TODO generate unique key
-  m_localKey = GenerateKey();
+//  m_localKey = GenerateKey();
 
   // We only setup destroy callback for MPTCP connection's endPoints, not on subflows endpoints.
   SetupCallback();
@@ -547,7 +547,7 @@ MpTcpSocketBase::CompleteFork(
     NotifySend(GetTxAvailable());
   }
 
-  NS_LOG_INFO(this << "  MPTCP connection is initiated (Receiver): ");
+  NS_LOG_INFO(this << "MPTCP connection is initiated (Receiver): ");
 }
 
 

@@ -301,9 +301,6 @@ TcpSocketBase::TcpSocketBase (void)
   ok = m_tcb->TraceConnectWithoutContext ("AckState",
                                           MakeCallback (&TcpSocketBase::UpdateAckState, this));
   NS_ASSERT (ok == true);
-
-  // for the sake of simplicity, we generate a key even if unused
-  m_mptcpLocalKey = GenerateUniqueMpTcpKey();
 }
 
 TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
@@ -427,6 +424,9 @@ void
 TcpSocketBase::SetTcp (Ptr<TcpL4Protocol> tcp)
 {
   m_tcp = tcp;
+
+  // for the sake of simplicity, we generate a key even if unused
+  m_mptcpLocalKey = GenerateUniqueMpTcpKey();
 }
 
 /* Set an RTT estimator with this socket */
@@ -1147,7 +1147,10 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
       return; // Discard invalid packet
     }
 
-  ReadOptions (tcpHeader);
+    // TODO bad idea to put it here.
+    // should first check that packet is in range
+    // + processing should be state dependant
+//  ReadOptions (tcpHeader);
 
   if (tcpHeader.GetFlags () & TcpHeader::ACK)
     {
@@ -1475,48 +1478,25 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       return;
     }
 
-  // Todo one can move that to CompleteFork
-  Ptr<TcpOptionMpTcpCapable> mpc;
-
-  if(GetTcpOption(tcpHeader, mpc)){
-    NS_LOG_UNCOND("found MP_CAPABLE");
-  }
-  else {
-    NS_LOG_UNCOND("MP_CAPABLE not found");
-  }
-  //!TcpOptionMpTcpMain::CreateMpTcpOption
-  if(IsTcpOptionAllowed(TcpOption::MPTCP) && GetTcpOption(tcpHeader, mpc))
-  {
-
-    NS_LOG_UNCOND("MP_CAPABLE, upgrading to meta socket");
-  // TODO if MPTCP on crée une méta et un sous flot
-  // Clone the socket, simulate fork UpgradeToMeta
-//      m_tcp->CreateSocket( m_congestionControl, MpTcpSubflow);
-      // CopyObject, ForkAs()
-//      Ptr<MpTcpSubflow> master =  CopyObject<MpTcpSubflow>(*this);
-//      Ptr<T> p = Ptr<T> (new T (*PeekPointer (object)), false);
-      // TODO use a ForkAs() function
-      Ptr<MpTcpSubflow> master =  new MpTcpSubflow(*this);
-      // TODO use
-//      m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSubflow::GetTypeId());
-//      DynamicCast<MpTcpSocketBase> meta = m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSocketBase::GetTypeId());
-      // to register the
-      MpTcpSocketBase* meta = new MpTcpSocketBase(*this);
-      meta->AddSubflow(master);
+    if(ProcessTcpOptionsListen(tcpHeader) == 1)
+    {
+//      UpgradeToMeta();
 //      meta->AddSubflow(master); // should add it to m_socketsList
-      Simulator::ScheduleNow (&MpTcpSocketBase::CompleteFork, meta,
-                          packet, tcpHeader,
-//                          master
-                          fromAddress, toAddress
-                          );
+      Ptr<TcpSocketBase> newSock = Fork();
+      Ptr<MpTcpSubflow> master = newSock->UpgradeToMeta();
+//      Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>(this);
+//      Simulator::ScheduleNow (&MpTcpSocketBase::CompleteFork, this,
+//                          packet, tcpHeader,
+////                          master
+//                          fromAddress, toAddress
+//                          );
 
       Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
                           packet, tcpHeader, fromAddress, toAddress);
 //      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
 //                          packet, tcpHeader, fromAddress, toAddress);
-
-      return;
-  }
+        return;
+    }
 
 
   Ptr<TcpSocketBase> newSock = Fork ();
@@ -1529,6 +1509,165 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
 //  NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
 //  Simulator::ScheduleNow (&TcpSocketBase::CompleteFork, newSock,
 //                          packet, tcpHeader, fromAddress, toAddress);
+}
+
+Ptr<MpTcpSubflow>
+TcpSocketBase::UpgradeToMeta(
+//                             Ptr<MpTcpSubflow>& master
+                             )
+{
+    NS_LOG_UNCOND("Upgrading to meta");
+// TODO if MPTCP on crée une méta et un sous flot
+// Clone the socket, simulate fork UpgradeToMeta
+//      m_tcp->CreateSocket( m_congestionControl, MpTcpSubflow);
+  // CopyObject, ForkAs()
+//      Ptr<MpTcpSubflow> master =  CopyObject<MpTcpSubflow>(*this);
+//      Ptr<T> p = Ptr<T> (new T (*PeekPointer (object)), false);
+  // TODO use a ForkAs() function
+  Ptr<MpTcpSubflow> master =  new MpTcpSubflow(*this);
+  m_tcp->AddSocket(master);
+  // TODO use
+//      m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSubflow::GetTypeId());
+//      DynamicCast<MpTcpSocketBase> meta = m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSocketBase::GetTypeId());
+  // to register the
+  MpTcpSocketBase* meta = new (this) MpTcpSocketBase(*this);
+//    MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
+  meta->AddSubflow(master);
+  return master;
+}
+
+
+int
+TcpSocketBase::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption>& option)
+{
+
+  Ptr<const TcpOptionMpTcpCapable> mpc = DynamicCast<const TcpOptionMpTcpCapable>(option);
+
+  if(mpc)
+  {
+    NS_LOG_UNCOND("found MP_CAPABLE");
+    // PeerKey
+//    UpgradeToMeta();
+    return 1;
+  }
+  return 0;
+}
+
+int
+TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
+{
+  NS_LOG_FUNCTION (this << header);
+
+  TcpHeader::TcpOptionList options;
+  header.GetOptions (options);
+
+  for(TcpHeader::TcpOptionList::const_iterator it(options.begin()); it != options.end(); ++it)
+  {
+      //!
+      Ptr<const TcpOption> option = *it;
+      switch(option->GetKind())
+      {
+        case TcpOption::WINSCALE:
+          if ((header.GetFlags () & TcpHeader::SYN) && m_winScalingEnabled && m_state < ESTABLISHED)
+            {
+              ProcessOptionWScale (option);
+              ScaleSsThresh (m_sndScaleFactor);
+            }
+            break;
+        case TcpOption::MPTCP:
+//            {
+//                if(ProcessOptionMpTcpSynSent(option) == 1)
+//                {
+//                    //!
+//                    return 1;
+//                }
+//            }
+            //! this will interrupt option processing but this function will be scheduled again
+            //! thus some options may be processed twice, it should not trigger errors
+            if(ProcessOptionMpTcpSynSent(option) ) {
+                return 1;
+            }
+            break;
+        case TcpOption::TS:
+            if (m_timestampEnabled)
+            {
+                ProcessOptionTimestamp (option);
+            }
+            break;
+        case TcpOption::NOP:
+            {
+
+            }
+            break;
+        default:
+            NS_LOG_WARN("Unsupported option [" << (int)option->GetKind() << "]");
+            break;
+      };
+  }
+  return 0;
+}
+
+int
+TcpSocketBase::ProcessTcpOptionsListen(const TcpHeader& header)
+{
+  NS_LOG_FUNCTION (this << header);
+
+  TcpHeader::TcpOptionList options;
+  header.GetOptions (options);
+
+  for(TcpHeader::TcpOptionList::const_iterator it(options.begin()); it != options.end(); ++it)
+  {
+      //!
+      Ptr<const TcpOption> option = *it;
+      if (!IsTcpOptionAllowed( option->GetKind()))
+        continue;
+
+      switch(option->GetKind())
+      {
+        case TcpOption::WINSCALE:
+//          if ((header.GetFlags () & TcpHeader::SYN) && m_winScalingEnabled && m_state < ESTABLISHED)
+//            {
+              ProcessOptionWScale (option);
+              ScaleSsThresh (m_sndScaleFactor);
+//            }
+            break;
+        case TcpOption::MPTCP:
+//            ProcessOptionMpTcp(option);
+            {
+                //!
+              Ptr<TcpOptionMpTcpCapable> mpc;
+
+              if(GetTcpOption(header, mpc))
+              {
+                NS_LOG_UNCOND("found MP_CAPABLE");
+                return 1;
+              }
+              else
+              {
+                NS_LOG_UNCOND("MP_CAPABLE not found");
+              }
+//                NS_LOG_UNCOND("MP_CAPABLE, upgrading to meta socket");
+//              UpgradeToMeta();
+            }
+            break;
+        case TcpOption::TS:
+            ProcessOptionTimestamp (option);
+            break;
+        case TcpOption::NOP:
+            break;
+        default:
+            NS_LOG_INFO("option ignored [" << (int)option->GetKind() << "]");
+            break;
+      };
+  }
+
+  return 0;
+}
+
+int
+TcpSocketBase::ProcessTcpOptionsSynRcvd(const TcpHeader& header)
+{
+
 }
 
 /* Received a packet upon SYN_SENT */
@@ -1564,6 +1703,30 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
   else if (tcpflags == (TcpHeader::SYN | TcpHeader::ACK)
            && m_nextTxSequence + SequenceNumber32 (1) == tcpHeader.GetAckNumber ())
     { // Handshake completed
+
+      // TODO upgrade to MpTcpSocket
+      // check if TcpOption is ok
+//      if(IsTcpOptionAllowed(TcpOption::MPTCP)) {
+//
+//        // TODO add checks
+//        Ptr<TcpOptionMpTcpCapable> mpc;
+//        NS_ASSERT(GetTcpOption(tcpHeader, mpc));
+//
+//        m_tcp->AddSocket ( this) ;
+//
+//        Ptr<MpTcpSubflow> sf = m_tcp->UpgradeToMpTcpMetaSocket(this);
+//        Simulator::ScheduleNow(&MpTcpTcpSubflow::ProcessSynSent, sf, packet, tcpHeader);
+//        return;
+//      }
+      if(ProcessTcpOptionsSynSent(tcpHeader) == 1)
+      {
+        // SendRst?
+        Ptr<MpTcpSubflow> sf = UpgradeToMeta();
+        Simulator::ScheduleNow( &MpTcpSubflow::ProcessSynSent, sf, packet, tcpHeader);
+        return;
+      }
+      //
+
       NS_LOG_INFO ("SYN_SENT -> ESTABLISHED");
       m_state = ESTABLISHED;
       m_connected = true;
@@ -3070,7 +3233,7 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
 //
 //}
 bool
-TcpSocketBase::IsTcpOptionAllowed(TcpOption::Kind kind) const
+TcpSocketBase::IsTcpOptionAllowed(uint8_t kind) const
 {
     NS_LOG_FUNCTION(this << (int)kind);
 
@@ -3108,6 +3271,7 @@ TcpSocketBase::IsTcpOptionAllowed(TcpOption::Kind kind) const
 uint64_t
 TcpSocketBase::GenerateUniqueMpTcpKey()
 {
+  NS_LOG_LOGIC("Generating key");
   // TODO rather use NS3 random generator
 //  NS_ASSERT_MSG( m_mptcpLocalKey != 0, "Key already generated");
 
@@ -3124,8 +3288,6 @@ TcpSocketBase::GenerateUniqueMpTcpKey()
   m_mptcpLocalToken = localToken;
   m_mptcpLocalKey = localKey;
 //  uint64_t idsn = 0;
-//  GenerateTokenForKey( HMAC_SHA1, m_localKey, m_localToken, idsn );
-//
 //  /**
 //
 //  /!\ seq nb must be 64 bits for mptcp but that would mean rewriting lots of code so
@@ -3144,11 +3306,6 @@ TcpSocketBase::GenerateUniqueMpTcpKey()
 ////  SetTxHead(m_nextTxSequence);
 //  m_firstTxUnack = m_nextTxSequence;
 //  m_highTxMark = m_nextTxSequence;
-
-
-  // TODO update m_endPoint
-//  m_endPoint->m_mptcpLocalKey = m_localKey;
-//  m_endPoint->m_mptcpToken = m_localToken;
 
   return localKey;
 }

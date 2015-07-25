@@ -42,6 +42,7 @@
 #include "tcp-socket-factory-impl.h"
 #include "tcp-socket-base.h"
 #include "mptcp-socket-base.h"
+#include "mptcp-subflow.h"
 #include "tcp-option-mptcp.h"
 #include "rtt-estimator.h"
 
@@ -402,6 +403,27 @@ TcpL4Protocol::PacketReceived (Ptr<Packet> packet, TcpHeader &incomingTcpHeader,
 
   return IpL4Protocol::RX_OK;
 }
+
+
+/**
+TODO return Meta & subflow ?
+**/
+Ptr<MpTcpSubflow>
+TcpL4Protocol::UpgradeToMpTcpMetaSocket(Ptr<TcpSocketBase> socket)
+{
+
+
+  Ptr<MpTcpSubflow> master =  new MpTcpSubflow(*socket);
+  AddSocket(master);
+//  MpTcpSocketBase* meta = new MpTcpSocketBase(*socket);
+
+  MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
+
+  meta->AddSubflow(master);
+
+  return master;
+}
+
 
 void
 TcpL4Protocol::NoEndPointsFound (const TcpHeader &incomingHeader,

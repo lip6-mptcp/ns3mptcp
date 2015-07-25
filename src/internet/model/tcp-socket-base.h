@@ -46,6 +46,7 @@ class Node;
 class Packet;
 class TcpL4Protocol;
 class TcpHeader;
+class MpTcpSubflow;
 
 /**
  * \ingroup tcp
@@ -772,6 +773,17 @@ protected:
   virtual void AddOptions (TcpHeader& tcpHeader);
 
   /**
+   * \param master
+   * \return master
+   */
+  virtual Ptr<MpTcpSubflow> UpgradeToMeta();
+
+  virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
+  virtual int ProcessTcpOptionsListen(const TcpHeader& header);
+  virtual int ProcessTcpOptionsSynRcvd(const TcpHeader& header);
+  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption>& option);
+
+  /**
    * \brief Read and parse the Window scale option
    *
    * Read the window scale option (encoded logarithmically) and save it.
@@ -858,7 +870,7 @@ protected:
   /**
    *
    */
-  bool IsTcpOptionAllowed(TcpOption::Kind kind) const;
+  virtual bool IsTcpOptionAllowed(uint8_t  kind) const;
 
   /**
    *
