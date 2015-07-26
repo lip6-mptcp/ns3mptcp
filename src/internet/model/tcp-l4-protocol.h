@@ -206,7 +206,7 @@ public:
    *
    * \param socket Socket to be added
    */
-  void AddSocket (Ptr<TcpSocket> socket);
+  bool AddSocket (Ptr<TcpSocket> socket);
 
   /**
    * \brief Remove a socket from the internal list

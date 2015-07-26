@@ -760,6 +760,7 @@ protected:
    * \note tcp_parse_options in the linux kernel
    *
    * \param tcpHeader the packet's TCP header
+   * TODO remove
    */
   virtual void ReadOptions (const TcpHeader& tcpHeader);
 

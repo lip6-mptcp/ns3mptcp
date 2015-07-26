@@ -493,6 +493,7 @@ MpTcpTestCase::SetupDefaultSim6 (void)
   dev0->SetChannel (channel);
   dev1->SetChannel (channel);
 
+  //! indirect call to m_tcp->CreateSocket
   Ptr<SocketFactory> sockFactory0 = node0->GetObject<TcpSocketFactory> ();
   Ptr<SocketFactory> sockFactory1 = node1->GetObject<TcpSocketFactory> ();
 

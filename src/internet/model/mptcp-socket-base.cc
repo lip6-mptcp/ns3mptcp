@@ -156,10 +156,23 @@ static const std::string containerNames[MpTcpSocketBase::Maximum] = {
 };
 
 MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
-    TcpSocketBase(sock)
+  m_tracePrefix("default"),
+  m_prefixCounter(1),
+  m_mpEnabled(false),
+//  m_ssThresh(0),
+//  m_initialCWnd(1),
+  m_server(true),
+  m_localKey(0),
+  m_localToken(0),
+  m_peerKey(0),
+  m_peerToken(0),
+  m_doChecksum(false),
+  m_receivedDSS(false)
+//    MpTcpSocketBase()   //! delegatin constructors only available in C++11
 {
     //
     NS_LOG_FUNCTION(this);
+    NS_LOG_LOGIC("Copying from TcpSocketBase");
 }
 
 MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
@@ -182,6 +195,7 @@ MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
 
 {
   NS_LOG_FUNCTION(this);
+  NS_LOG_LOGIC ("Invoked the copy constructor");
   //! Scheduler may have some states, thus generate a new one
   m_remotePathIdManager = Create<MpTcpPathIdManagerImpl>();
   m_scheduler = Create<MpTcpSchedulerRoundRobin>();
@@ -1285,18 +1299,18 @@ MpTcpSocketBase::AddSubflow(
     )
 {
 
-  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
-  NS_ASSERT(sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this)));
+//  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
+  Ptr<MpTcpSubflow> sf = sflow;
+//  NS_ASSERT(sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this)));
 
 
   //! We need to act on certain subflow state transitions according to doc "There is not a version with bound arguments."
-//  NS_ASSERT(sFlow->TraceConnect ("State", "State", MakeCallback(&MpTcpSocketBase::OnSubflowNewState, this)) );
-  NS_ASSERT(sf->TraceConnectWithoutContext ("State", MakeBoundCallback(&onSubflowNewState, this, sf)) );
+    //  NS_ASSERT(sFlow->TraceConnect ("State", "State", MakeCallback(&MpTcpSocketBase::OnSubflowNewState, this)) );
+//    NS_ASSERT(sf->TraceConnectWithoutContext ("State", MakeBoundCallback(&onSubflowNewState, this, sf)) );
 
     //!
     sf->SetMeta(this);
     m_subflows[Others].push_back( sf );
-
 
 }
 

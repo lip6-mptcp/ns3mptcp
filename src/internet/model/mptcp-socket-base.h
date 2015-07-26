@@ -567,7 +567,7 @@ protected: // protected methods
 
 
 
-  void ProcessListen  (Ptr<Packet>, const TcpHeader&, const Address&, const Address&);
+  virtual void ProcessListen  (Ptr<Packet>, const TcpHeader&, const Address&, const Address&);
 
   // Manage data Tx/Rx
 //  virtual Ptr<TcpSocketBase> Fork(void);

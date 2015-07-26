@@ -1482,17 +1482,21 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
     {
 //      UpgradeToMeta();
 //      meta->AddSubflow(master); // should add it to m_socketsList
+      NS_LOG_INFO("Fork & Upgrade to meta " << this);
+      // The pb is
       Ptr<TcpSocketBase> newSock = Fork();
       Ptr<MpTcpSubflow> master = newSock->UpgradeToMeta();
+      Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>(newSock);
+      NS_LOG_UNCOND("meta=" << meta);
 //      Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>(this);
 //      Simulator::ScheduleNow (&MpTcpSocketBase::CompleteFork, this,
 //                          packet, tcpHeader,
 ////                          master
 //                          fromAddress, toAddress
 //                          );
-
-      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
-                          packet, tcpHeader, fromAddress, toAddress);
+//      NS_ASSERT(master);
+//      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
+//                          packet, tcpHeader, fromAddress, toAddress);
 //      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
 //                          packet, tcpHeader, fromAddress, toAddress);
         return;
@@ -1512,28 +1516,22 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
 }
 
 Ptr<MpTcpSubflow>
-TcpSocketBase::UpgradeToMeta(
-//                             Ptr<MpTcpSubflow>& master
-                             )
+TcpSocketBase::UpgradeToMeta()
 {
-    NS_LOG_UNCOND("Upgrading to meta");
-// TODO if MPTCP on crée une méta et un sous flot
-// Clone the socket, simulate fork UpgradeToMeta
-//      m_tcp->CreateSocket( m_congestionControl, MpTcpSubflow);
-  // CopyObject, ForkAs()
-//      Ptr<MpTcpSubflow> master =  CopyObject<MpTcpSubflow>(*this);
-//      Ptr<T> p = Ptr<T> (new T (*PeekPointer (object)), false);
-  // TODO use a ForkAs() function
-  Ptr<MpTcpSubflow> master =  new MpTcpSubflow(*this);
-  m_tcp->AddSocket(master);
-  // TODO use
-//      m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSubflow::GetTypeId());
-//      DynamicCast<MpTcpSocketBase> meta = m_tcp->CreateSocket(this->m_congestionControl->GetTypeId(), MpTcpSocketBase::GetTypeId());
-  // to register the
-  MpTcpSocketBase* meta = new (this) MpTcpSocketBase(*this);
-//    MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
-  meta->AddSubflow(master);
-  return master;
+  NS_LOG_UNCOND("Upgrading to meta " << this);
+
+  //*this
+//  MpTcpSubflow *sf = new MpTcpSubflow();
+//  CompleteConstruct(sf);
+//  Ptr<MpTcpSubflow> master(sf, true);
+
+//  this->~TcpSocketBase();
+  MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
+  NS_LOG_UNCOND("TEST");
+//  meta->AddSubflow(master);
+//  NS_LOG_UNCOND( this << " vs " << sf->GetMeta());
+//  return sf;
+    return 0;
 }
 
 
@@ -1667,7 +1665,7 @@ TcpSocketBase::ProcessTcpOptionsListen(const TcpHeader& header)
 int
 TcpSocketBase::ProcessTcpOptionsSynRcvd(const TcpHeader& header)
 {
-
+    return 1;
 }
 
 /* Received a packet upon SYN_SENT */
@@ -3582,7 +3580,11 @@ TcpSocketBase::SetCongestionControlAlgorithm (Ptr<TcpCongestionOps> algo)
 Ptr<TcpSocketBase>
 TcpSocketBase::Fork (void)
 {
-  return CopyObject<TcpSocketBase> (this);
+//  return CopyObject<TcpSocketBase> (this);
+  char *addr = new char[sizeof(std::aligned_storage<sizeof(MpTcpSocketBase)>::type)];
+  Ptr<TcpSocketBase> p = Ptr<TcpSocketBase> (new (addr) TcpSocketBase(*this), false);
+//  return CopyObject<TcpSocketBase> (this);
+  return p;
 }
 
 //RttHistory methods

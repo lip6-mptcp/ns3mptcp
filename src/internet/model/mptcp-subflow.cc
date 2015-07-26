@@ -290,6 +290,7 @@ MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
     m_masterSocket(true)
 {
     NS_LOG_FUNCTION (this << &sock);
+      NS_LOG_LOGIC ("Copying from TcpSocketBase");
 }
 
 // Does this constructor even make sense ? no ? to remove ?

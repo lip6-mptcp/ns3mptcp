@@ -50,6 +50,8 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <type_traits>
+#include <memory>
 
 namespace ns3 {
 
@@ -189,6 +191,7 @@ TcpL4Protocol::CreateSocket (TypeId congestionTypeId)
     return CreateSocket(congestionTypeId, TcpSocketBase::GetTypeId());
 }
 
+// TODO create a ForkSocket Function ?
 Ptr<Socket>
 TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
 {
@@ -203,22 +206,22 @@ TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
   Ptr<TcpSocketBase> socket;
 
   // TODO allocate the max between children of tcpsocketbase ?
-  MpTcpSocketBase *addr = new MpTcpSocketBase;
-  addr->~MpTcpSocketBase();
+//  MpTcpSocketBase *addr = new MpTcpSocketBase;
+//addr->~MpTcpSocketBase();
+  NS_LOG_UNCOND(
+                "sizeof(mtcp)=" << sizeof(MpTcpSocketBase)
+                << "sizeof(aligned mtcp)=" << sizeof(std::aligned_storage<sizeof(MpTcpSocketBase)>::type)
+                << " & sizeof(tcp) = "<< sizeof(TcpSocketBase)
 
-//  if(m_mptcpEnabled)
-//  {
-    // MPTCP Meta
+                );
 
+//  char *addr = new char[ std::max(sizeof(MpTcpSocketBase), sizeof(TcpSocketBase))];
+  char *addr = new char[sizeof(std::aligned_storage<sizeof(MpTcpSocketBase)>::type)];
 
-    // now we should call the destructor ourself
-    TcpSocketBase *temp = new (addr) TcpSocketBase();
-    socket = CompleteConstruct(temp);
-//  }
-//  else
-//  {
-//    socket = CreateObject<TcpSocketBase> ();
-//  }
+  // now we should call the destructor ourself
+  TcpSocketBase *temp = new (addr) TcpSocketBase();
+  socket = CompleteConstruct(temp);
+
   socket->SetNode (m_node);
   socket->SetTcp (this);
   socket->SetRtt (rtt);
@@ -828,7 +831,7 @@ TcpL4Protocol::SendPacket (Ptr<Packet> pkt, const TcpHeader &outgoing,
   NS_FATAL_ERROR ("Trying to send a packet without IP addresses");
 }
 
-void
+bool
 TcpL4Protocol::AddSocket (Ptr<TcpSocket> socket)
 {
 //  std::vector<Ptr<TcpSocketBase> >::iterator it = m_sockets.begin ();
@@ -845,7 +848,11 @@ TcpL4Protocol::AddSocket (Ptr<TcpSocket> socket)
 
   std::vector<Ptr<TcpSocket> >::iterator it = std::find(m_sockets.begin(), m_sockets.end(), socket);
   if (it == m_sockets.end())
+  {
     m_sockets.push_back (socket);
+    return true;
+  }
+  return false;
 }
 
 bool
