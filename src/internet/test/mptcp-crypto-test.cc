@@ -70,7 +70,7 @@ public:
     uint32_t tokenClient = 0, tokenServer = 0;
     uint64_t idsnClient = 0, idsnServer = 0;
 
-//    GenerateTokenForKey( algo, m_c.keyServer, tokenServer, idsnServer);
+    GenerateTokenForKey( algo, m_c.keyServer, tokenServer, idsnServer);
     GenerateTokenForKey( algo, m_c.keyClient, tokenClient, idsnClient);
 //    NS_LOG_INFO( "Client: Generated token "<< tokenClient << ". Expected "<< m_c.expectedTokenClient);
 //    NS_LOG_INFO( "Client: Generated idsn "<< idsnClient << ". Expected "<< m_c.expectedIdsnClient);
@@ -80,8 +80,8 @@ public:
     NS_TEST_EXPECT_MSG_EQ( tokenClient, m_c.expectedTokenClient, "Token generated does not match key (Client)");
     NS_TEST_EXPECT_MSG_EQ( idsnClient, m_c.expectedIdsnClient, "Token generated does not match key (Client)");
 
-//    NS_TEST_EXPECT_MSG_EQ( tokenServer, m_c.expectedTokenServer, "Token generated does not match key (Server)");
-//    NS_TEST_EXPECT_MSG_EQ( idsnServer, m_c.expectedIdsnServer, "Token generated does not match key (Server)");
+    NS_TEST_EXPECT_MSG_EQ( tokenServer, m_c.expectedTokenServer, "Token generated does not match key (Server)");
+    NS_TEST_EXPECT_MSG_EQ( idsnServer, m_c.expectedIdsnServer, "Token generated does not match key (Server)");
 
   }
 

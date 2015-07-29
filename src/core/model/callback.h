@@ -102,7 +102,7 @@ namespace ns3 {
  * or not we really want to use it.
  */
 
-  
+
 /**
  * \ingroup makecallbackmemptr
  *
@@ -156,7 +156,7 @@ public:
  */
 template <typename R, typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
 class CallbackImpl;
-  
+
 /**
  * \ingroup callbackimpl
  * CallbackImpl classes with varying numbers of argument types
@@ -246,7 +246,7 @@ public:
   /**
    * Construct from a functor
    *
-   * \param functor the functor 
+   * \param functor the functor
    */
   FunctorCallbackImpl (T const &functor)
     : m_functor (functor) {}
@@ -366,7 +366,7 @@ public:
    * \return true if this and other have the same functor
    */
   virtual bool IsEqual (Ptr<const CallbackImplBase> other) const {
-    FunctorCallbackImpl<T,R,T1,T2,T3,T4,T5,T6,T7,T8,T9> const *otherDerived = 
+    FunctorCallbackImpl<T,R,T1,T2,T3,T4,T5,T6,T7,T8,T9> const *otherDerived =
       dynamic_cast<FunctorCallbackImpl<T,R,T1,T2,T3,T4,T5,T6,T7,T8,T9> const *> (PeekPointer (other));
     if (otherDerived == 0)
       {
@@ -513,7 +513,7 @@ public:
    * \return true if we have the same object and member function
    */
   virtual bool IsEqual (Ptr<const CallbackImplBase> other) const {
-    MemPtrCallbackImpl<OBJ_PTR,MEM_PTR,R,T1,T2,T3,T4,T5,T6,T7,T8,T9> const *otherDerived = 
+    MemPtrCallbackImpl<OBJ_PTR,MEM_PTR,R,T1,T2,T3,T4,T5,T6,T7,T8,T9> const *otherDerived =
       dynamic_cast<MemPtrCallbackImpl<OBJ_PTR,MEM_PTR,R,T1,T2,T3,T4,T5,T6,T7,T8,T9> const *> (PeekPointer (other));
     if (otherDerived == 0)
       {
@@ -540,7 +540,7 @@ class BoundFunctorCallbackImpl : public CallbackImpl<R,T1,T2,T3,T4,T5,T6,T7,T8,e
 public:
   /**
    * Construct from functor and a bound argument
-   * \param functor the functor 
+   * \param functor the functor
    * \param a the argument to bind
    */
   template <typename FUNCTOR, typename ARG>
@@ -647,7 +647,7 @@ public:
    * \return true if we have the same functor and bound arguments
    */
   virtual bool IsEqual (Ptr<const CallbackImplBase> other) const {
-    BoundFunctorCallbackImpl<T,R,TX,T1,T2,T3,T4,T5,T6,T7,T8> const *otherDerived = 
+    BoundFunctorCallbackImpl<T,R,TX,T1,T2,T3,T4,T5,T6,T7,T8> const *otherDerived =
       dynamic_cast<BoundFunctorCallbackImpl<T,R,TX,T1,T2,T3,T4,T5,T6,T7,T8> const *> (PeekPointer (other));
     if (otherDerived == 0)
       {
@@ -768,7 +768,7 @@ public:
    * \return true if we have the same functor and bound arguments
    */
   virtual bool IsEqual (Ptr<const CallbackImplBase> other) const {
-    TwoBoundFunctorCallbackImpl<T,R,TX1,TX2,T1,T2,T3,T4,T5,T6,T7> const *otherDerived = 
+    TwoBoundFunctorCallbackImpl<T,R,TX1,TX2,T1,T2,T3,T4,T5,T6,T7> const *otherDerived =
       dynamic_cast<TwoBoundFunctorCallbackImpl<T,R,TX1,TX2,T1,T2,T3,T4,T5,T6,T7> const *> (PeekPointer (other));
     if (otherDerived == 0)
       {
@@ -878,7 +878,7 @@ public:
    * \return true if we have the same functor and bound arguments
    */
   virtual bool IsEqual (Ptr<const CallbackImplBase> other) const {
-    ThreeBoundFunctorCallbackImpl<T,R,TX1,TX2,TX3,T1,T2,T3,T4,T5,T6> const *otherDerived = 
+    ThreeBoundFunctorCallbackImpl<T,R,TX1,TX2,TX3,T1,T2,T3,T4,T5,T6> const *otherDerived =
       dynamic_cast<ThreeBoundFunctorCallbackImpl<T,R,TX1,TX2,TX3,T1,T2,T3,T4,T5,T6> const *> (PeekPointer (other));
     if (otherDerived == 0)
       {
@@ -892,8 +892,8 @@ public:
     return true;
   }
 private:
-  T m_functor;                                    //!< The functor      
-  typename TypeTraits<TX1>::ReferencedType m_a1;  //!< first bound argument 
+  T m_functor;                                    //!< The functor
+  typename TypeTraits<TX1>::ReferencedType m_a1;  //!< first bound argument
   typename TypeTraits<TX2>::ReferencedType m_a2;  //!< second bound argument
   typename TypeTraits<TX3>::ReferencedType m_a3;  //!< third bound argument
 };
@@ -941,22 +941,22 @@ protected:
  * user intervention which allows you to pass around Callback
  * instances by value.
  *
- * Sample code which shows how to use this class template 
+ * Sample code which shows how to use this class template
  * as well as the function templates \ref MakeCallback :
  * \include src/core/examples/main-callback.cc
  *
  * \internal
- * This code was originally written based on the techniques 
+ * This code was originally written based on the techniques
  * described in http://www.codeproject.com/cpp/TTLFunction.asp
  * It was subsequently rewritten to follow the architecture
- * outlined in "Modern C++ Design" by Andrei Alexandrescu in 
+ * outlined in "Modern C++ Design" by Andrei Alexandrescu in
  * chapter 5, "Generalized Functors".
  *
  * This code uses:
  *   - default template parameters to saves users from having to
  *     specify empty parameters when the number of parameters
  *     is smaller than the maximum supported number
- *   - the pimpl idiom: the Callback class is passed around by 
+ *   - the pimpl idiom: the Callback class is passed around by
  *     value and delegates the crux of the work to its pimpl
  *     pointer.
  *   - two pimpl implementations which derive from CallbackImpl
@@ -966,7 +966,7 @@ protected:
  *   - a reference list implementation to implement the Callback's
  *     value semantics.
  *
- * This code most notably departs from the alexandrescu 
+ * This code most notably departs from the alexandrescu
  * implementation in that it does not use type lists to specify
  * and pass around the types of the callback arguments.
  * Of course, it also does not use copy-destruction semantics
@@ -975,8 +975,8 @@ protected:
  *
  * \see attribute_Callback
  */
-template<typename R, 
-         typename T1 = empty, typename T2 = empty, 
+template<typename R,
+         typename T1 = empty, typename T2 = empty,
          typename T3 = empty, typename T4 = empty,
          typename T5 = empty, typename T6 = empty,
          typename T7 = empty, typename T8 = empty,
@@ -995,7 +995,7 @@ public:
    * always properly disambiguated by the c++ compiler.
    */
   template <typename FUNCTOR>
-  Callback (FUNCTOR const &functor, bool, bool) 
+  Callback (FUNCTOR const &functor, bool, bool)
     : CallbackBase (Create<FunctorCallbackImpl<FUNCTOR,R,T1,T2,T3,T4,T5,T6,T7,T8,T9> > (functor))
   {}
 
@@ -1252,10 +1252,12 @@ private:
   void DoAssign (Ptr<const CallbackImplBase> other) {
     if (!DoCheckType (other))
       {
+        const CallbackImplBase * otherRaw = PeekPointer (other);
         Ptr<CallbackImpl<R,T1,T2,T3,T4,T5,T6,T7,T8,T9> > expected;
+        CallbackImpl<R,T1,T2,T3,T4,T5,T6,T7,T8,T9> * expectedRaw = PeekPointer (expected);
         NS_FATAL_ERROR ("Incompatible types. (feed to \"c++filt -t\" if needed)" << std::endl <<
-                        "got=" << Demangle ( typeid (*other).name () ) << std::endl <<
-                        "expected=" << Demangle ( typeid (*expected).name () ));
+                        "got=" << Demangle ( typeid (*otherRaw).name () ) << std::endl <<
+                        "expected=" << Demangle ( typeid (*expectedRaw).name () ));
       }
     m_impl = const_cast<CallbackImplBase *> (PeekPointer (other));
   }
@@ -1288,10 +1290,10 @@ bool operator != (Callback<R,T1,T2,T3,T4,T5,T6,T7,T8,T9> a, Callback<R,T1,T2,T3,
  * \param memPtr class method member pointer
  * \param objPtr class instance
  * \return a wrapper Callback
- * 
+ *
  * Build Callbacks for class method members which take varying numbers of arguments
  * and potentially returning a value.
- */     
+ */
 template <typename T, typename OBJ, typename R>
 Callback<R> MakeCallback (R (T::*memPtr)(void), OBJ objPtr) {
   return Callback<R> (objPtr, memPtr);
@@ -1381,7 +1383,7 @@ Callback<R,T1,T2,T3,T4,T5,T6,T7,T8,T9> MakeCallback (R (T::*memPtr)(T1,T2,T3,T4,
 /**
  * \param fnPtr function pointer
  * \return a wrapper Callback
- * 
+ *
  * Build Callbacks for functions which take varying numbers of arguments
  * and potentially returning a value.
  */
@@ -1437,7 +1439,7 @@ Callback<R,T1,T2,T3,T4,T5,T6,T7,T8,T9> MakeCallback (R (*fnPtr)(T1,T2,T3,T4,T5,T
  * Build null Callbacks which take no arguments,
  * for varying number of template arguments,
  * and potentially returning a value.
- */     
+ */
 template <typename R>
 Callback<R> MakeNullCallback (void) {
   return Callback<R> ();
@@ -1488,21 +1490,21 @@ Callback<R,T1,T2,T3,T4,T5,T6,T7,T8,T9> MakeNullCallback (void) {
  * \param fnPtr function pointer
  * \param a1 first bound argument
  * \return a bound Callback
- */   
+ */
 template <typename R, typename TX, typename ARG>
 Callback<R> MakeBoundCallback (R (*fnPtr)(TX), ARG a1) {
   Ptr<CallbackImpl<R,empty,empty,empty,empty,empty,empty,empty,empty,empty> > impl =
     Create<BoundFunctorCallbackImpl<R (*)(TX),R,TX,empty,empty,empty,empty,empty,empty,empty,empty> >(fnPtr, a1);
   return Callback<R> (impl);
 }
-template <typename R, typename TX, typename ARG, 
+template <typename R, typename TX, typename ARG,
           typename T1>
 Callback<R,T1> MakeBoundCallback (R (*fnPtr)(TX,T1), ARG a1) {
   Ptr<CallbackImpl<R,T1,empty,empty,empty,empty,empty,empty,empty,empty> > impl =
     Create<BoundFunctorCallbackImpl<R (*)(TX,T1),R,TX,T1,empty,empty,empty,empty,empty,empty,empty> > (fnPtr, a1);
   return Callback<R,T1> (impl);
 }
-template <typename R, typename TX, typename ARG, 
+template <typename R, typename TX, typename ARG,
           typename T1, typename T2>
 Callback<R,T1,T2> MakeBoundCallback (R (*fnPtr)(TX,T1,T2), ARG a1) {
   Ptr<CallbackImpl<R,T1,T2,empty,empty,empty,empty,empty,empty,empty> > impl =
@@ -1559,7 +1561,7 @@ Callback<R,T1,T2,T3,T4,T5,T6,T7,T8> MakeBoundCallback (R (*fnPtr)(TX,T1,T2,T3,T4
  * Make Callbacks with two bound arguments.
  * \param fnPtr function pointer
  * \param a1 first bound argument
- * \param a2 second bound argument 
+ * \param a2 second bound argument
  * \return a bound Callback
  */
 template <typename R, typename TX1, typename TX2, typename ARG1, typename ARG2>
@@ -1624,8 +1626,8 @@ Callback<R,T1,T2,T3,T4,T5,T6,T7> MakeBoundCallback (R (*fnPtr)(TX1,TX2,T1,T2,T3,
  * @{
  * Make Callbacks with three bound arguments.
  * \param a1 first bound argument
- * \param a2 second bound argument 
- * \param a3 third bound argument 
+ * \param a2 second bound argument
+ * \param a3 third bound argument
  * \param fnPtr function pointer
  * \return a bound Callback
  */

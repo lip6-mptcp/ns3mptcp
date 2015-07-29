@@ -1518,7 +1518,7 @@ TcpSocketBase::UpgradeToMeta()
   Ptr<MpTcpSubflow> master(sf, true);
 
   // TODO set SetSendCallback but for meta
-  meta->SetSendCallback(this->m_sendCb);
+  Callback<void, Ptr<Socket>, uint32_t > cb = this->m_sendCb;
   ////////////////////////
   //// !! CAREFUL !!
   //// all callbacks are disabled
@@ -1542,6 +1542,7 @@ TcpSocketBase::UpgradeToMeta()
   MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
 //  meta->m_sendCb =sf->m_sendCb;
   meta->AddSubflow(master);
+  meta->SetSendCallback(cb);
     return master;
 //    return 0;
 }
