@@ -85,6 +85,12 @@ launch an assert. You can notice those via the comments "//! Disabled"
 As such many inherited (protected) functions are overriden & left empty.
 
 
+As in linux, the meta should return the m_endPoint information of the master,
+even if that subflow got closed during the MpTcpConnection.
+
+
+
+
 ConnectionSucceeded may be called twice; once when it goes to established
 and the second time when it sees
  Simulator::ScheduleNow(&MpTcpSocketBase::ConnectionSucceeded, this);
@@ -142,13 +148,23 @@ public:
   virtual void
   SetJoinCreatedCallback(Callback<void, Ptr<MpTcpSubflow> >);
 
-
+  /**
+   *
+   */
   void
   NotifySubflowCreatedOnJoinRequest(Ptr<MpTcpSubflow> sf);
 
+  /**
+   *
+   */
   void
   NotifySubflowConnected(Ptr<MpTcpSubflow> sf);
 
+  /**
+   * Called when a subflow TCP state is updated.
+   * It detects such events by tracing its subflow m_state.
+   *
+   */
   virtual void
   OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
 
@@ -158,6 +174,15 @@ public:
   virtual void
   DoRetransmit();
 
+  /**
+   * Called when a subflow TCP state is updated.
+   * It detects such events by tracing its subflow m_state.
+   *
+   * \param context
+   * \param sf Subflow that changed state
+   * \param oldState previous TCP state of the subflow
+   * \param newState new TCP state of the subflow
+   */
   virtual void
   OnSubflowNewState(
     std::string context,
@@ -206,7 +231,7 @@ public:
   /**
   \warn This function should be called once a connection is established else
   **/
-  virtual bool IsMpTcpEnabled() const;
+//  virtual bool IsMpTcpEnabled() const;
 
 
   virtual void CloseAndNotify(void);
@@ -235,23 +260,22 @@ public:
   /**
   \brief Generates random key, setups isdn and token
   **/
-  virtual uint64_t GenerateKey();
+//  virtual uint64_t GenerateKey();
 
 
 
   /**
   * TODO when is it considered
+  * move to TcpSocketBase ?
   * \return
   */
   bool IsConnected() const;
 
   // Public interface for MPTCP
-  virtual int
-  Bind();                         // Bind a socket by setting up endpoint in TcpL4Protocol
-  virtual int
-  Bind(const Address &address);   // Bind a socket ... to specific add:port
-  virtual int
-  Connect(const Address &address);
+  // Disabled
+  virtual int Bind();
+  virtual int Bind(const Address &address);
+  virtual int Connect(const Address &address);
 
   // TODO to remove there is no equivalent in parent's class
 //  virtual int Connect(Ipv4Address servAddr, uint16_t servPort);
@@ -308,8 +332,8 @@ public:
   virtual uint32_t GetRxAvailable(void) const;
 
   // TODO maybe this could be removed ?
-  void
-  DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
+  void DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
+
   /**
   \return Number of connected subflows (that is that ran the 3whs)
   */
@@ -320,10 +344,10 @@ public:
   *
   * \return an established subflow
   */
-  Ptr<MpTcpSubflow> GetSubflow(uint8_t) const;
+  virtual Ptr<MpTcpSubflow> GetSubflow(uint8_t) const;
 
-  virtual void
-  ClosingOnEmpty(TcpHeader& header);
+
+  virtual void ClosingOnEmpty(TcpHeader& header);
 
   /**
   Sends RST on all subflows
@@ -339,24 +363,20 @@ public:
   \brief Allow to set the congestion control algorithm in use. You can choose between OLIA,LIA,COUPLED,UNCOUPLED.
   \bug Should not be possible to change CC after connection has started
   */
-  void SetCongestionCtrlAlgo(Ptr<MpTcpCongestionControl> ccalgo);
+//  void SetCongestionCtrlAlgo(Ptr<MpTcpCongestionControl> ccalgo);
 
-//  void SetPathManager(Ptr<MpTcpPathManager>);
-  // InetSocketAddress
-  //, const INetAddress& dstAddr
   /**
   public equivalent ?
   * \brief
   * \param srcAddr Address to bind to. In theory Can be an InetSocketAddress or an Inet6SocketAddress
   * for now just InetSocketAddress
   */
-  Ptr<MpTcpSubflow> CreateSubflow(
-    bool masterSocket
-    );
+  Ptr<MpTcpSubflow> CreateSubflow(bool masterSocket);
 
-   void AddSubflow(
-    Ptr<MpTcpSubflow> sf
-    );
+  /**
+   *
+   */
+  virtual void AddSubflow(Ptr<MpTcpSubflow> sf);
 
 
   // Path management related functions
@@ -368,8 +388,8 @@ public:
   \return 0 In case of success
   TODO bool ?
   **/
-  //int GetRemoteKey(uint64_t& remoteKey) const;
-  uint64_t GetRemoteKey() const;
+  //int GetPeerKey(uint64_t& remoteKey) const;
+  uint64_t GetPeerKey() const;
 
   /**
   \brief Generated during
@@ -387,17 +407,8 @@ public:
                           Callback<void, uint8_t> remoteRemAddrCb);
 
   /**
-
-
-  **/
-//  virtual void GetAllAdvertisedSources(std::vector<InetSocketAddress> addresses);
-  Ptr<MpTcpSubflow>
-  CreateSubflowAndCompleteFork(
-  bool masterSocket,
-//  Ptr<Packet> p,
- const TcpHeader& h, const Address& fromAddress, const Address& toAddress
-);
-
+   *
+   */
   void GetAllAdvertisedDestinations(std::vector<InetSocketAddress>& );
 
 public: // public variables
@@ -410,8 +421,12 @@ public: // public variables
   } mptcp_container_t;
   // TODO move back to protected/private later on
 
-  virtual uint32_t
-  GetToken() const;
+  /**
+   * Local token generated from this connection key
+   *
+   * \return
+   */
+  virtual uint32_t GetToken() const;
 
 
 
@@ -425,8 +440,7 @@ protected: // protected methods
 
 
 
-  virtual void
-  CloseAllSubflows();
+  virtual void CloseAllSubflows();
 
 //  virtual int SetLocalToken(uint32_t token) const;
 
@@ -479,8 +493,7 @@ protected: // protected methods
   /**
    *
    */
-  virtual void
-  AppendDataFin(TcpHeader& header) const;
+  virtual void AppendDataFin(TcpHeader& header) const;
 
   /**
   Called when a subflow that initiated the connection
@@ -489,7 +502,7 @@ protected: // protected methods
   TODO rename into ConnectionSucceeded
   Notify ?
   **/
-  void OnSubflowEstablishment(Ptr<MpTcpSubflow>);
+  virtual void OnSubflowEstablishment(Ptr<MpTcpSubflow>);
 
   /**
   Called when a subflow that received a connection
@@ -497,13 +510,12 @@ protected: // protected methods
 
   TODO I don't like the name,rename later
   */
-  void
-  OnSubflowCreated(Ptr<MpTcpSubflow> subflow);
+  virtual void OnSubflowEstablished(Ptr<MpTcpSubflow> subflow);
 
   /**
   Should be called when subflows enters FIN_WAIT or LAST_ACK
   */
-  void OnSubflowClosing(Ptr<MpTcpSubflow>);
+  virtual void OnSubflowClosing(Ptr<MpTcpSubflow>);
 
 
   /**
@@ -530,6 +542,7 @@ protected: // protected methods
   virtual
   void ProcessOptionMpTcp(const Ptr<const TcpOption> );
 
+  //! disabled
   virtual int
   DoConnect(void);
 
@@ -679,33 +692,23 @@ protected: // protected methods
    *  inherited from parent: update buffers
    * @brief Called from subflows when they receive DATA-ACK. For now calls parent fct
    */
-  virtual void
-  NewAck(SequenceNumber32 const& dataLevelSeq);
+  virtual void NewAck(SequenceNumber32 const& dataLevelSeq);
 
   //! disabled
-  virtual void
-  SendEmptyPacket(TcpHeader& header);
+  virtual void SendEmptyPacket(TcpHeader& header);
 
   // Not implemented yet
 //  virtual void
 //  NewAck(SequenceNumber64 const& dataLevelSeq);
 
-  // Re-ordering buffer
-//  bool StoreUnOrderedData(DSNMapping *ptr);
-//  void ReadUnOrderedData();
 
-  /** this implementation may not be the best, maybe it would be best to subclass MpTcpSubflows
-   depending on the Congestion control used. But for now it is goodenough
-   Both functions the new value
-   **/
-//  virtual uint32_t OpenCWND(uint32_t cwnd, uint32_t ackedBytes) = 0;
-//  virtual uint32_t ReduceCWND(uint32_t cwnd) = 0;
+  /**
+   *
+   */
+  virtual void ProcessMpTcpOptions(TcpHeader h, Ptr<MpTcpSubflow> sf);
 
-  virtual void
-  ProcessMpTcpOptions(TcpHeader h, Ptr<MpTcpSubflow> sf);
 
-  virtual void
-  OnTimeWaitTimeOut();
+  virtual void OnTimeWaitTimeOut();
 
 
 protected: // protected variables
@@ -726,26 +729,24 @@ protected: // protected variables
     Ptr<TcpOptionMpTcpJoin> join
   );
 
+  // ?
   int CloseSubflow(Ptr<MpTcpSubflow> sf);
 
 
-  void
-  DumpSubflows() const;
-
-//  virtual TypeId
-//  GetMpTcpSubflowTypeId() = 0;
+  /**
+   * TODO should accept a stream
+   *
+   */
+  virtual void DumpSubflows() const;
 
   /**
-  *
-  */
+   *
+   */
   SubflowList m_subflows[Maximum];
-  //! 0 for established,
-  //!< 1 for established
-  //!< 2 for backups
 
   Callback<bool, Ptr<Socket>, Address, uint8_t > m_onRemoteAddAddr;  //!< return true to create a subflow
 //  Callback<bool, Ptr<Socket>, Address, uint8_t > m_onNewLocalIp;  //!< return true to create a subflow
-  Callback<void, uint8_t > m_onAddrDeletion;// return true to create a subflow
+  Callback<void, uint8_t > m_onAddrDeletion;    // return true to create a subflow
 
 //  Callback<void, const MpTcpAddressInfo& > m_onRemAddr;
 
@@ -754,34 +755,18 @@ protected: // protected variables
 
 public:
   std::string m_tracePrefix;      //!< help naming csv files, TODO should be removed
-  int m_prefixCounter;
+  int m_prefixCounter;      //!< TODO remove and put in a helper
 
 protected:
-//!< True if remote host is MPTCP compliant (not used so far. could be disabled)
-// May be redundant with m_dssEnabled
-  bool m_mpEnabled;
 
   // TODO rename since will track local too.
   Ptr<MpTcpPathIdManager> m_remotePathIdManager;  //!< Keep track of advertised ADDR id advertised by remote endhost
 
-  // Congestion control
+
   /***
   TODO the scheduler is so closely
-
   ***/
   Ptr<MpTcpSchedulerRoundRobin> m_scheduler;  //!<
-//  Ptr<MpTcpCongestionControl> m_algoCC;  //!<  Algorithm for Congestion Control
-
-
-  // Window management variables node->GetObject<TcpL4Protocol>();
-//  uint32_t m_ssThresh;           // Slow start threshold
-//  uint32_t m_initialCWnd;        //!< Initial congestion window value
-
-  // TODO alread
-//  uint32_t remoteRecvWnd;        // Flow control window at remote side TODO rename ?
-
-// Already defined in
-//  uint32_t m_segmentSize;          // Segment size
 
   // TODO make private ? check what it does
   // should be able to rmeove one
@@ -804,14 +789,15 @@ private:
 
 
   /* Utility function used when a subflow changes state
-    Research of the subflow is done
-  */
+   *  Research of the subflow is done
+   * \warn This function does not check if the destination container is
+   */
   void MoveSubflow(Ptr<MpTcpSubflow> sf, mptcp_container_t to);
+
+  /**
+   * Asserts if from == to
+   */
   void MoveSubflow(Ptr<MpTcpSubflow> sf, mptcp_container_t from, mptcp_container_t to);
-// CloseSubflow
-//  uint8_t AddLocalAddr(const Ipv4Address& address);
-//
-//  bool RemLocalAddr(Ipv4Address,uint8_t&);
 
   Callback<void, Ptr<MpTcpSubflow> > m_joinConnectionSucceeded;  //!< connection succeeded callback
 //  Callback<void, Ptr<Socket> >                   m_connectionFailed;     //!< connection failed callback
@@ -819,7 +805,7 @@ private:
 //  Callback<void, Ptr<Socket> >                   m_errorClose;           //!< connection closed due to errors callback
   Callback<bool, const Address &>   m_joinRequest;    //!< connection request callback
   Callback<void, Ptr<MpTcpSubflow> >    m_joinSubflowCreated; //!< connection created callback
-//  , const Address&, bool master
+
 // , const Address &, bool master
   Callback<void, Ptr<MpTcpSubflow> >    m_newSubflowConnected; //!< connection created callback
 

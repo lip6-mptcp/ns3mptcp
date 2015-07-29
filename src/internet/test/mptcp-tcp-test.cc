@@ -454,6 +454,7 @@ MpTcpTestCase::SetupDefaultSim (void)
   Ptr<Socket> server = sockFactory0->CreateSocket ();
   Ptr<Socket> source = sockFactory1->CreateSocket ();
 
+  // TODO move to Connection
   Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(server);
   Ptr<MpTcpSocketBase> source_meta = DynamicCast<MpTcpSocketBase>(source);
 

@@ -557,8 +557,9 @@ MpTcpMultihomedTestCase::SetupDefaultSim (void)
   Ptr<Socket> server = sockFactory0->CreateSocket ();
   Ptr<Socket> source = sockFactory1->CreateSocket ();
 
-  Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(server);
-  Ptr<MpTcpSocketBase> source_meta = DynamicCast<MpTcpSocketBase>(source);
+  // TODO this should fail :/
+//  Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(server);
+//  Ptr<MpTcpSocketBase> source_meta = DynamicCast<MpTcpSocketBase>(source);
 
 
 
@@ -571,26 +572,30 @@ MpTcpMultihomedTestCase::SetupDefaultSim (void)
   InetSocketAddress serverlocaladdr (serverMainAddr, serverPort);
   InetSocketAddress serverremoteaddr (serverMainAddr, serverPort);
   NS_LOG_DEBUG("serverMainAddr=" << serverlocaladdr);
-  server_meta->Bind (serverlocaladdr);
-  server_meta->Listen ();
-  server_meta->SetAcceptCallback (MakeNullCallback<bool, Ptr< Socket >, const Address &> (),
+  server->Bind (serverlocaladdr);
+  server->Listen ();
+  server->SetAcceptCallback (MakeNullCallback<bool, Ptr< Socket >, const Address &> (),
                              MakeCallback (&MpTcpMultihomedTestCase::ServerHandleConnectionCreated,this));
 
-  NS_LOG_UNCOND("Server Meta:" << server_meta << " NodeId:" << server_meta->GetNode()->GetId());
-  NS_LOG_UNCOND("Client Meta:" << source_meta << " NodeId:" << source_meta->GetNode()->GetId());
+//  NS_LOG_UNCOND("Server Meta:" << server_meta << " NodeId:" << server_meta->GetNode()->GetId());
+//  NS_LOG_UNCOND("Client Meta:" << source_meta << " NodeId:" << source_meta->GetNode()->GetId());
 //  NS_LOG_INFO( "test" << server);
-  source_meta->SetRecvCallback (MakeCallback (&MpTcpMultihomedTestCase::SourceHandleRecv, this));
-  source_meta->SetSendCallback (MakeCallback (&MpTcpMultihomedTestCase::SourceHandleSend, this));
+  source->SetRecvCallback (MakeCallback (&MpTcpMultihomedTestCase::SourceHandleRecv, this));
+  source->SetSendCallback (MakeCallback (&MpTcpMultihomedTestCase::SourceHandleSend, this));
 
-  source_meta->SetConnectCallback (
+  // SetConnectCallback
+  source->SetConnectCallback (
 //    Callback< void, Ptr< Socket > > connectionSucceeded, Callback< void, Ptr< Socket > > connectionFailed
     MakeCallback (&MpTcpMultihomedTestCase::SourceConnectionSuccessful, this),
     MakeCallback (&MpTcpMultihomedTestCase::SourceConnectionFailed, this)
 
     );
+
   /*
   Callback when a subflow successfully connected
+  TODO move to Connect
   */
+  #if 0
   source_meta->SetJoinConnectCallback(
     MakeCallback (&HandleSubflowConnected)
   );
@@ -599,12 +604,13 @@ MpTcpMultihomedTestCase::SetupDefaultSim (void)
   server_meta->SetJoinCreatedCallback(
     MakeCallback (&HandleSubflowCreated)
     );
+    #endif
 
 //  server_meta->SetupMetaTracing("server");
 //  source_meta->SetupMetaTracing("source");
 //  server_meta->SetupMetaTracing("server");
 
-  source_meta->Connect (serverremoteaddr);
+  source->Connect (serverremoteaddr);
 
 
 

@@ -94,7 +94,7 @@ TcpState::operator=(TcpState& rhs)
             break;
     };
     //
-    m_state != newState;
+    m_state = newState;
 
     NS_FATAL_ERROR("Wrong TCP transition");
     return *this;

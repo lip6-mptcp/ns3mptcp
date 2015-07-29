@@ -128,6 +128,7 @@ TcpOptionMpTcpMain::SubTypeToString (const uint8_t& flags, const std::string& de
 Ptr<TcpOption>
 TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
 {
+  NS_LOG_FUNCTION_NOARGS();
   switch (subtype)
     {
     case MP_CAPABLE:
@@ -144,6 +145,8 @@ TcpOptionMpTcpMain::CreateMpTcpOption (const uint8_t& subtype)
       return CreateObject<TcpOptionMpTcpChangePriority>();
     case MP_REMOVE_ADDR:
       return CreateObject<TcpOptionMpTcpRemoveAddress>();
+    case MP_ADD_ADDR:
+      return CreateObject<TcpOptionMpTcpAddAddress>();
     default:
       break;
     }

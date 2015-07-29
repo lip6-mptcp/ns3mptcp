@@ -247,7 +247,9 @@ TcpSocketState::TcpAckStateName[TcpSocketState::LAST_ACKSTATE] =
 };
 
 TcpSocketBase::TcpSocketBase (void)
-  : m_dupAckCount (0),
+  :
+    TcpSocket(),
+    m_dupAckCount (0),
     m_delAckCount (0),
     m_endPoint (0),
     m_endPoint6 (0),
@@ -1478,13 +1480,13 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       return;
     }
 
+   Ptr<TcpSocketBase> newSock = Fork();
     if(ProcessTcpOptionsListen(tcpHeader) == 1)
     {
-//      UpgradeToMeta();
-//      meta->AddSubflow(master); // should add it to m_socketsList
-      NS_LOG_INFO("Fork & Upgrade to meta " << this);
-      // The pb is
-      Ptr<TcpSocketBase> newSock = Fork();
+      NS_LOG_LOGIC("Fork & Upgrade to meta " << this);
+      // The pb was that the
+
+//      Ptr<MpTcpSubflow> sf = new MpTcpSubflow(*newSock);
       Ptr<MpTcpSubflow> master = newSock->UpgradeToMeta();
       Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>(newSock);
       NS_LOG_UNCOND("meta=" << meta);
@@ -1494,25 +1496,15 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
 ////                          master
 //                          fromAddress, toAddress
 //                          );
-//      NS_ASSERT(master);
-//      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
-//                          packet, tcpHeader, fromAddress, toAddress);
-//      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
-//                          packet, tcpHeader, fromAddress, toAddress);
+      Simulator::ScheduleNow (&MpTcpSubflow::CompleteFork, master,
+                          packet, tcpHeader, fromAddress, toAddress);
+
         return;
     }
 
-
-  Ptr<TcpSocketBase> newSock = Fork ();
   NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
   Simulator::ScheduleNow (&TcpSocketBase::CompleteFork, newSock,
                           packet, tcpHeader, fromAddress, toAddress);
-
-// ORIGINAL CODE
-//  Ptr<TcpSocketBase> newSock = Fork ();
-//  NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
-//  Simulator::ScheduleNow (&TcpSocketBase::CompleteFork, newSock,
-//                          packet, tcpHeader, fromAddress, toAddress);
 }
 
 Ptr<MpTcpSubflow>
@@ -1521,31 +1513,49 @@ TcpSocketBase::UpgradeToMeta()
   NS_LOG_UNCOND("Upgrading to meta " << this);
 
   //*this
-//  MpTcpSubflow *sf = new MpTcpSubflow();
+  MpTcpSubflow *sf = new MpTcpSubflow(*this);
 //  CompleteConstruct(sf);
-//  Ptr<MpTcpSubflow> master(sf, true);
+  Ptr<MpTcpSubflow> master(sf, true);
+
+  // TODO set SetSendCallback but for meta
+  meta->SetSendCallback(this->m_sendCb);
+  ////////////////////////
+  //// !! CAREFUL !!
+  //// all callbacks are disabled
+//  SetConnectCallback (vPS, vPS);
+//  SetDataSentCallback (vPSUI);
+//  SetSendCallback (vPSUI);
+//  SetRecvCallback (vPS);
+//
+//  m_tcp->CreateSocket();
+  // Otherwise timers
+  this->CancelAllTimers();
 
 //  this->~TcpSocketBase();
+  // MpTcpSocketBase(*this) ?
+//  MpTcpSocketBase* temp = new MpTcpSocketBase(*this);
+//  std::memcpy (this, temp, sizeof(std::aligned_storage<sizeof(MpTcpSocketBase)>::type) ); // dest/src/size
+
+  // I don't want the destructor to be called in that moment
+//  delete temp[];
+
   MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
-  NS_LOG_UNCOND("TEST");
-//  meta->AddSubflow(master);
-//  NS_LOG_UNCOND( this << " vs " << sf->GetMeta());
-//  return sf;
-    return 0;
+//  meta->m_sendCb =sf->m_sendCb;
+  meta->AddSubflow(master);
+    return master;
+//    return 0;
 }
 
 
 int
-TcpSocketBase::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption>& option)
+TcpSocketBase::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
 {
-
+  NS_LOG_DEBUG(option);
   Ptr<const TcpOptionMpTcpCapable> mpc = DynamicCast<const TcpOptionMpTcpCapable>(option);
 
   if(mpc)
   {
     NS_LOG_UNCOND("found MP_CAPABLE");
-    // PeerKey
-//    UpgradeToMeta();
     return 1;
   }
   return 0;
@@ -1573,13 +1583,6 @@ TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
             }
             break;
         case TcpOption::MPTCP:
-//            {
-//                if(ProcessOptionMpTcpSynSent(option) == 1)
-//                {
-//                    //!
-//                    return 1;
-//                }
-//            }
             //! this will interrupt option processing but this function will be scheduled again
             //! thus some options may be processed twice, it should not trigger errors
             if(ProcessOptionMpTcpSynSent(option) ) {
@@ -1592,10 +1595,9 @@ TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
                 ProcessOptionTimestamp (option);
             }
             break;
+        // Ignore those
         case TcpOption::NOP:
-            {
-
-            }
+        case TcpOption::END:
             break;
         default:
             NS_LOG_WARN("Unsupported option [" << (int)option->GetKind() << "]");
@@ -1645,7 +1647,6 @@ TcpSocketBase::ProcessTcpOptionsListen(const TcpHeader& header)
                 NS_LOG_UNCOND("MP_CAPABLE not found");
               }
 //                NS_LOG_UNCOND("MP_CAPABLE, upgrading to meta socket");
-//              UpgradeToMeta();
             }
             break;
         case TcpOption::TS:
@@ -1702,20 +1703,7 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
            && m_nextTxSequence + SequenceNumber32 (1) == tcpHeader.GetAckNumber ())
     { // Handshake completed
 
-      // TODO upgrade to MpTcpSocket
-      // check if TcpOption is ok
-//      if(IsTcpOptionAllowed(TcpOption::MPTCP)) {
-//
-//        // TODO add checks
-//        Ptr<TcpOptionMpTcpCapable> mpc;
-//        NS_ASSERT(GetTcpOption(tcpHeader, mpc));
-//
-//        m_tcp->AddSocket ( this) ;
-//
-//        Ptr<MpTcpSubflow> sf = m_tcp->UpgradeToMpTcpMetaSocket(this);
-//        Simulator::ScheduleNow(&MpTcpTcpSubflow::ProcessSynSent, sf, packet, tcpHeader);
-//        return;
-//      }
+      // TODO separate between
       if(ProcessTcpOptionsSynSent(tcpHeader) == 1)
       {
         // SendRst?
@@ -1723,7 +1711,7 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         Simulator::ScheduleNow( &MpTcpSubflow::ProcessSynSent, sf, packet, tcpHeader);
         return;
       }
-      //
+
 
       NS_LOG_INFO ("SYN_SENT -> ESTABLISHED");
       m_state = ESTABLISHED;
@@ -2175,7 +2163,7 @@ TcpSocketBase::Destroy6 (void)
 void
 TcpSocketBase::GenerateEmptyPacketHeader(TcpHeader& header, uint8_t flags)
 {
-  NS_LOG_FUNCTION (this << (uint32_t)flags);
+  NS_LOG_FUNCTION (this << TcpHeader::FlagsToString(flags));
 
   SequenceNumber32 s = m_nextTxSequence;
 
@@ -2194,10 +2182,12 @@ TcpSocketBase::GenerateEmptyPacketHeader(TcpHeader& header, uint8_t flags)
   header.SetSequenceNumber (s);
 
   if(flags & TcpHeader::ACK)
-    {
+  {
         header.SetAckNumber (m_rxBuffer->NextRxSequence ());
   }
+
 //  header.SetAckNumber (m_rxBuffer->NextRxSequence ());
+  NS_LOG_DEBUG(this << " endpoint=" << m_endPoint);
   if (m_endPoint != 0)
     {
       header.SetSourcePort (m_endPoint->GetLocalPort ());
@@ -2205,6 +2195,7 @@ TcpSocketBase::GenerateEmptyPacketHeader(TcpHeader& header, uint8_t flags)
     }
   else
     {
+      NS_ASSERT(m_endPoint6 != 0);
       header.SetSourcePort (m_endPoint6->GetLocalPort ());
       header.SetDestinationPort (m_endPoint6->GetPeerPort ());
     }
@@ -2448,6 +2439,7 @@ TcpSocketBase::CompleteFork (Ptr<Packet> p, const TcpHeader& h,
                                     InetSocketAddress::ConvertFrom (fromAddress).GetIpv4 (),
                                     InetSocketAddress::ConvertFrom (fromAddress).GetPort ());
       m_endPoint6 = 0;
+      NS_ASSERT(m_endPoint);
     }
   else if (Inet6SocketAddress::IsMatchingType (toAddress))
     {
@@ -2456,8 +2448,10 @@ TcpSocketBase::CompleteFork (Ptr<Packet> p, const TcpHeader& h,
                                       Inet6SocketAddress::ConvertFrom (fromAddress).GetIpv6 (),
                                       Inet6SocketAddress::ConvertFrom (fromAddress).GetPort ());
       m_endPoint = 0;
+      NS_ASSERT(m_endPoint6);
     }
-  m_tcp->AddSocket(this);
+  bool result = m_tcp->AddSocket(this);
+  NS_ASSERT(result);
 
   // Change the cloned socket from LISTEN state to SYN_RCVD
   NS_LOG_INFO ("LISTEN -> SYN_RCVD");
@@ -2948,7 +2942,7 @@ TcpSocketBase::PersistTimeout ()
   Ptr<Packet> p = m_txBuffer->CopyFromSequence (1, m_nextTxSequence);
   TcpHeader tcpHeader;
   GenerateEmptyPacketHeader(tcpHeader, 0);
-  AddOptions (tcpHeader);
+//  AddOptions (tcpHeader);
   SendPacket(tcpHeader,p);
 
   NS_LOG_LOGIC ("Schedule persist timeout at time "
@@ -3180,6 +3174,7 @@ TcpSocketBase::GetAllowBroadcast (void) const
   return false;
 }
 
+#if 0
 void
 TcpSocketBase::ReadOptions (const TcpHeader& header)
 {
@@ -3224,6 +3219,7 @@ TcpSocketBase::ReadOptions (const TcpHeader& header)
   }
 
 }
+#endif
 
 // TODO add
 //IsTcpOptionEnabled()
@@ -3345,12 +3341,12 @@ TcpSocketBase::AddOptions (TcpHeader& header)
     }
 }
 
-void
-TcpSocketBase::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
-{
-    //!
-    NS_LOG_DEBUG("Does nothing");
-}
+//void
+//TcpSocketBase::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
+//{
+//    //!
+//    NS_LOG_DEBUG("Does nothing");
+//}
 
 void
 TcpSocketBase::ProcessOptionWScale (const Ptr<const TcpOption> option)

@@ -47,6 +47,13 @@
 
 NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
 
+
+//#define DISABLE_MEMBER(retType,member) retType \
+//                                        MpTcpSubflow::member(void) {\
+//                                            NS_FATAL_ERROR("This should never be called. The meta will make the subflow pass from LISTEN to ESTABLISHED."); \
+//                                        }
+
+
 namespace ns3 {
 
 NS_OBJECT_ENSURE_REGISTERED(MpTcpSubflow);
@@ -135,27 +142,6 @@ RFC 6824
 */
 //void
 //MpTcpSubflow::DupAck(const TcpHeader& t, uint32_t count)
-//{
-//  NS_LOG_LOGIC("DupAck " << count);
-////  if( count > 3)
-//  GetMeta()->OnSubflowDupAck(this);
-//
-//  NS_LOG_FUNCTION (this << "t " << count);
-//  if (count == m_retxThresh && !m_inFastRec)
-//    { // triple duplicate ack triggers fast retransmit (RFC2581, sec.3.2)
-//      m_ssThresh = std::max (2 * GetSegSize(), BytesInFlight () / 2);
-//      m_cWnd = m_ssThresh + 3 * GetSegSize();
-//      m_inFastRec = true;
-//      NS_LOG_INFO ("Triple dupack. Entering fast recovery. Reset cwnd to " << m_cWnd << ", ssthresh to " << m_ssThresh);
-//      DoRetransmit ();
-//    }
-//  else if (m_inFastRec)
-//    { // In fast recovery, inc cwnd for every additional dupack (RFC2581, sec.3.2)
-//      m_cWnd += GetSegSize();
-//      NS_LOG_INFO ("In fast recovery. Increased cwnd to " << m_cWnd);
-//      SendPendingData (m_connected);
-//    };
-//}
 
 
 // TODO check with parent's
@@ -170,80 +156,37 @@ MpTcpSubflow::CancelAllTimers()
   NS_LOG_LOGIC( "CancelAllTimers");
 }
 
-
-
-//void
-//MpTcpSubflow::SetSSThresh(uint32_t threshold)
-//{
-//  // TOODO there is a minimum value decided by meta
-//  m_ssThresh = threshold;
-//}
-
-
-//uint32_t
-//MpTcpSubflow::GetSSThresh(void) const
-//{
-////  return GetMeta()->GetSSThresh();
-//  return m_ssThresh;
-//}
-
-/** TODO remve those 2, use the meta's **/
-//void
-//MpTcpSubflow::SetInitialCwnd(uint32_t cwnd)
-//{
-//  NS_LOG_WARN("NOOP: Use meta socket SetInitialCwnd instead");
-////  NS_ABORT_MSG_UNLESS(m_state == CLOSED, "MpTcpsocketBase::SetInitialCwnd() cannot change initial cwnd after connection started.");
-////  m_initialCWnd = cwnd;
-//}
-
-//uint32_t
-//MpTcpSubflow::GetInitialCwnd(void) const
-//{
-//  return GetMeta()->GetInitialCwnd();
-//}
-
-
-
-
-
-
-//TcpSocket::TcpStates_t
-//MpTcpSubflow::GetState() const
-//{
-//  //!
-//  return m_state;
-//}
-
-
+// TODO remove in favor
 int
 MpTcpSubflow::DoConnect()
 {
   NS_LOG_FUNCTION (this);
+  return TcpSocketBase::DoConnect();
 
-  InitializeCwnd ();
-
-  // A new connection is allowed only if this socket does not have a connection
-  if (m_state == CLOSED || m_state == LISTEN || m_state == SYN_SENT || m_state == LAST_ACK || m_state == CLOSE_WAIT)
-    { // send a SYN packet and change state into SYN_SENT
-      TcpHeader header;
-      GenerateEmptyPacketHeader(header,TcpHeader::SYN);
-
-      // code moved inside SendEmptyPacket
-
-      AddOptionMpTcp3WHS(header);
-
-      TcpSocketBase::SendEmptyPacket(header);
-//      NS_ASSERT( header.)
-      NS_LOG_INFO (TcpStateName[m_state] << " -> SYN_SENT");
-      m_state = SYN_SENT;
-    }
-  else if (m_state != TIME_WAIT)
-  { // In states SYN_RCVD, ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2, and CLOSING, an connection
-    // exists. We send RST, tear down everything, and close this socket.
-    SendRST();
-    CloseAndNotify();
-  }
-  return 0;
+//  InitializeCwnd ();
+//
+//  // A new connection is allowed only if this socket does not have a connection
+//  if (m_state == CLOSED || m_state == LISTEN || m_state == SYN_SENT || m_state == LAST_ACK || m_state == CLOSE_WAIT)
+//    { // send a SYN packet and change state into SYN_SENT
+//      TcpHeader header;
+//      GenerateEmptyPacketHeader(header,TcpHeader::SYN);
+//
+//      // code moved inside SendEmptyPacket
+//
+//      AddOptionMpTcp3WHS(header);
+//
+//      TcpSocketBase::SendEmptyPacket(header);
+////      NS_ASSERT( header.)
+//      NS_LOG_INFO (TcpStateName[m_state] << " -> SYN_SENT");
+//      m_state = SYN_SENT;
+//    }
+//  else if (m_state != TIME_WAIT)
+//  { // In states SYN_RCVD, ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2, and CLOSING, an connection
+//    // exists. We send RST, tear down everything, and close this socket.
+//    SendRST();
+//    CloseAndNotify();
+//  }
+//  return 0;
 }
 
 
@@ -288,9 +231,17 @@ If copied from a legacy socket, then it's a master socket
 MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
     : TcpSocketBase(sock),
     m_masterSocket(true)
+
 {
     NS_LOG_FUNCTION (this << &sock);
-      NS_LOG_LOGIC ("Copying from TcpSocketBase");
+      NS_LOG_LOGIC ("Copying from TcpSocketBase. endPoint=" << sock.m_endPoint);
+//      if(sFlow->IsMaster())
+//  {
+//    m_endPoint = sock.m_endPoint;
+//  }
+    NS_LOG_UNCOND("Cb=" << m_sendCb.IsNull () << " endPoint=" << m_endPoint);
+    m_endPoint = (sock.m_endPoint);
+    m_endPoint6 = (sock.m_endPoint6);
 }
 
 // Does this constructor even make sense ? no ? to remove ?
@@ -389,13 +340,6 @@ MpTcpSubflow::SendEmptyPacket(TcpHeader& header)
 {
   NS_LOG_FUNCTION(this << header);
 
-  /*
-  TODO here we should parse the flags and append the correct option according to it
-  */
-  if(m_state != SYN_SENT && m_state != SYN_RCVD)
-  {
-    GetMeta()->AppendDataAck(header);
-  }
 
   TcpSocketBase::SendEmptyPacket(header);
 }
@@ -812,16 +756,28 @@ MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
 //        header.AppendOption(mpc);
         //!
         // TODO assert on the state ?
-//    case LISTEN:
-//    case SYNRCVD:
-//    case SYNSENT:
         AddOptionMpTcp3WHS(header);
 //        break;
     }
+    // as long as we've not received an ack from the peer we
+    // send an MP_CAPABLE with both keys
+    else if(!GetMeta()->m_receivedDSS){
+        AddOptionMpTcp3WHS(header);
+    }
+
+  /*
+  TODO here we should parse the flags and append the correct option according to it
+  */
+//  if(m_state != SYN_SENT && m_state != SYN_RCVD)
+//  {
+//    GetMeta()->AppendDataAck(header);
+//  }
+
 }
 
 /**
 I ended up duplicating this code to update the meta r_Wnd, which would have been hackish otherwise
+TODO to remove
 **/
 void
 MpTcpSubflow::DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface)
@@ -848,7 +804,7 @@ MpTcpSubflow::DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, 
   {
     EstimateRtt(tcpHeader);
   }
-  ReadOptions(tcpHeader);
+//  ReadOptions(tcpHeader);
 
   GetMeta()->ProcessMpTcpOptions(tcpHeader, this);
 
@@ -1013,6 +969,15 @@ MpTcpSubflow::CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fro
   // Get port and address from peer (connecting host)
   // TODO upstream ns3 should assert that to and from Address are of the same kind
   TcpSocketBase::CompleteFork(p, h, fromAddress, toAddress);
+//   NS_FATAL_ERROR("TODO: endpoint never set. be careful to set it for meta too");
+//   GetMeta()->AddSubflow(this);
+  NS_LOG_INFO( this << " Endpoint="  << m_endPoint);
+    if(IsMaster())
+    {
+       NS_LOG_LOGIC("Setting meta endpoint to " << m_endPoint
+                    << " (old endpoint=" << GetMeta()->m_endPoint << " )");
+       GetMeta()->m_endPoint = m_endPoint;
+    }
 }
 
 Ptr<MpTcpPathIdManager>
@@ -1042,9 +1007,10 @@ Apparently this function is never called for now
 void
 MpTcpSubflow::ConnectionSucceeded(void)
 {
-
   NS_LOG_LOGIC(this << "Connection succeeded");
   m_connected = true;
+//  if(IsMaster())
+//  GetMeta()->ConnectionS
 //  GetMeta()->OnSubflowEstablishment(this);
 //  TcpSocketBase::ConnectionSucceeded();
 }
@@ -1056,6 +1022,9 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
   NS_LOG_FUNCTION (this << tcpHeader);
   NS_ASSERT(m_state == SYN_SENT);
 
+  NS_LOG_DEBUG("endp=" << m_endPoint);
+  TcpSocketBase::ProcessSynSent(packet, tcpHeader);
+  #if 0
   // Extract the flags. PSH and URG are not honoured.
   uint8_t tcpflags = tcpHeader.GetFlags() & ~(TcpHeader::PSH | TcpHeader::URG);
 
@@ -1197,6 +1166,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
         }
       CloseAndNotify();
     }
+    #endif
 }
 
 
@@ -1209,10 +1179,13 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 //
 //  }
 //}
-void
+int
 MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
 {
-   #if 0
+   NS_LOG_DEBUG(option);
+
+   uint8_t addressId = 0; //!< each mptcp subflow has a uid assigned
+
       if( IsMaster())
       {
         /**
@@ -1224,8 +1197,11 @@ MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
         */
 
         // Expect an MP_CAPABLE option
-        Ptr<TcpOptionMpTcpCapable> mpcRcvd;
-        NS_ASSERT_MSG( GetTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
+        Ptr<const TcpOptionMpTcpCapable> mpcRcvd = DynamicCast<const TcpOptionMpTcpCapable>(option);
+//        if(mpcRcvd) {
+//            return 2;
+//        }
+//        NS_ASSERT_MSG( GetTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
 
         GetMeta()->SetPeerKey( mpcRcvd->GetSenderKey() );
 
@@ -1247,10 +1223,10 @@ MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
          HMAC-B = HMAC(Key=(Key-B+Key-A), Msg=(R-B+R-A))
           */
 
-        Ptr<TcpOptionMpTcpJoin> join;
+        Ptr<const TcpOptionMpTcpJoin> join = DynamicCast<const TcpOptionMpTcpJoin>(option);
         // TODO should be less restrictive in case there is a loss
 
-        NS_ASSERT_MSG( GetTcpOption(tcpHeader, join), "There must be an MP_JOIN option in the SYN Packet" );
+        NS_ASSERT_MSG( join, "There must be an MP_JOIN option in the SYN Packet" );
         NS_ASSERT_MSG( join && join->GetMode() == TcpOptionMpTcpJoin::SynAck, "the MPTCP join option received is not of the expected 1 out of 3 MP_JOIN types." );
 
         addressId = join->GetAddressId();
@@ -1258,32 +1234,33 @@ MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
 //        uint8_t buf[20] =
 //        opt3->GetTruncatedHmac();
       }
-  #endif
 
+    GetIdManager()->AddRemoteAddr(addressId, m_endPoint->GetPeerAddress(), m_endPoint->GetPeerPort() );
+    return 0;
 }
 
 
-void
-MpTcpSubflow::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
-{
-    //!
-    NS_LOG_DEBUG("Does nothing");
-    switch(m_state)
-    {
-        //!
-    case LISTEN:
-    case SYN_RCVD:
-        ProcessOptionMpTcpSynSent(option);
-        break;
-    case SYN_SENT:
-        ProcessOptionMpTcpSynSent(option);
-//        AddOptionMpTcp3WHS(TcpHeader& hdr);
-        break;
-
-    default:
-        break;
-    };
-}
+//void
+//MpTcpSubflow::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
+//{
+//    //!
+//    NS_LOG_DEBUG("Does nothing");
+//    switch(m_state)
+//    {
+//        //!
+//    case LISTEN:
+//    case SYN_RCVD:
+//        ProcessOptionMpTcpSynSent(option);
+//        break;
+//    case SYN_SENT:
+//        ProcessOptionMpTcpSynSent(option);
+////        AddOptionMpTcp3WHS(TcpHeader& hdr);
+//        break;
+//
+//    default:
+//        break;
+//    };
+//}
 
 //TcpOptionMpTcpJoin::State
 // TODO move to meta and adapt meta state
@@ -1305,7 +1282,7 @@ MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
         break;
       case TcpHeader::ACK:
         mpc->SetSenderKey( GetMeta()->GetLocalKey() );
-        mpc->SetPeerKey( GetMeta()->GetRemoteKey() );
+        mpc->SetPeerKey( GetMeta()->GetPeerKey() );
         break;
 
 
@@ -1376,6 +1353,7 @@ MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
 }
 
 
+//DISABLE_MEMBER(int, Listen)
 int
 MpTcpSubflow::Listen(void)
 {
@@ -1400,7 +1378,7 @@ MpTcpSubflow::ProcessSynRcvd(Ptr<Packet> packet, const TcpHeader& tcpHeader, con
 {
   //!
   NS_LOG_FUNCTION (this << tcpHeader);
-
+  TcpSocketBase::ProcessSynRcvd(packet, tcpHeader, fromAddress, toAddress);
 }
 
 // TODO and normally I should wait for a fourth ack
@@ -1578,7 +1556,7 @@ TODO m_masterSocket should not be necessary
 bool
 MpTcpSubflow::IsMaster() const
 {
-  NS_ASSERT(GetMeta());
+//  NS_ASSERT(GetMeta());
 
   return m_masterSocket;
   // TODO it will never return true

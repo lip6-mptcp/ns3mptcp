@@ -124,10 +124,6 @@ MpTcpSocketBase::GetTypeId(void)
       .SetParent<TcpSocketBase>()
 //      .AddConstructor<MpTcpSocketBase>()
 // TODO rehabilitate
-//      .AddAttribute("CongestionControl","Congestion control algorithm",
-//          EnumValue(Uncoupled_TCPs),
-//          MakeEnumAccessor(&MpTcpSocketBase::SetCongestionCtrlAlgo),
-//          MakeEnumChecker(Uncoupled_TCPs, "Uncoupled_TCPs",Fully_Coupled, "Fully_Coupled", RTT_Compensator, "RTT_Compensator", Linked_Increases,"Linked_Increases"))
 //      .AddAttribute("SchedulingAlgorithm", "Algorithm for data distribution between m_subflows", EnumValue(Round_Robin),
 //          MakeEnumAccessor(&MpTcpSocketBase::SetDataDistribAlgo),
 //          MakeEnumChecker(Round_Robin, "Round_Robin"))
@@ -155,13 +151,12 @@ static const std::string containerNames[MpTcpSocketBase::Maximum] = {
 
 };
 
+
+// TODO unused for now
 MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
   m_tracePrefix("default"),
   m_prefixCounter(1),
-  m_mpEnabled(false),
-//  m_ssThresh(0),
-//  m_initialCWnd(1),
-  m_server(true),
+  m_server(true), // TODO remove or use it
   m_localKey(0),
   m_localToken(0),
   m_peerKey(0),
@@ -175,13 +170,11 @@ MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
     NS_LOG_LOGIC("Copying from TcpSocketBase");
 }
 
+
 MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
   TcpSocketBase(sock),
   m_tracePrefix(sock.m_tracePrefix),
   m_prefixCounter(1), //!< Start at one
-  m_mpEnabled(sock.m_mpEnabled),
-//  m_ssThresh(sock.m_ssThresh),
-//  m_initialCWnd(sock.m_initialCWnd),
   m_server(sock.m_server), //! true, if I am forked
   m_localKey(sock.m_localKey),
   m_localToken(sock.m_localToken),
@@ -210,9 +203,6 @@ MpTcpSocketBase::MpTcpSocketBase() :
   TcpSocketBase(),
   m_tracePrefix("default"),
   m_prefixCounter(1),
-  m_mpEnabled(false),
-//  m_ssThresh(0),
-//  m_initialCWnd(1),
   m_server(true),
   m_localKey(0),
   m_localToken(0),
@@ -291,36 +281,12 @@ MpTcpSocketBase::GetLocalKey() const
   return m_localKey;
 }
 
-//int
-// uint64_t& remoteKey
 uint64_t
-MpTcpSocketBase::GetRemoteKey() const
+MpTcpSocketBase::GetPeerKey() const
 {
-  // TODO restablished
-  //NS_ASSERT_MSG( IsConnected(),"Can't get the remote key before establishing a connection" );
-//  {
-    //remoteKey =
   return m_peerKey;
-//    return 0;
-  //}
-  //return -ERROR_INVAL;
 }
 
-
-//int
-//MpTcpSocketBase::SetLocalToken(uint32_t token) const
-//{
-//
-//}
-
-
-//void
-//MpTcpSocketBase::SetAddAddrCallback(Callback<bool, Ptr<Socket>, Address, uint8_t> addAddrCb)
-//{
-//  NS_LOG_FUNCTION (this << &addAddrCb);
-//
-//  m_onAddAddr = addAddrCb;
-//}
 
 //MpTcpAddressInfo info
 // Address info
@@ -361,21 +327,6 @@ MpTcpSocketBase::GetSubflow(uint8_t id) const
 
 
 
-// TODO GetLocalAddr
-
-
-// Accept an iterator ?
-//bool
-//MpTcpSocketBase::RemLocalAddr(Ipv4Address address)
-//{
-////  std::map<Ipv4Address,uint8_t>::iterator  it
-//  int res = m_localAddresses.erase( address );
-//  return (res != 0);
-//}
-
-
-
-
 void
 MpTcpSocketBase::EstimateRtt(const TcpHeader& TcpHeader)
 {
@@ -393,7 +344,6 @@ MpTcpSocketBase::SetPeerKey(uint64_t remoteKey)
   m_peerKey = remoteKey;
 
   // not  sure yet. Wait to see if SYN/ACK is acked
-  m_mpEnabled = true;
   NS_LOG_DEBUG("Peer key set to " << m_peerKey);
 
 
@@ -446,60 +396,14 @@ MpTcpSocketBase::ProcessOptionMpTcp(const Ptr<const TcpOption> opt)
 void
 MpTcpSocketBase::ProcessListen(Ptr<Packet> packet, const TcpHeader& mptcpHeader, const Address& fromAddress, const Address& toAddress)
 {
-
-
   // TODO removed
   NS_FATAL_ERROR("disabled");
-
-#if 0
-  NS_LOG_FUNCTION (this << mptcpHeader);
-
-  // Extract the flags. PSH and URG are not honoured.
-  uint8_t tcpflags = mptcpHeader.GetFlags() & ~(TcpHeader::PSH | TcpHeader::URG);
-
-  // Fork a socket if received a SYN. Do nothing otherwise.
-  // C.f.: the LISTEN part in tcp_v4_do_rcv() in tcp_ipv4.c in Linux kernel
-  if (tcpflags != TcpHeader::SYN)
-    {
-      NS_LOG_LOGIC("Received TCP flags " << tcpflags << " while listening");
-      return;
-    }
-
-  // TODO  check for MP option
-
-  // For now we assume there is only one option of MPTCP kind but there may be several
-  // TODO update the SOCIS code to achieve this
-  Ptr<TcpOptionMpTcpCapable> mpc;
-//  Ptr<TcpOption> option = GetTcpOption(mptcpHeader, mpc);
-//  Ptr<TcpOptionMpTcpMain> opt2 = DynamicCast<TcpOptionMpTcpMain>(option);
-
-
-  // Expect an MP_CAPABLE option
-//  NS_ASSERT_MSG( opt2->GetSubType() == TcpOptionMpTcpMain::MP_CAPABLE, "MPTCP sockets can only connect to MPTCP sockets. There is no fallback implemented yet." );
-  NS_ASSERT_MSG( GetTcpOption(mptcpHeader, mpc) , "MPTCP sockets can only connect to MPTCP sockets. There is no fallback implemented yet." );
-
-
-  // Call socket's notify function to let the server app know we got a SYN
-  // If the server app refuses the connection, do nothing
-  if (!NotifyConnectionRequest(fromAddress))
-  {
-    NS_LOG_ERROR("Server refuse the incoming connection!");
-    return;
-  }
-
-
-
-  // simulate fork. The MP_CAPABLe option will be checked in completeFork
-//  Ptr<MpTcpSocketBase> newSock = ForkAsMeta();
-  Ptr<MpTcpSocketBase> newSock = DynamicCast<MpTcpSocketBase>(Fork());
-  // NS_LOG_DEBUG ("Clone new MpTcpSocketBase new connection. ListenerSocket " << this << " AcceptedSocket "<< newSock);
-  Simulator::ScheduleNow(&MpTcpSocketBase::CompleteFork, newSock, packet, mptcpHeader, fromAddress, toAddress);
-  #endif
 }
 
 
 /**
 TODO if without option create a NewReno
+TODO remove
 **/
 void
 MpTcpSocketBase::CompleteFork(
@@ -608,25 +512,10 @@ MpTcpSocketBase::AppendDataAck(TcpHeader& hdr) const
   Ptr<TcpOptionMpTcpDSS> dss;
 
   //! if a bigger dataack is already set, what happens ?
-//  if(GetOrCreateMpTcpOption(hdr, dss) && (dss->GetFlags() & ))
-//  {
-//
-//  }
   GetOrCreateMpTcpOption(hdr, dss);
-//  Ptr<TcpOptionMpTcpDSS> dss;
-//  if(!GetMpTcpOption(hdr,dss)) {
-//    dss = TcpOptionMpTcpMain::CreateMpTcpOption(TcpOptionMpTcpMain::MP_DSS);
-//  }
 
-
-//  NS_ASSERT( (dss->GetFlags() & TcpOptionMpTcpDSS::DataAckPresent) == 0);
-
-//   = CreateObject<TcpOptionMpTcpDSS>();
   uint32_t dack = m_rxBuffer->NextRxSequence().GetValue();
   dss->SetDataAck( dack );
-
-  // TODO check the option is not in the header already
-//  NS_ASSERT_MSG( hdr.GetOption()GetOp)
 
 
 }
@@ -736,6 +625,7 @@ MpTcpSocketBase::ProcessDSS(const TcpHeader& tcpHeader, Ptr<TcpOptionMpTcpDSS> d
   {
     NS_LOG_LOGIC("First DSS received !");
     m_receivedDSS = true;
+    // Wrong, one should be able to send this a lot before
     ConnectionSucceeded();
   }
 
@@ -1118,7 +1008,7 @@ onSubflowNewState(
 {
   NS_LOG_UNCOND("onSubflowNewState wrapper");
     meta->OnSubflowNewState(
-      "context",sf,oldState,newState);
+      "context", sf, oldState, newState);
 }
 
 /**
@@ -1133,26 +1023,30 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
 )
 {
   NS_LOG_LOGIC("subflow " << sf << " state changed from " << TcpStateName[oldState] << " to " << TcpStateName[newState]);
-//  OnSubflowNewState
-//  if(newState)
+
+
+
+  if(sf->IsMaster() && newState == SYN_RCVD)
+  {
+      //!
+      NS_LOG_LOGIC("moving meta to SYN_RCVD");
+      m_server = true;
+      m_state = SYN_RCVD;
+  }
+
+  // Only react when it gets established
   if(newState == ESTABLISHED)
   {
-
-
-
-
     //!
-    MoveSubflow(sf,Others,Established);
-
-
+    MoveSubflow(sf, Others, Established);
 
     // subflow did SYN_RCVD -> ESTABLISHED
     if(oldState == SYN_RCVD)
     {
       NS_LOG_LOGIC("Subflow created");
-//      Simulator::ScheduleNow(&MpTcpSocketBase::OnSubflowCreated, this, sf);
+//      Simulator::ScheduleNow(&MpTcpSocketBase::OnSubflowEstablished, this, sf);
       // TODO schedule it else it sends nothing ?
-      OnSubflowCreated(sf);
+      OnSubflowEstablished(sf);
     }
     // subflow did SYN_SENT -> ESTABLISHED
     else if(oldState == SYN_SENT)
@@ -1162,7 +1056,7 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
       OnSubflowEstablishment(sf);
     }
     else {
-      NS_FATAL_ERROR("Impossible");
+      NS_FATAL_ERROR("Unhandled case");
     }
   }
 
@@ -1172,6 +1066,8 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
 Create in SYN/RCVD mode
 */
 //  CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
+// TODO remove
+#if 0
 Ptr<MpTcpSubflow>
 MpTcpSocketBase::CreateSubflowAndCompleteFork(
   bool masterSocket,
@@ -1206,7 +1102,7 @@ MpTcpSocketBase::CreateSubflowAndCompleteFork(
 
   return sFlow;
 }
-
+#endif
 /*
 TODO it should block subflow creation until it received a DSS on a new subflow
 TODO rename ? CreateAndAdd? Add ? Start ? Initiate
@@ -1214,11 +1110,6 @@ TODO do it so that it does not return the subflow. Should make for fewer mistake
 
 C'est là qu'il faut activer le socket tracing
 */
-//Ptr<MpTcpSubflow>
-//MpTcpSocketBase::CreateSubflow(Ptr<TcpSocketBase> orig)
-//{
-//    //
-//}
 
 Ptr<MpTcpSubflow>
 MpTcpSocketBase::CreateSubflow(
@@ -1236,12 +1127,12 @@ MpTcpSocketBase::CreateSubflow(
   {
 
     //! Before allowing more subflows, we need to check if we already received a DSS ! (cf standard)
-    if(!IsMpTcpEnabled())
-    {
-      NS_LOG_ERROR("Remote host does not seem MPTCP compliant so impossible to create additionnal subflows");
-//      return -ERROR_INVAL;
-      return 0;
-    }
+//    if(!IsMpTcpEnabled())
+//    {
+//      NS_LOG_ERROR("Remote host does not seem MPTCP compliant so impossible to create additionnal subflows");
+////      return -ERROR_INVAL;
+//      return 0;
+//    }
   }
   //else if( GetNActiveSubflows() > 0 )
   else if( m_state == SYN_SENT || m_state == SYN_RCVD)
@@ -1261,7 +1152,6 @@ MpTcpSocketBase::CreateSubflow(
   // TODO pass CC
 //  m_congestionControl->GetInstanceTypeId()
 //GetMpTcpSubflowTypeId
-//MpTcp::
   Ptr<Socket> sock = m_tcp->CreateSocket();
 
   Ptr<MpTcpSubflow> sFlow = DynamicCast<MpTcpSubflow>(sock);
@@ -1277,14 +1167,8 @@ MpTcpSocketBase::CreateSubflow(
   We need to update MPTCP level cwin every time a subflow window is updated,
   thus we resort to the tracing system to track subflows cwin
   **/
-
-// this makes no sense *lol*
-//  sFlow->SetInitialCwnd( GetInitialCwnd() );  //! Could be done maybe in SetMeta ?
   NS_ASSERT_MSG( sFlow, "Contact ns3 team");
-
-
   m_subflows[Others].push_back( sFlow );
-
   NS_LOG_INFO ( "subflow " << sFlow << " associated with node " << sFlow->m_node);
   return sFlow;
 }
@@ -1298,19 +1182,32 @@ MpTcpSocketBase::AddSubflow(
     Ptr<MpTcpSubflow> sflow
     )
 {
+    NS_LOG_FUNCTION(sflow);
 
 //  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
   Ptr<MpTcpSubflow> sf = sflow;
-//  NS_ASSERT(sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this)));
 
+  bool ok = sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this));
+  NS_ASSERT_MSG(ok, "Tracing mandatory to update the MPTCP global congestion window");
 
   //! We need to act on certain subflow state transitions according to doc "There is not a version with bound arguments."
     //  NS_ASSERT(sFlow->TraceConnect ("State", "State", MakeCallback(&MpTcpSocketBase::OnSubflowNewState, this)) );
-//    NS_ASSERT(sf->TraceConnectWithoutContext ("State", MakeBoundCallback(&onSubflowNewState, this, sf)) );
+  ok = sf->TraceConnectWithoutContext ("State", MakeBoundCallback(&onSubflowNewState, this, sf));
+  NS_ASSERT_MSG(ok, "Tracing mandatory to update the MPTCP socket state");
 
-    //!
-    sf->SetMeta(this);
-    m_subflows[Others].push_back( sf );
+  if(sf->IsMaster())
+  {
+      //! then we update
+      m_state = sf->GetState();
+      m_mptcpLocalKey = sf->m_mptcpLocalKey;
+      m_mptcpLocalToken = sf->m_mptcpLocalToken;
+  }
+
+  //!
+  sf->SetMeta(this);
+
+  m_subflows[Others].push_back( sf );
+
 
 }
 
@@ -1365,9 +1262,10 @@ Ptr<TcpOptionMpTcpJoin> join
     NS_LOG_LOGIC("Refusing establishement of a new subflow");
     return 0;
   }
-
+  Ptr<MpTcpSubflow> subflow ;
   //! accepted subflow false => not master
   // TODO move part of the code here really
+#if 0
   Ptr<MpTcpSubflow> subflow = CreateSubflowAndCompleteFork(
       false,
 // TODO pass the packet
@@ -1375,7 +1273,7 @@ Ptr<TcpOptionMpTcpJoin> join
       fromAddress,
       toAddress
       );
-
+#endif
 //  NS_ASSERT_MSG(subflow->Bind(toAddress) == 0, "TODO we didn't check that dest ip belonged to the same node, hence this error; subflow should never have been created !!");
 
 //  subflow->Listen();
@@ -1389,6 +1287,7 @@ Ptr<TcpOptionMpTcpJoin> join
 /**
 Need to override parent's otherwise it allocates an endpoint to the meta socket
 and upon connection , the tcp subflow can't allocate
+TODO remove
 */
 int
 MpTcpSocketBase::Connect(const Address & toAddress)
@@ -1396,9 +1295,10 @@ MpTcpSocketBase::Connect(const Address & toAddress)
   NS_LOG_FUNCTION(this);
 
   // TODO may have to set m_server to false here
-
+  NS_FATAL_ERROR("TODO rmeove");
   // generated either on connect or fork
-  m_localKey = GenerateKey();
+//  m_localKey = GenerateKey();
+  m_localKey = 42;
 
 
   if( IsConnected() )
@@ -1478,7 +1378,7 @@ MpTcpSocketBase::SendFastClose(Ptr<MpTcpSubflow> sf)
   sf->GenerateEmptyPacketHeader(header,TcpHeader::RST);
   Ptr<TcpOptionMpTcpFastClose> opt = Create<TcpOptionMpTcpFastClose>();
 
-  opt->SetPeerKey( GetRemoteKey() );
+  opt->SetPeerKey( GetPeerKey() );
 
   sf->SendEmptyPacket(header);
 
@@ -1509,13 +1409,7 @@ MpTcpSocketBase::ConnectionSucceeded(void)
    TcpSocketBase::ConnectionSucceeded();
 }
 
-bool
-MpTcpSocketBase::IsMpTcpEnabled() const
-{
-  return m_mpEnabled;
-}
-
-
+// TODO move to TcpSocketBase
 bool
 MpTcpSocketBase::IsConnected() const
 {
@@ -1533,11 +1427,14 @@ MpTcpSocketBase::IsConnected() const
 //}
 
 
-/** Inherited from Socket class: Bind socket to an end-point in MpTcpL4Protocol */
+/** Inherited from Socket class: Bind socket to an end-point in MpTcpL4Protocol
+TODO convert to noop
+*/
 int
 MpTcpSocketBase::Bind()
 {
   NS_LOG_FUNCTION (this);
+  NS_FATAL_ERROR("TO remove");
   m_server = true;
   m_endPoint = m_tcp->Allocate();  // Create endPoint with ephemeralPort
   if (0 == m_endPoint)
@@ -1557,12 +1454,15 @@ MpTcpSocketBase::SetupCallback()
   return TcpSocketBase::SetupCallback();
 }
 
-/** Inherit from socket class: Bind socket (with specific address) to an end-point in TcpL4Protocol */
+/** Inherit from socket class: Bind socket (with specific address) to an end-point in TcpL4Protocol
+cconvert to noop
+*/
 int
 MpTcpSocketBase::Bind(const Address &address)
 {
   NS_LOG_FUNCTION (this<<address);
-  m_server = true;
+  NS_FATAL_ERROR("TO remove");
+
   return TcpSocketBase::Bind(address);
 }
 
@@ -1576,14 +1476,13 @@ MpTcpSocketBase::Bind(const Address &address)
 //
 //}
 
-  /*
- Notably, it is only DATA_ACKed once all
-   data has been successfully received at the connection level.  Note,
-   therefore, that a DATA_FIN is decoupled from a subflow FIN.  It is
-   only permissible to combine these signals on one subflow if there is
-   no data outstanding on other subflows.
-
-  */
+/*
+Notably, it is only DATA_ACKed once all
+data has been successfully received at the connection level.  Note,
+therefore, that a DATA_FIN is decoupled from a subflow FIN.  It is
+only permissible to combine these signals on one subflow if there is
+no data outstanding on other subflows.
+*/
 void
 MpTcpSocketBase::PeerClose( SequenceNumber32 dsn, Ptr<MpTcpSubflow> sf)
 {
@@ -2196,64 +2095,12 @@ MpTcpSocketBase::ReTxTimeout()
 //    }
 //}
 
-#if 0
-void
-MpTcpSocketBase::GenerateTokenForKey( mptcp_crypto_t alg, uint64_t key, uint32_t& token, uint64_t& idsn)
-{
-  NS_ASSERT_MSG(alg == MPTCP_SHA1, "Only sha1 hmac currently supported (and standardised !)");
-
-  NS_LOG_UNCOND("Generating token/key from key=" << key);
-  const int DIGEST_SIZE_IN_BYTES = SHA_DIGEST_LENGTH; //20
-
-  const int KEY_SIZE_IN_BYTES = 8;
-//  const int TOKEN_SIZE_IN_BYTES = 4;
-  Buffer keyBuff, digestBuf;
-  keyBuff.AddAtStart(KEY_SIZE_IN_BYTES);
-  digestBuf.AddAtStart(DIGEST_SIZE_IN_BYTES);
-
-  Buffer::Iterator it = keyBuff.Begin();
-  it.WriteHtonU64(key);
-
-//  uint32_t result = 0;
-//  unsigned char *SHA1(const unsigned char *d, size_t n, unsigned char *md);
-  uint8_t digest[DIGEST_SIZE_IN_BYTES];
-//  const uint8_t* test = (const uint8_t*)&key;
-  // Convert to network order
-  // computes hash of KEY_SIZE_IN_BYTES bytes in keyBuff
-// TODO according to openssl doc (https://www.openssl.org/docs/crypto/EVP_DigestInit.html#)
-// we should use  EVP_MD_CTX *mdctx; instead of sha1
-	SHA1( keyBuff.PeekData(), KEY_SIZE_IN_BYTES, digest);
-
-	Buffer::Iterator it_digest = digestBuf.Begin();
-	it_digest.Write( digest , DIGEST_SIZE_IN_BYTES ); // strlen( (const char*)digest)
-	it_digest = digestBuf.Begin();
-  token = it_digest.ReadNtohU32();
-  it_digest.Next( 8 );
-
-  idsn = it_digest.ReadNtohU64();
-
-  NS_LOG_UNCOND("Resulting token=" << token << " and idsn=" << idsn);
-}
-#endif
-//int
-//MpTcpSocketBase::GenerateToken(uint32_t& token) const
-//{
-//  // if connection not established yet then we've got not key to generate the token
-//  if( IsConnected() )
-//  {
-//    // TODO hash keys
-//    token = 2;
-//    return 0;
-//  }
-//
-//  return -ERROR_NOTCONN;
-//}
 
 
 
 // I moved it to mptcp-crypto.h
-
-
+// TODO remove
+#if 0
 uint64_t
 MpTcpSocketBase::GenerateKey()
 {
@@ -2292,7 +2139,7 @@ MpTcpSocketBase::GenerateKey()
 
   return m_localKey;
 }
-
+#endif
 
 
 //void
@@ -2329,7 +2176,6 @@ MpTcpSocketBase::MoveSubflow(Ptr<MpTcpSubflow> subflow, mptcp_container_t from, 
   NS_ASSERT(from != to);
   SubflowList::iterator it = std::find(m_subflows[from].begin(), m_subflows[from].end(), subflow);
 
-//  NS_ASSERT();
   if(it == m_subflows[from].end())
   {
     NS_LOG_ERROR("Could not find subflow in *from* container. It may have already been moved by another callback ");
@@ -2366,30 +2212,16 @@ We shouldn't need the from container, it could be found
 void
 MpTcpSocketBase::MoveSubflow(Ptr<MpTcpSubflow> subflow, mptcp_container_t to)
 {
-
-
   NS_LOG_DEBUG("Moving subflow " << subflow << " to " << containerNames[to]);
 
   for(int i = 0; i < Maximum; ++i)
   {
 
-//    Established
-//    NS_LOG_INFO("Closing all subflows in state [" << containerNames [i] << "]");
-//    for( SubflowList::const_iterator it = m_subflows[i].begin(); it != m_subflows[i].end(); it++ )
-//    {
-
       SubflowList::iterator it = std::find(m_subflows[i].begin(), m_subflows[i].end(), subflow);
-//      NS_ASSERT(it != m_subflows[from].end() ); //! the subflow must exist
       if(it != m_subflows[i].end())
       {
           NS_LOG_DEBUG("Found sf in container [" << containerNames[i] << "]");
-//          if( i == to) {
-//            NS_LOG_WARN("destination container is same as source");
-//            return;
-//          }
           MoveSubflow(subflow, static_cast<mptcp_container_t>(i), to);
-//          m_subflows[to].push_back(*it);
-//          m_subflows[from].erase(it);
           return;
       }
 
@@ -2409,7 +2241,7 @@ MpTcpSocketBase::MoveSubflow(Ptr<MpTcpSubflow> subflow, mptcp_container_t to)
 TODO rename into subflow created
 */
 void
-MpTcpSocketBase::OnSubflowCreated(Ptr<MpTcpSubflow> subflow)
+MpTcpSocketBase::OnSubflowEstablished(Ptr<MpTcpSubflow> subflow)
 {
   ComputeTotalCWND();
 
@@ -2419,7 +2251,6 @@ MpTcpSocketBase::OnSubflowCreated(Ptr<MpTcpSubflow> subflow)
     NS_LOG_LOGIC("Master subflow created, copying its endpoint");
     m_endPoint = subflow->m_endPoint;
 
-//    m_endPoint->m_mptcpToken = GetToken();
     if(m_state == SYN_SENT || m_state == SYN_RCVD)
     {
       NS_LOG_LOGIC("Meta " << TcpStateName[m_state] << " -> ESTABLISHED");
@@ -2427,7 +2258,7 @@ MpTcpSocketBase::OnSubflowCreated(Ptr<MpTcpSubflow> subflow)
     }
     else
     {
-      NS_LOG_WARN("Unhandled case where subflow got established while meta in " << TcpStateName[m_state] );
+      NS_FATAL_ERROR("Unhandled case where subflow got established while meta in " << TcpStateName[m_state] );
     }
   // from
 //    InetSocketAddress addr(subflow->m_endPoint->GetPeerAddress(), subflow->m_endPoint->GetPeerPort());
@@ -2463,20 +2294,10 @@ MpTcpSocketBase::OnSubflowEstablishment(Ptr<MpTcpSubflow> subflow)
       NS_LOG_WARN("Unhandled case where subflow got established while meta in " << TcpStateName[m_state] );
     }
 
-//    SetRemoteWindow( subflow->m_rWnd );
-    // TODO move that to the SYN_RCVD
-    // If client
-    NS_ASSERT_MSG( !m_server, "This meta should have initiated the connection");
-//    NS_LOG_DEBUG("I am client, amn't I ?");
     Simulator::ScheduleNow(&MpTcpSocketBase::ConnectionSucceeded, this);
   }
-//  else
-//  {
-    Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowConnected, this, subflow);
-//  }
-  //[subflow->m_positionInVector] = ;
-  // done elsewhere
-//  MoveSubflow(subflow, Others, Established);
+
+  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowConnected, this, subflow);
 }
 
 

@@ -38,6 +38,15 @@ public:
   virtual ~TcpOption ();
 
   /**
+   * \brief Print a TCP header into an output stream
+   *
+   * \param os output stream
+   * \param opt TCP option to print
+   * \return The ostream passed as first argument
+   */
+  friend std::ostream& operator<<(std::ostream& os, Ptr<const TcpOption> opt);
+
+  /**
    * \brief Get the type ID.
    * \return the object TypeId
    */

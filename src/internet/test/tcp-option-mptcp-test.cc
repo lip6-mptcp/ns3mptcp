@@ -46,10 +46,13 @@ template<class T>
 class TcpOptionMpTcpTestCase : public TestCase
 {
 public:
-  TcpOptionMpTcpTestCase (Ptr<T> configuredOption, TcpOptionMpTcpMain::SubType type, std::string desc) : TestCase (desc)
+  TcpOptionMpTcpTestCase (Ptr<T> configuredOption, TcpOptionMpTcpMain::SubType type, std::string desc) :
+      TestCase (desc),
+      m_option(configuredOption),
+      m_type(type)
   {
     NS_LOG_FUNCTION (this);
-    m_option = configuredOption;
+
   }
 
   virtual ~TcpOptionMpTcpTestCase ()

@@ -40,6 +40,13 @@
 
 namespace ns3 {
 
+
+#define DISABLE_MEMBER(retType,member) retType \
+                                        MpTcpSubflow::member(void) {\
+                                            NS_FATAL_ERROR("This should never be called. The meta will make the subflow pass from LISTEN to ESTABLISHED."); \
+                                        }
+
+
 class Ipv4EndPoint;
 class Ipv6EndPoint;
 class Node;
@@ -762,7 +769,7 @@ protected:
    * \param tcpHeader the packet's TCP header
    * TODO remove
    */
-  virtual void ReadOptions (const TcpHeader& tcpHeader);
+//  virtual void ReadOptions (const TcpHeader& tcpHeader);
 
   /** \brief Add options to TcpHeader
    *
@@ -772,17 +779,37 @@ protected:
    * \param tcpHeader TcpHeader to add options to
    */
   virtual void AddOptions (TcpHeader& tcpHeader);
+//  virtual void AddOptionsSyn (TcpHeader& tcpHeader);
 
   /**
+   * This function first generates a copy of the current socket as an MpTcpSubflow.
+   * Then it upgrades the current socket to an MpTcpSocketBase via the use of
+   * "placement new", i.e. it does not allocate new memory but reuse the memory at "this"
+   * address to instantiate MpTcpSocketBase.
+   * Finally the master socket is associated to the meta.
+   *
+   * It is critical that enough memory was allocated beforehand to contain MpTcpSocketBase
+   * (see how it's done for now in TcpL4Protocol).
+   * Ideally MpTcoSocketBase would take less memory than TcpSocketBase, so one of the goal should be to let
+   * MpTcpSocketBase inherit directly from TcpSocket rather than TcpSocketBase.
+   *
    * \param master
-   * \return master
+   * \return master subflow. It is not associated to the meta at this point
    */
   virtual Ptr<MpTcpSubflow> UpgradeToMeta();
 
+  /**
+   *
+   */
   virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
   virtual int ProcessTcpOptionsListen(const TcpHeader& header);
   virtual int ProcessTcpOptionsSynRcvd(const TcpHeader& header);
-  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption>& option);
+
+  /**
+   *
+   * \return 1
+   */
+  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
 
   /**
    * \brief Read and parse the Window scale option
@@ -797,7 +824,7 @@ protected:
   /**
    * Does nothing
    */
-  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
+//  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
 
   /**
    * \brief Add the window scale option to the header
@@ -885,6 +912,8 @@ protected:
   virtual uint64_t GenerateUniqueMpTcpKey() ;
 
 protected:
+  friend class MpTcpSubflow;
+
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event
   EventId           m_lastAckEvent;    //!< Last ACK timeout event
@@ -978,6 +1007,8 @@ protected:
 typedef void (* TcpAckStatesTracedValueCallback)(const TcpSocketState::TcpAckState_t oldValue,
                                                  const TcpSocketState::TcpAckState_t newValue);
 
+
+#undef DISABLE_MEMBER
 } // namespace ns3
 
 #endif /* TCP_SOCKET_BASE_H */

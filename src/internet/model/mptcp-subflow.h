@@ -272,11 +272,11 @@ public:
 
   virtual void
   DeallocateEndPoint(void);
+
   /*
   TODO move to meta.
   This should generate an *absolute*
   mapping with 64bits DSN etc...
-
 
   */
   virtual void
@@ -296,14 +296,11 @@ public:
   /**
   * This should
   */
-  virtual void
-  NewAck(SequenceNumber32 const& ack);
+  virtual void NewAck(SequenceNumber32 const& ack);
 
-  void
-  TimeWait();
+  virtual void TimeWait();
 
-  virtual void
-  DoRetransmit();
+  virtual void DoRetransmit();
 
 //  virtual void
 //  SetRemoteWindow(uint32_t );
@@ -314,8 +311,7 @@ public:
 //  virtual uint32_t
 //  RemoteWindow();
 
-  virtual int
-  Listen(void);
+  virtual int Listen(void);
   /**
   TODO some options should be forwarded to the meta socket
   */
@@ -328,37 +324,33 @@ public:
 
   /**
    * Will send MP_JOIN or MP_CAPABLE depending on if it is master or not
+   * Updates the meta endpoint
    *
+   * \see TcpSocketBase::CompleteFork
    */
-  void
+  virtual void
   CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
 
-  void
+  virtual void
   ProcessSynRcvd(Ptr<Packet> packet, const TcpHeader& tcpHeader, const Address& fromAddress,
     const Address& toAddress);
 
-  virtual void
-  ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader);
-
-  virtual void
-  ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
 
   /**
   */
-  virtual void
-  Retransmit(void);
+  virtual void Retransmit(void);
 
 
-  Ptr<MpTcpPathIdManager>
-  GetIdManager();
+  Ptr<MpTcpPathIdManager> GetIdManager();
 
   /**
   Temporary, for debug
   **/
 //  void
 //  SetupTracing(const std::string prefix);
-
 //  MpTcpMapping getSegmentOfACK( uint32_t ack);
 
 
@@ -389,15 +381,16 @@ protected:
   * \param mapping
   * \todo should check if mappings intersect, already exist etc...
   */
-  bool
-  AddPeerMapping(const MpTcpMapping& mapping);
+  virtual bool AddPeerMapping(const MpTcpMapping& mapping);
 
 
   /**
-  * Overrides parent in order to warn meta
-  **/
-  virtual void
-  ConnectionSucceeded(void);
+   * Depending on if this subflow is master or not, we want to
+   * trigger
+   * Callbacks being private members
+   * Overrides parent in order to warn meta
+   **/
+  virtual void ConnectionSucceeded(void);
 
 //
 //  /**
@@ -435,8 +428,9 @@ protected:
   virtual void
   ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
-  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
-  virtual void ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
+//  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
+  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
+
   /**
     GetMeta()->m_rxBuffer.NextRxSequence().GetValue()
   **/
