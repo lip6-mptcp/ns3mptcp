@@ -1811,7 +1811,7 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 
 
   // Just dump the generated mappings
-  NS_LOG_UNCOND("=================\nGenerated mappings for node=" << (int)GetNode()->GetId());
+  NS_LOG_UNCOND("=================\nGenerated " << mappings.size() << " mappings for node=" << (int)GetNode()->GetId());
   for(MappingVector::iterator it(mappings.begin()); it  != mappings.end(); it++ )
   {
     MpTcpMapping& mapping = it->second;
@@ -2243,13 +2243,15 @@ TODO rename into subflow created
 void
 MpTcpSocketBase::OnSubflowEstablished(Ptr<MpTcpSubflow> subflow)
 {
-  ComputeTotalCWND();
+
 
   //! TODO We should try to steal the endpoint
   if(subflow->IsMaster())
   {
     NS_LOG_LOGIC("Master subflow created, copying its endpoint");
     m_endPoint = subflow->m_endPoint;
+    SetTcp(subflow->m_tcp);
+    SetNode(subflow->GetNode());
 
     if(m_state == SYN_SENT || m_state == SYN_RCVD)
     {
@@ -2266,6 +2268,7 @@ MpTcpSocketBase::OnSubflowEstablished(Ptr<MpTcpSubflow> subflow)
   }
 //  else
 //  {
+  ComputeTotalCWND();
   Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowCreatedOnJoinRequest, this, subflow );
 //  }
 }

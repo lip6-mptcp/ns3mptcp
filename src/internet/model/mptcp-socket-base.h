@@ -650,7 +650,7 @@ protected: // protected methods
   */
 //  Time ComputeReTxTimeoutForSubflow( Ptr<MpTcpSubflow> );
 
-  bool DoChecksum() const;
+  virtual bool DoChecksum() const;
 
   //////////////////////////////////////////////////////////////////
   ////  Here follows a list of MPTCP specific *callbacks* triggered by subflows
@@ -679,14 +679,12 @@ protected: // protected methods
    * Free space as much as possible
    * Goes through all subflows
    */
-  virtual void
-  SyncTxBuffers();
+  virtual void SyncTxBuffers();
 
   /**
    * Free space as much as possible
    */
-  virtual void
-  SyncTxBuffers(Ptr<MpTcpSubflow> sf);
+  virtual void SyncTxBuffers(Ptr<MpTcpSubflow> sf);
 
   /**
    *  inherited from parent: update buffers
@@ -714,7 +712,7 @@ protected: // protected methods
 protected: // protected variables
 
   friend class TcpL4Protocol;
-
+  friend class MpTcpSchedulerRoundRobin;
 
 
   /**

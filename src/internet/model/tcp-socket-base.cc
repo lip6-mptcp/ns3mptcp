@@ -1513,9 +1513,9 @@ TcpSocketBase::UpgradeToMeta()
   NS_LOG_UNCOND("Upgrading to meta " << this);
 
   //*this
-  MpTcpSubflow *sf = new MpTcpSubflow(*this);
+  MpTcpSubflow *subflow = new MpTcpSubflow(*this);
 //  CompleteConstruct(sf);
-  Ptr<MpTcpSubflow> master(sf, true);
+  Ptr<MpTcpSubflow> master(subflow, true);
 
   // TODO set SetSendCallback but for meta
   Callback<void, Ptr<Socket>, uint32_t > cb = this->m_sendCb;
@@ -1538,8 +1538,11 @@ TcpSocketBase::UpgradeToMeta()
 
   // I don't want the destructor to be called in that moment
 //  delete temp[];
-
   MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
+  meta->SetTcp(master->m_tcp);
+  meta->SetNode(master->GetNode());
+
+//  MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
 //  meta->m_sendCb =sf->m_sendCb;
   meta->AddSubflow(master);
   meta->SetSendCallback(cb);

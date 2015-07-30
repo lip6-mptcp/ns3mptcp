@@ -61,7 +61,7 @@ void
 MpTcpSchedulerRoundRobin::SetMeta(Ptr<MpTcpSocketBase> metaSock)
 {
   NS_ASSERT(metaSock);
-  NS_ASSERT_MSG(m_metaSock == 0,"SetMeta already called");
+  NS_ASSERT_MSG(m_metaSock == 0, "SetMeta already called");
   m_metaSock = metaSock;
 }
 
@@ -85,14 +85,14 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
   NS_LOG_FUNCTION(this);
   NS_ASSERT_MSG(m_metaSock,"Call SetMeta() before generating a mapping");
 
-  #if 0
+//  #if 0
   // THis is worng since it depends on what's next
-//  if( m_metaSock->m_txBuffer.Size() == 0) {
+//  if( m_metaSock->m_txBuffer->Size() == 0) {
 //    NS_LOG_LOGIC("Nothing to send");
 //    return 0;
 //  }
 
-//  uint32_t amountOfDataToSend     = m_metaSock->m_txBuffer.SizeFromSequence(m_metaSock->m_nextTxSequence);
+//  uint32_t amountOfDataToSend     = m_metaSock->m_txBuffer->SizeFromSequence(m_metaSock->m_nextTxSequence);
   SequenceNumber32 metaNextTxSeq = m_metaSock->m_nextTxSequence;
 //  uint8_t i = 0;
   uint32_t amountOfDataToSend = 0;
@@ -118,7 +118,7 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
     i++, m_lastUsedFlowId = (m_lastUsedFlowId + 1) % m_metaSock->GetNActiveSubflows()
     )
   {
-    uint32_t left = m_metaSock->m_txBuffer.SizeFromSequence( metaNextTxSeq );
+    uint32_t left = m_metaSock->m_txBuffer->SizeFromSequence( metaNextTxSeq );
     if(left <= 0)
     {
       NS_LOG_DEBUG("Nothing to send from meta");
@@ -141,9 +141,9 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
 //          " rxwin " << sf->m_rWnd <<
 //          " segsize " << sf->m_segmentSize <<
           " nextTxSeq " << sf->m_nextTxSequence <<
-          " highestRxAck " << sf->m_txBuffer.HeadSequence () <<
-          " pd->Size " << sf->m_txBuffer.Size () <<
-          " pd->SFS " << sf->m_txBuffer.SizeFromSequence (sf->m_nextTxSequence)
+          " highestRxAck " << sf->m_txBuffer->HeadSequence () <<
+          " pd->Size " << sf->m_txBuffer->Size () <<
+          " pd->SFS " << sf->m_txBuffer->SizeFromSequence (sf->m_nextTxSequence)
           );
 
       // Quit if send disallowed
@@ -154,7 +154,7 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
 ////          return false;
 //      }
       // Stop sending if we need to wait for a larger Tx window (prevent silly window syndrome)
-//      if (w < sf->m_segmentSize && m_txBuffer.SizeFromSequence(m_nextTxSequence) > w)
+//      if (w < sf->m_segmentSize && m_txBuffer->SizeFromSequence(m_nextTxSequence) > w)
 //        {
 //          break; // No more
 //        }
@@ -192,7 +192,7 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
     metaNextTxSeq += amountOfDataToSend;
 //    m_lastUsedFlowId = (m_lastUsedFlowId + 1) %m_metaSock->GetNActiveSubflows();
   }
-  #endif
+//  #endif
 
   return 0;
 }

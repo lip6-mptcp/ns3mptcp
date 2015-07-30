@@ -60,7 +60,7 @@ public:
    *   It is of utmost importance to generate a perfect mapping !!! Any deviation
    *   from the foreseen mapping will trigger an error and crash the simulator
    *
-   *
+   * \warn This function MUST NOT fiddle with metasockInternal
    * subflowId: pair(start,size)
    *
    * TODO should take into account backup priorities of subflows

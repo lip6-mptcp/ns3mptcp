@@ -316,35 +316,37 @@ public:
   virtual int GetSockName (Address &address) const; // Return local addr:port in address
   virtual void BindToNetDevice (Ptr<NetDevice> netdevice); // NetDevice with my m_endPoint
 
+  // Implementing ns3::TcpSocket -- Attribute get/set
+  // inherited, no need to doc
+  virtual uint32_t GetSndBufSize (void) const;
+  virtual uint32_t GetRcvBufSize (void) const;
+  virtual uint32_t GetSegSize (void) const;
+  virtual uint32_t GetInitialSSThresh (void) const;
+  virtual uint32_t GetInitialCwnd (void) const;
+  virtual Time     GetConnTimeout (void) const;
+  virtual uint32_t GetConnCount (void) const;
+  virtual Time     GetDelAckTimeout (void) const;
+  virtual uint32_t GetDelAckMaxCount (void) const;
+  virtual bool     GetTcpNoDelay (void) const;
+  virtual Time     GetPersistTimeout (void) const;
+  virtual bool     GetAllowBroadcast (void) const;
+
 protected:
   // Implementing ns3::TcpSocket -- Attribute get/set
   // inherited, no need to doc
 
   virtual void     SetSndBufSize (uint32_t size);
-  virtual uint32_t GetSndBufSize (void) const;
   virtual void     SetRcvBufSize (uint32_t size);
-  virtual uint32_t GetRcvBufSize (void) const;
   virtual void     SetSegSize (uint32_t size);
-  virtual uint32_t GetSegSize (void) const;
   virtual void     SetInitialSSThresh (uint32_t threshold);
-  virtual uint32_t GetInitialSSThresh (void) const;
   virtual void     SetInitialCwnd (uint32_t cwnd);
-  virtual uint32_t GetInitialCwnd (void) const;
   virtual void     SetConnTimeout (Time timeout);
-  virtual Time     GetConnTimeout (void) const;
   virtual void     SetConnCount (uint32_t count);
-  virtual uint32_t GetConnCount (void) const;
   virtual void     SetDelAckTimeout (Time timeout);
-  virtual Time     GetDelAckTimeout (void) const;
   virtual void     SetDelAckMaxCount (uint32_t count);
-  virtual uint32_t GetDelAckMaxCount (void) const;
   virtual void     SetTcpNoDelay (bool noDelay);
-  virtual bool     GetTcpNoDelay (void) const;
   virtual void     SetPersistTimeout (Time timeout);
-  virtual Time     GetPersistTimeout (void) const;
   virtual bool     SetAllowBroadcast (bool allowBroadcast);
-  virtual bool     GetAllowBroadcast (void) const;
-
 
 
   // Helper functions: Connection set up
@@ -913,6 +915,7 @@ protected:
 
 protected:
   friend class MpTcpSubflow;
+  friend class MpTcpSchedulerRoundRobin;    //!< TODO this should not be necessary
 
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event
