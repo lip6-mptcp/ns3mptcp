@@ -1386,7 +1386,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         }
       else if (m_tcb->m_ackState == TcpSocketState::LOSS)
         {
-          // What happen if we are in loss state and a DUPack is received?
+          // What happens if we are in loss state and a DUPack is received?
         }
 
       m_congestionControl->PktsAcked (m_tcb, 1, m_lastRtt);
@@ -1413,7 +1413,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
             {
               NS_LOG_INFO ("Partial ACK for seq " << ack << " in fast recovery");
               m_firstTxUnack = ack;
-              m_txBuffer->DiscardUpTo(ack);  //Bug 1850:  retransmit before newack
+              UpdateTxBuffer();  //Bug 1850:  retransmit before newack
               m_retransOut--;
               DoRetransmit (); // Assume the next seq is lost. Retransmit lost packet
             }
@@ -2868,16 +2868,16 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack)
   NS_LOG_LOGIC ("TCP " << this << " NewAck " << ack <<
                 " numberAck " << (ack - FirstUnackedSeq())); // Number bytes ack'ed
 
-  m_firstTxUnack = ack;
+  m_firstTxUnack = std::min(ack, m_txBuffer->TailSequence());
+  UpdateTxBuffer();
 
-  m_txBuffer->DiscardUpTo (ack);
   if (GetTxAvailable () > 0)
     {
       NotifySend (GetTxAvailable ());
     }
   if (ack > m_nextTxSequence)
     {
-      m_nextTxSequence = ack; // If advanced
+      m_nextTxSequence = m_firstTxUnack; // If advanced
     }
   if (m_txBuffer->Size () == 0 && m_state != FIN_WAIT_1 && m_state != CLOSING)
     { // No retransmit timer if no data to retransmit
@@ -2890,6 +2890,13 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack)
     {
       m_sendPendingDataEvent = Simulator::Schedule ( TimeStep (1), &TcpSocketBase::SendPendingData, this, m_connected);
     }
+}
+
+void
+TcpSocketBase::UpdateTxBuffer()
+{
+  NS_LOG_FUNCTION(this);
+  m_txBuffer->DiscardUpTo (m_firstTxUnack);
 }
 
 // Retransmit timeout

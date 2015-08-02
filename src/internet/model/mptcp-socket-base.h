@@ -683,6 +683,7 @@ protected: // protected methods
 
   /**
    * Free space as much as possible
+   * TODO rename or move to MpTcpSubflow
    */
   virtual void SyncTxBuffers(Ptr<MpTcpSubflow> sf);
 

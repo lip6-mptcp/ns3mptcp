@@ -761,6 +761,10 @@ protected:
   virtual void DoRetransmit (void);
 
   /**
+   * \brief Called when a new ack arrvied
+   */
+  virtual void UpdateTxBuffer();
+  /**
    * \brief Read TCP options from incoming packets
    *
    * This method sequentially checks each kind of option, and if it

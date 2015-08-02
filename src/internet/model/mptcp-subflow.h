@@ -338,7 +338,7 @@ public:
   virtual void ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader);
   virtual void ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
-
+  virtual void UpdateTxBuffer();
   /**
   */
   virtual void Retransmit(void);
@@ -515,17 +515,17 @@ protected:
 
 
   // TODO replace by parent's m_ m_cWnd
-  TracedValue<uint32_t> m_cWnd; // Congestion window (in bytes)
+//  TracedValue<uint32_t> m_cWnd; // Congestion window (in bytes)
 
 
-  TracedValue<uint32_t> m_ssThresh;          //!< Slow start threshold
+//  TracedValue<uint32_t> m_ssThresh;          //!< Slow start threshold
 //  uint32_t maxSeqNb;          // Highest sequence number of a sent byte. Equal to (TxSeqNumber - 1) until a retransmission occurs
 //  uint32_t highestAck;        // Highest received ACK for the subflow level sequence number
-  uint32_t m_initialCWnd;     //!< Initial cWnd value
-  SequenceNumber32 m_recover; //!< Previous highest Tx seqNb for fast recovery
-  uint32_t m_retxThresh;      //!< Fast Retransmit threshold
-  bool m_inFastRec;           // Currently in fast recovery
-  bool m_limitedTx;           // perform limited transmit
+//  uint32_t m_initialCWnd;     //!< Initial cWnd value
+//  SequenceNumber32 m_recover; //!< Previous highest Tx seqNb for fast recovery
+//  uint32_t m_retxThresh;      //!< Fast Retransmit threshold
+//  bool m_inFastRec;           // Currently in fast recovery
+//  bool m_limitedTx;           // perform limited transmit
 //  uint32_t m_dupAckCount;     // DupACK counter TO REMOVE exist in parent
 
   // Use Ptr here so that we don't have to unallocate memory manually ?

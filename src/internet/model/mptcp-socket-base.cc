@@ -1663,7 +1663,8 @@ MpTcpSocketBase::SyncTxBuffers(Ptr<MpTcpSubflow> subflow)
 
   NS_LOG_LOGIC("Syncing TxBuffer between meta and subflow " << subflow);
 
-  while(true) {
+  while(true)
+  {
 //    SequenceNumber32 dack = 0;
     MpTcpMapping mapping;
 

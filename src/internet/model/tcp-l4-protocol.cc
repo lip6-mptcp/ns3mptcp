@@ -221,7 +221,7 @@ TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
   // now we should call the destructor ourself
   TcpSocketBase *temp = new (addr) TcpSocketBase();
   socket = CompleteConstruct(temp);
-
+  socket.Acquire();
   socket->SetNode (m_node);
   socket->SetTcp (this);
   socket->SetRtt (rtt);

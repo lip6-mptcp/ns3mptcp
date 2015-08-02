@@ -47,12 +47,12 @@
 
 NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
 
-
-//#define DISABLE_MEMBER(retType,member) retType \
-//                                        MpTcpSubflow::member(void) {\
-//                                            NS_FATAL_ERROR("This should never be called. The meta will make the subflow pass from LISTEN to ESTABLISHED."); \
-//                                        }
-
+/*
+#define DISABLE_MEMBER(retType,member) retType \
+                                        MpTcpSubflow::member(void) {\
+                                            NS_FATAL_ERROR("This should never be called. The meta will make the subflow pass from LISTEN to ESTABLISHED."); \
+                                        }
+*/
 
 namespace ns3 {
 
@@ -247,9 +247,9 @@ MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
 // Does this constructor even make sense ? no ? to remove ?
 MpTcpSubflow::MpTcpSubflow(const MpTcpSubflow& sock)
   : TcpSocketBase(sock),
-  m_cWnd(sock.m_cWnd),
-  m_ssThresh(sock.m_ssThresh),
-  m_initialCWnd (sock.m_initialCWnd),
+//  m_cWnd(sock.m_cWnd),
+//  m_ssThresh(sock.m_ssThresh),
+//  m_initialCWnd (sock.m_initialCWnd),
   m_masterSocket(sock.m_masterSocket),  //!false
   m_localNonce(sock.m_localNonce)
 
@@ -267,24 +267,24 @@ MpTcpSubflow::MpTcpSubflow(
 ) :
     TcpSocketBase(),
     m_routeId(0),
-    m_ssThresh(65535),
-    m_initialCWnd(10),
+//    m_ssThresh(65535),
+//    m_initialCWnd(10),
 //    m_metaSocket(metaSocket),
     m_backupSubflow(false),
     m_masterSocket(false),
     m_localNonce(0)
 {
   NS_LOG_FUNCTION(this);
-  m_cnRetries = 3;
-  Time est = MilliSeconds(200);
-  m_cnTimeout = est;
+//  m_cnRetries = 3;
+//  Time est = MilliSeconds(200);
+//  m_cnTimeout = est;
 //  initialSequnceNumber = 0;
-  m_retxThresh = 3; // TODO retrieve from meta
-  m_inFastRec = false;
+//  m_retxThresh = 3; // TODO retrieve from meta
+//  m_inFastRec = false;
 //  m_limitedTx = false;
-  m_dupAckCount = 0;
+//  m_dupAckCount = 0;
 //  PktCount = 0;
-  m_recover = SequenceNumber32(0);
+//  m_recover = SequenceNumber32(0);
 }
 
 MpTcpSubflow::~MpTcpSubflow()
@@ -549,6 +549,9 @@ void
 MpTcpSubflow::Retransmit(void)
 {
   NS_LOG_FUNCTION (this);
+
+  TcpSocketBase::Retransmit();
+#if 0
   NS_LOG_LOGIC (this << " ReTxTimeout Expired at time " << Simulator::Now ().GetSeconds ()
   << "Exiting Fast recovery  (previously set to " << m_inFastRec << ")");
   m_inFastRec = false;
@@ -587,11 +590,12 @@ MpTcpSubflow::Retransmit(void)
 
 //  NS_FATAL_ERROR("TODO retransmit");
   // pass on mapping
-
+#endif
 
 }
 
 
+// TODO this could be replaced
 void
 MpTcpSubflow::DoRetransmit()
 {
@@ -600,7 +604,19 @@ MpTcpSubflow::DoRetransmit()
 
   // TODO this can't work, we need to regenerate the DSS and embed it
 //  TcpSocketBase::DoRetransmit();
+  /**
+  We want to send mappings only
+  **/
+  MpTcpMapping mapping;
+  if(!m_TxMappings.GetMappingForSSN(FirstUnackedSeq(), mapping))
+//  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
+  {
+    m_TxMappings.Dump();
+    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << FirstUnackedSeq() << "]. Should be impossible");
+  }
 
+  TcpSocketBase::DoRetransmit();
+  #if 0
   NS_LOG_FUNCTION (this);
   // Retransmit SYN packet
   if (m_state == SYN_SENT)
@@ -648,6 +664,7 @@ MpTcpSubflow::DoRetransmit()
   // In case of RTO, advance m_nextTxSequence
   m_nextTxSequence = std::max(m_nextTxSequence.Get(), FirstUnackedSeq() + sz);
   //reTxTrack.push_back(std::make_pair(Simulator::Now().GetSeconds(), ns3::TcpNewReno::cWnd));
+  #endif
 }
 
 /**
@@ -1776,6 +1793,14 @@ MpTcpSubflow::GetTxAvailable() const
   return TcpSocketBase::GetTxAvailable();
 }
 
+
+void
+MpTcpSubflow::UpdateTxBuffer()
+{
+  NS_LOG_FUNCTION(this);
+  GetMeta()->SyncTxBuffers();
+}
+
 /**
 TODO check with its parent equivalent, may miss a few features
 Receipt of new packet, put into Rx buffer
@@ -1783,12 +1808,14 @@ Receipt of new packet, put into Rx buffer
 SlowStart and fast recovery remains untouched in MPTCP.
 The reaction should be different depending on if we handle NR-SACK or not
 */
+
 void
 MpTcpSubflow::NewAck(SequenceNumber32 const& ack)
 {
   NS_LOG_FUNCTION (this << ack);
 
-
+  TcpSocketBase::NewAck(ack);
+#if 0
   MpTcpMapping mapping;
 
   // TODO move elsewhere on rece
@@ -1908,7 +1935,7 @@ MpTcpSubflow::NewAck(SequenceNumber32 const& ack)
 
   }
 
-
+  // Call it before to free window
   GetMeta()->OnSubflowNewAck(this);
 // TODO I should call
 
@@ -1961,8 +1988,9 @@ MpTcpSubflow::NewAck(SequenceNumber32 const& ack)
 //    GetMeta()->ReceivedData( pkt, mapping );
 //
 //  }
-
+#endif
 }
+
 
 //void
 //MpTcpSubflow::DiscardTxMappingsUpToDSN(SequenceNumber32 seq)
@@ -2295,7 +2323,7 @@ uint32_t
 MpTcpSubflow::Window (void)
 {
   NS_LOG_FUNCTION (this);
-  return std::min ( GetMeta()->Window(), m_cWnd.Get ());
+  return TcpSocketBase::Window();
 //  return GetMeta()->Window();
 }
 
