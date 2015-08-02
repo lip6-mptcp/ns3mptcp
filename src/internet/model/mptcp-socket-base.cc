@@ -154,6 +154,7 @@ static const std::string containerNames[MpTcpSocketBase::Maximum] = {
 
 // TODO unused for now
 MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
+  TcpSocketBase(sock),
   m_tracePrefix("default"),
   m_prefixCounter(1),
   m_server(true), // TODO remove or use it
@@ -518,6 +519,15 @@ MpTcpSocketBase::AppendDataAck(TcpHeader& hdr) const
   dss->SetDataAck( dack );
 
 
+}
+
+bool
+MpTcpSocketBase::UpdateWindowSize(const TcpHeader& header)
+{
+  //!
+  NS_LOG_FUNCTION(this);
+  m_rWnd = header.GetWindowSize();
+  return true;
 }
 
 
@@ -1596,6 +1606,7 @@ MpTcpSocketBase::SyncTxBuffers()
   }
 
 
+  ComputeTotalCWND();
 
 
   // TODO I should go through all
@@ -1744,7 +1755,6 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
     }
 
   // TODO update m_rWnd
-//  m_rWnd.Get() == 0
   if (m_rWnd.Get() == 0 && m_persistEvent.IsExpired())
     { // Zero window: Enter persist state to send 1 byte to probe
       NS_LOG_LOGIC (this << "Enter zerowindow persist state");NS_LOG_LOGIC (this << "Cancelled ReTxTimeout event which was set to expire at " <<
@@ -2437,9 +2447,6 @@ MpTcpSocketBase::Window()
 {
   NS_LOG_FUNCTION (this);
   return TcpSocketBase::Window();
-//  return std::min(m_rWnd.Get(), totalcWnd);
-//  return std::min ( RemoteWindow(), m_cWnd.Get ());
-//  return m_rWnd.Get();
 }
 
 

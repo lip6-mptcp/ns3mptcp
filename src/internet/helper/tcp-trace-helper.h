@@ -45,26 +45,29 @@ dumpUint32(Ptr<OutputStreamWrapper> stream, std::string context, uint32_t oldVal
 //void
 //dumpTcpState(Ptr<OutputStreamWrapper> stream, std::string context, TcpStates_t oldVal, TcpStates_t newVal);
 
-#if 0
+
 /**
  * @brief Base class providing common user-level pcap operations for helpers
  * representing IPv4 protocols .
  */
-class PcapHelperForIpv4
+class TcpTraceHelper
 {
 public:
   /**
    * @brief Construct a PcapHelperForIpv4.
    */
-  PcapHelperForIpv4 () {}
+  TcpTraceHelper () {}
 
   /**
    * @brief Destroy a PcapHelperForIpv4.
    */
-  virtual ~PcapHelperForIpv4 () {}
+  virtual ~TcpTraceHelper () {}
 
-}
-#endif
+
+  void
+  SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix);
+};
+
 
 } // namespace ns3
 

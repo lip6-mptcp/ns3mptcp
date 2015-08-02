@@ -1784,7 +1784,16 @@ MpTcpSubflow::DiscardAtMostOneTxMapping(SequenceNumber64 const& firstUnackedMeta
 }
 
 
-
+bool
+MpTcpSubflow::UpdateWindowSize(const TcpHeader& header)
+{
+    bool updated = TcpSocketBase::UpdateWindowSize(header);
+    if(updated)
+    {
+        GetMeta()->UpdateWindowSize(header);
+    }
+    return updated;
+}
 
 uint32_t
 MpTcpSubflow::GetTxAvailable() const

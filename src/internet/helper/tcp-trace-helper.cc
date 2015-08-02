@@ -28,12 +28,17 @@
 #include "ns3/names.h"
 #include "ns3/net-device.h"
 #include "ns3/pcap-file-wrapper.h"
+#include "ns3/sequence-number.h"
+#include "ns3/tcp-socket-base.h"
+#include "ns3/mptcp-socket-base.h"
+#include "ns3/mptcp-subflow.h"
+//#include "ns3/mptcp-subflow.h"
 
-#include "internet-trace-helper.h"
+#include "tcp-trace-helper.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("InternetTraceHelper");
+NS_LOG_COMPONENT_DEFINE ("TcpTraceHelper");
 
 void
 dumpSequence32(Ptr<OutputStreamWrapper> stream, std::string context, SequenceNumber32 oldSeq, SequenceNumber32 newSeq)
@@ -61,7 +66,7 @@ dumpUint32(Ptr<OutputStreamWrapper> stream, std::string context, uint32_t oldVal
 
 
 void
-dumpTcpState(Ptr<OutputStreamWrapper> stream, std::string context, TcpStates_t oldVal, TcpStates_t newVal) {
+dumpTcpState(Ptr<OutputStreamWrapper> stream, std::string context, TcpSocket::TcpStates_t oldVal, TcpSocket::TcpStates_t newVal) {
   // TODO rely
   *stream->GetStream() << Simulator::Now()
                       << "," << TcpSocket::TcpStateName[oldVal]
@@ -74,7 +79,7 @@ TODO move that elsewhere, and plot the first line to get the initial value else 
 for bad plots.
 **/
 void
-SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
+TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
 {
   NS_LOG_UNCOND("SetupSocketTracing called with sock " << sock << " and prefix [" << prefix << "]");
   std::ios::openmode mode = std::ofstream::out | std::ofstream::trunc;
@@ -93,31 +98,39 @@ SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
 
   Time now = Simulator::Now();
   *streamTxNext->GetStream() << "Time,oldNextTxSequence,newNextTxSequence" << std::endl
-                             << now << ",," << sock->m_nextTxSequence << std::endl;
+//                             << now << ",," << sock->m_nextTxSequence << std::endl
+                                ;
 
   *streamTxHighest->GetStream() << "Time,oldHighestSequence,newHighestSequence" << std::endl
-                              << now << ",," << sock->m_highTxMark << std::endl;
+//                              << now << ",," << sock->m_highTxMark << std::endl
+                                ;
 
   // In fact it might be acked but as it neds to be moved on a per-mapping basis
   //
   *streamTxUnack->GetStream() << "Time,oldUnackSequence,newUnackSequence" << std::endl
-                                  << now << ",," << sock->FirstUnackedSeq() << std::endl;
+                                  << now << ",," << sock->FirstUnackedSeq() << std::endl
+                                  ;
 
   *streamRxNext->GetStream() << "Time,oldRxNext,newRxNext" << std::endl
-                             << now << ",," << sock->m_rxBuffer->NextRxSequence() << std::endl;
+//                             << now << ",," << sock->m_rxBuffer->NextRxSequence() << std::endl
+                             ;
 
   *streamRxAvailable->GetStream() << "Time,oldRxAvailable,newRxAvailable" << std::endl
-                                  << now << ",," << sock->GetRxAvailable() << std::endl;
+                                  << now << ",," << sock->GetRxAvailable() << std::endl
+                                  ;
 
   *streamRxTotal->GetStream() << "Time,oldRxTotal,newRxTotal" << std::endl
-                                  << now << ",," << sock->m_rxBuffer->Size() << std::endl;
+//                                  << now << ",," << sock->m_rxBuffer->Size() << std::endl
+                                  ;
 
   // TODO
   *streamCwnd->GetStream() << "Time,oldCwnd,newCwnd" << std::endl;
-//                          << now << ",," << sock->m_cWnd.Get() << std::endl;
+//                          << now << ",," << sock->m_cWnd.Get() << std::endl
+;
 
-  *streamRwnd->GetStream() << "Time,oldRwnd,newRwnd" << std::endl
-                           << now << ",," << sock->RemoteWindow() << std::endl;
+//  *streamRwnd->GetStream() << "Time,oldRwnd,newRwnd" << std::endl
+//                           << now << ",," << sock->RemoteWindow() << std::endl
+//                           ;
 
   // We don't plot it, just looking at it so we don't care of the initial state
   *streamStates->GetStream() << "Time,oldState,newState" << std::endl;
@@ -130,6 +143,8 @@ SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
   // TODO je devrais etre capable de voir les CongestionWindow + tailles de buffer/ Out of order
 //  CongestionWindow
 //  Ptr<MpTcpSocketBase> sock(this);
+//  NS_ASSERT(sock->TraceConnect ("RcvBufSize", "RcvBufSize", MakeBoundCallback(&dumpSequence32, streamTxNext)));
+//  NS_ASSERT(sock->TraceConnect ("SndBufSize", "SndBufSize", MakeBoundCallback(&dumpSequence32, streamTxNext)));
   NS_ASSERT(sock->TraceConnect ("NextTxSequence", "NextTxSequence", MakeBoundCallback(&dumpSequence32, streamTxNext)));
   NS_ASSERT(sock->TraceConnect ("HighestSequence", "HighestSequence", MakeBoundCallback(&dumpSequence32, streamTxHighest)));
 //  NS_ASSERT(sock->m_txBuffer->TraceConnect ("UnackSequence", "UnackSequence", MakeBoundCallback(&dumpSequence32, streamTxUnack)));
@@ -146,11 +161,12 @@ SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
 //  NS_LOG_UNCOND("Starting research !!");
 
 
-  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("NextRxSequence", "NextRxSequence", MakeBoundCallback(&dumpSequence32, streamRxNext) ));
-  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxTotal", "RxTotal", MakeBoundCallback(&dumpUint32, streamRxTotal) ));
-  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxAvailable", "RxAvailable", MakeBoundCallback(&dumpUint32, streamRxAvailable) ));
+//  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("NextRxSequence", "NextRxSequence", MakeBoundCallback(&dumpSequence32, streamRxNext) ));
+//  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxTotal", "RxTotal", MakeBoundCallback(&dumpUint32, streamRxTotal) ));
+//  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxAvailable", "RxAvailable", MakeBoundCallback(&dumpUint32, streamRxAvailable) ));
 
   NS_ASSERT(sock->TraceConnect ("RWND", "Remote WND", MakeBoundCallback(&dumpUint32, streamRwnd)));
+  NS_ASSERT(sock->TraceConnect ("SlowStartThreshold", "SlowStartThreshold", MakeBoundCallback(&dumpUint32, streamSSThreshold)));
 
   /*
   This part is kinda specific to what we want to do
@@ -160,10 +176,8 @@ SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
   if(sf)
   {
     //!
-
-    NS_ASSERT(sf->TraceConnect ("SSThreshold", "SSThreshold", MakeBoundCallback(&dumpUint32, streamSSThreshold)));
-    *streamSSThreshold->GetStream() << "Time,oldSSThresh,newSSThresh" << std::endl
-                                  << now << ",," << sf->GetSSThresh() << std::endl;
+//    *streamSSThreshold->GetStream() << "Time,oldSSThresh,newSSThresh" << std::endl
+//                                  << now << ",," << sf->GetSSThresh() << std::endl;
 
     // TODO Trace first Cwnd
     *streamStates->GetStream() << now << ",," << TcpSocket::TcpStateName[sf->GetState()] << std::endl;
@@ -180,37 +194,37 @@ SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
 
   }
   else {
-    NS_FATAL_ERROR("The passed sock is not related to MPTCP (which is not a problem in absolute terms)");
+    NS_LOG_DEBUG("The passed sock is not related to MPTCP (which is not a problem in absolute terms)");
   }
 }
 
-void
-MpTcpSocketBase::SetupMetaTracing(std::string prefix)
-{
-//  f.open(filename, std::ofstream::out | std::ofstream::trunc);
-  m_tracePrefix = prefix + "/";
-
-//  prefix = m_tracePrefix + "/meta";
-
-  // TODO move out to
-  SetupSocketTracing(this, m_tracePrefix + "/meta");
-}
-
-void
-MpTcpSocketBase::SetupSubflowTracing(Ptr<MpTcpSubflow> sf)
-{
-  NS_ASSERT_MSG(m_tracePrefix.length() != 0, "please call SetupMetaTracing before." );
-  NS_LOG_LOGIC("Meta=" << this << " Setup tracing for sf " << sf << " with prefix [" << m_tracePrefix << "]");
-//  f.open(filename, std::ofstream::out | std::ofstream::trunc);
-
-  // For now, there is no subflow deletion so this should be good enough, else it will crash
-  std::stringstream os;
-  //! we start at 1 because it's nicer
-
-  os << m_tracePrefix << "subflow" <<  m_prefixCounter++;
-
-  SetupSocketTracing(sf, os.str().c_str());
-}
+//void
+//MpTcpSocketBase::SetupMetaTracing(std::string prefix)
+//{
+////  f.open(filename, std::ofstream::out | std::ofstream::trunc);
+//  m_tracePrefix = prefix + "/";
+//
+////  prefix = m_tracePrefix + "/meta";
+//
+//  // TODO move out to
+//  SetupSocketTracing(this, m_tracePrefix + "/meta");
+//}
+//
+//void
+//MpTcpSocketBase::SetupSubflowTracing(Ptr<MpTcpSubflow> sf)
+//{
+//  NS_ASSERT_MSG(m_tracePrefix.length() != 0, "please call SetupMetaTracing before." );
+//  NS_LOG_LOGIC("Meta=" << this << " Setup tracing for sf " << sf << " with prefix [" << m_tracePrefix << "]");
+////  f.open(filename, std::ofstream::out | std::ofstream::trunc);
+//
+//  // For now, there is no subflow deletion so this should be good enough, else it will crash
+//  std::stringstream os;
+//  //! we start at 1 because it's nicer
+//
+//  os << m_tracePrefix << "subflow" <<  m_prefixCounter++;
+//
+//  SetupSocketTracing(sf, os.str().c_str());
+//}
 
 
 

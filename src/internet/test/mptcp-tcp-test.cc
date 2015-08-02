@@ -54,6 +54,7 @@
 #include "ns3/ipv4-address-helper.h"
 #include "ns3/sequence-number.h"
 #include "ns3/trace-helper.h"
+#include "ns3/tcp-trace-helper.h"
 
 #include <string>
 #include <fstream>
@@ -455,12 +456,14 @@ MpTcpTestCase::SetupDefaultSim (void)
   Ptr<Socket> source = sockFactory1->CreateSocket ();
 
   // TODO move to Connection
-  Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(server);
-  Ptr<MpTcpSocketBase> source_meta = DynamicCast<MpTcpSocketBase>(source);
+//  Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(server);
+//  Ptr<MpTcpSocketBase> source_meta = DynamicCast<MpTcpSocketBase>(source);
 
 //  server_meta->SetupMetaTracing("server");
 //  source_meta->SetupMetaTracing("source");
-
+  TcpTraceHelper tcpHelper;
+  tcpHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(server), "server/meta_");
+  tcpHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(source), "source/meta_");
 
   uint16_t port = 50000;
   InetSocketAddress serverlocaladdr (Ipv4Address::GetAny (), port);

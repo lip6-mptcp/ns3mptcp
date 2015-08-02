@@ -692,6 +692,7 @@ protected:
    * or 3) the advertised window is larger than the current send window
    *
    * \param header TcpHeader from which to extract the new window value
+   * \return true if receiver window got updated
    */
   virtual bool UpdateWindowSize (const TcpHeader& header);
 

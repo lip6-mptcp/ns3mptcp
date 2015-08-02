@@ -2868,7 +2868,8 @@ TcpSocketBase::NewAck (SequenceNumber32 const& ack)
   NS_LOG_LOGIC ("TCP " << this << " NewAck " << ack <<
                 " numberAck " << (ack - FirstUnackedSeq())); // Number bytes ack'ed
 
-  m_firstTxUnack = std::min(ack, m_txBuffer->TailSequence());
+//  m_firstTxUnack = std::min(ack, m_txBuffer->TailSequence());
+  m_firstTxUnack = ack;
   UpdateTxBuffer();
 
   if (GetTxAvailable () > 0)
@@ -3487,7 +3488,7 @@ TcpSocketBase::UpdateWindowSize (const TcpHeader &header)
     {
       m_rWnd = receivedWindow;
       NS_LOG_DEBUG ("State less than ESTABLISHED; updating rWnd to " << m_rWnd);
-      return false;
+      return true;
     }
 
   // Test for conditions that allow updating of the window

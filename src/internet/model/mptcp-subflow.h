@@ -113,6 +113,12 @@ public:
   // Undefined for now
 //  virtual uint32_t
 //  AvailableWindow(void);      // Return unfilled portion of window
+
+  /**
+   will update the meta
+  */
+  virtual bool UpdateWindowSize (const TcpHeader& header);
+
   /**
   \return Value advertised by the meta socket
   */
