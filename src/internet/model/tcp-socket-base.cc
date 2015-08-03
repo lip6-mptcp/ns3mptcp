@@ -961,7 +961,7 @@ TcpSocketBase::SetupCallback (void)
       m_endPoint->SetIcmpCallback (MakeCallback (&TcpSocketBase::ForwardIcmp, Ptr<TcpSocketBase> (this)));
       m_endPoint->SetDestroyCallback (MakeCallback (&TcpSocketBase::Destroy, Ptr<TcpSocketBase> (this)));
     }
-  if (m_endPoint6 != 0)
+  else if (m_endPoint6 != 0)
     {
       m_endPoint6->SetRxCallback (MakeCallback (&TcpSocketBase::ForwardUp6, Ptr<TcpSocketBase> (this)));
       m_endPoint6->SetIcmpCallback (MakeCallback (&TcpSocketBase::ForwardIcmp6, Ptr<TcpSocketBase> (this)));
@@ -1252,6 +1252,7 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
   // Different flags are different events
   if (tcpflags == TcpHeader::ACK)
     {
+      ProcessTcpOptionsEstablished(tcpHeader);
       if (tcpHeader.GetAckNumber () < FirstUnackedSeq())
         {
           // Case 1:  If the ACK is a duplicate (SEG.ACK < SND.UNA), it can be ignored.
@@ -1290,6 +1291,7 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
     }
   else if (tcpflags == 0)
     { // No flags means there is only data
+      ProcessTcpOptionsEstablished(tcpHeader);
       ReceivedData (packet, tcpHeader);
       if (m_rxBuffer->Finished ())
         {
@@ -1518,7 +1520,13 @@ TcpSocketBase::UpgradeToMeta()
   Ptr<MpTcpSubflow> master(subflow, true);
 
   // TODO set SetSendCallback but for meta
-  Callback<void, Ptr<Socket>, uint32_t > cb = this->m_sendCb;
+//  Callback<void, Ptr<Socket>, uint32_t >
+  Callback<void, Ptr<Socket>, uint32_t > cbSend = this->m_sendCb;
+  Callback<void, Ptr<Socket> >  cbRcv = this->m_receivedData;
+  Callback<void, Ptr<Socket>, uint32_t>  cbDataSent = this->m_dataSent;
+  Callback<void, Ptr<Socket> >  cbConnectFail = this->m_connectionFailed;
+  Callback<void, Ptr<Socket> >  cbConnectSuccess = this->m_connectionSucceeded;
+
   ////////////////////////
   //// !! CAREFUL !!
   //// all callbacks are disabled
@@ -1538,14 +1546,17 @@ TcpSocketBase::UpgradeToMeta()
 
   // I don't want the destructor to be called in that moment
 //  delete temp[];
-  MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
+  MpTcpSocketBase* meta = new (this) MpTcpSocketBase(*master);
   meta->SetTcp(master->m_tcp);
   meta->SetNode(master->GetNode());
 
 //  MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
 //  meta->m_sendCb =sf->m_sendCb;
   meta->AddSubflow(master);
-  meta->SetSendCallback(cb);
+  meta->SetSendCallback(cbSend);
+  meta->SetConnectCallback (cbConnectSuccess, cbConnectFail);   // Ok
+  meta->SetDataSentCallback (cbDataSent);
+  meta->SetRecvCallback (cbRcv);
     return master;
 //    return 0;
 }
@@ -1564,6 +1575,17 @@ TcpSocketBase::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
   }
   return 0;
 }
+
+int
+TcpSocketBase::ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option)
+{
+    NS_LOG_FUNCTION(this << "Does nothing");
+}
+
+
+
+
+
 
 int
 TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
@@ -1605,6 +1627,53 @@ TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
             break;
         default:
             NS_LOG_WARN("Unsupported option [" << (int)option->GetKind() << "]");
+            break;
+      };
+  }
+  return 0;
+}
+
+int
+TcpSocketBase::ProcessTcpOptionsEstablished(const TcpHeader& header)
+{
+  NS_LOG_FUNCTION (this << header);
+
+  TcpHeader::TcpOptionList options;
+  header.GetOptions (options);
+
+  for(TcpHeader::TcpOptionList::const_iterator it(options.begin()); it != options.end(); ++it)
+  {
+      //!
+      Ptr<const TcpOption> option = *it;
+      switch(option->GetKind())
+      {
+//        case TcpOption::WINSCALE:
+//          if ((header.GetFlags () & TcpHeader::SYN) && m_winScalingEnabled && m_state < ESTABLISHED)
+//            {
+//              ProcessOptionWScale (option);
+//              ScaleSsThresh (m_sndScaleFactor);
+//            }
+//            break;
+        case TcpOption::MPTCP:
+            //! this will interrupt option processing but this function will be scheduled again
+            //! thus some options may be processed twice, it should not trigger errors
+            ProcessOptionMpTcpEstablished(option);
+//             ) {
+//                return 1;
+//            }
+            break;
+        case TcpOption::TS:
+            if (m_timestampEnabled)
+            {
+                ProcessOptionTimestamp (option);
+            }
+            break;
+        // Ignore those
+        case TcpOption::NOP:
+        case TcpOption::END:
+            break;
+        default:
+//            NS_LOG_WARN("Unsupported option [" << (int)option->GetKind() << "]");
             break;
       };
   }
@@ -1673,6 +1742,7 @@ TcpSocketBase::ProcessTcpOptionsSynRcvd(const TcpHeader& header)
     return 1;
 }
 
+
 /* Received a packet upon SYN_SENT */
 void
 TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
@@ -1712,19 +1782,21 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       {
         // SendRst?
         Ptr<MpTcpSubflow> sf = UpgradeToMeta();
+        // Carrément le renvoyer à forwardUp pour forcer la relecture de la windowsize
         Simulator::ScheduleNow( &MpTcpSubflow::ProcessSynSent, sf, packet, tcpHeader);
         return;
       }
 
-
-      NS_LOG_INFO ("SYN_SENT -> ESTABLISHED");
-      m_state = ESTABLISHED;
       m_connected = true;
       m_retxEvent.Cancel ();
       m_rxBuffer->SetNextRxSequence (tcpHeader.GetSequenceNumber () + SequenceNumber32 (1));
       m_highTxMark = ++m_nextTxSequence;
       m_txBuffer->SetHeadSequence (m_nextTxSequence);
       m_firstTxUnack = m_nextTxSequence;
+
+      NS_LOG_INFO ("SYN_SENT -> ESTABLISHED");
+      m_state = ESTABLISHED;
+
       SendEmptyPacket (TcpHeader::ACK);
       SendPendingData (m_connected);
       Simulator::ScheduleNow (&TcpSocketBase::ConnectionSucceeded, this);

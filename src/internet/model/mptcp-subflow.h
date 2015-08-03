@@ -60,32 +60,16 @@ class MpTcpSubflow : public TcpSocketBase
 {
 public:
 
-  /**
-  these 2 functions are temporary, because it's faster to implement like this
-  but in the long term we should do as with single TCP and  replicate code in
-  subclasses
-  **/
-//  virtual void OpenCwndInCA(uint32_t acked) = 0;
-//  virtual void ReduceCwnd() = 0;
-
-  /**
-   * \return Value defined by meta socket GetSSThresh
-   */
-//  virtual uint32_t
-//  GetSSThresh(void) const;
-
   static TypeId
   GetTypeId(void);
 
-  // TODO pass it as virtual ?
   virtual TypeId GetInstanceTypeId(void) const;
 
 
   /**
-  * \brief
+  * Todo remove, exists in Socket ?
   */
-  uint32_t
-  GetTxAvailable() const;
+  uint32_t GetTxAvailable() const;
 
 
   /**
@@ -115,7 +99,8 @@ public:
 //  AvailableWindow(void);      // Return unfilled portion of window
 
   /**
-   will update the meta
+   * will update the meta rwnd. Called by subflows whose
+   * \return true
   */
   virtual bool UpdateWindowSize (const TcpHeader& header);
 
@@ -125,13 +110,16 @@ public:
   virtual uint16_t
   AdvertisedWindowSize(void);
 
+  /**
+   * \param metaSocket
+   */
   virtual void
   SetMeta(Ptr<MpTcpSocketBase> metaSocket);
 //  virtual int
 //  Connect(const Address &address);      // Setup endpoint and call ProcessAction() to connect
 
-  static uint32_t
-  GenerateTokenForKey(uint64_t key);
+//  static uint32_t
+//  GenerateTokenForKey(uint64_t key);
 
 //  uint8_t addrId,
   /**
@@ -173,34 +161,6 @@ public:
   void
   DumpInfo() const;
 
-  /**
-  Would be nice to fit somewhere else. Even in global scope ?
-  **/
-
-//  template<class T>
-//  static bool
-//  GetMpTcpOption(const TcpHeader& header, Ptr<T> ret)
-//  {
-//    TcpHeader::TcpOptionList l;
-//    header.GetOptions(l);
-//    for(TcpHeader::TcpOptionList::const_iterator it = l.begin(); it != l.end(); ++it)
-//    {
-//      if( (*it)->GetKind() == TcpOption::MPTCP)
-//      {
-//        Ptr<TcpOptionMpTcpMain> opt = DynamicCast<TcpOptionMpTcpMain>(*it);
-//        NS_ASSERT(opt);
-//        T temp;
-//        if( opt->GetSubType() == temp.GetSubType()  )
-//        {
-//          //!
-//          ret = DynamicCast<T>(opt);
-//          return true;
-//        }
-//      }
-//    }
-//    return false;
-//  }
-
 
   /**
   \brief
@@ -226,8 +186,8 @@ public:
 //  virtual uint32_t
 //  GetLocalToken() const;
 
-  virtual void
-  DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
+//  virtual void
+//  DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
 
   virtual bool
   SendPendingData(bool withAck = false);
@@ -239,8 +199,6 @@ public:
   **/
   int
   Send(Ptr<Packet> p, uint32_t flags);
-
-
 
   //! disabled
   Ptr<Packet>
@@ -273,6 +231,11 @@ public:
 //  PeerClose(Ptr<Packet>, const TcpHeader&); // Received a FIN from peer, notify rx buffer
 //  virtual void
 //  DoPeerClose(void); // FIN is in sequence, notify app and respond with a FIN
+
+  /**
+  TODO used in previous implementation to notify meta of subflow closing.
+  See it that's worth keeping
+   */
   virtual void
   ClosingOnEmpty(TcpHeader& header);
 
@@ -285,8 +248,7 @@ public:
   mapping with 64bits DSN etc...
 
   */
-  virtual void
-  ParseDSS(Ptr<Packet> p, const TcpHeader& header, Ptr<TcpOptionMpTcpDSS> dss);
+//  virtual void ParseDSS(Ptr<Packet> p, const TcpHeader& header, Ptr<TcpOptionMpTcpDSS> dss);
 
     // State transition functions
   virtual void
@@ -308,12 +270,11 @@ public:
 
   virtual void DoRetransmit();
 
+/**
+TODO move this up to TcpSocketBase
+**/
 //  virtual void
 //  SetRemoteWindow(uint32_t );
-
-  /**
-  TODO move this up to TcpSocketBase
-  **/
 //  virtual uint32_t
 //  RemoteWindow();
 
@@ -349,6 +310,14 @@ public:
   */
   virtual void Retransmit(void);
 
+  /**
+   * Parse DSS essentially
+
+   */
+  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
+  virtual int ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS> option);
+
+//  virtual int ProcessTcpOptionMpTcpDSS(Ptr<const TcpOptionMpTcpDSS> dss);
 
   Ptr<MpTcpPathIdManager> GetIdManager();
 

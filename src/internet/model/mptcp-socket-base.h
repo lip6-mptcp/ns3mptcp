@@ -212,8 +212,8 @@ public:
 //  SetupSubflowTracing(Ptr<MpTcpSubflow> sf);
 
 
-  void
-  ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader);
+//  void
+//  ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
 //  static void
 //  GenerateTokenForKey( mptcp_crypto_t alg, uint64_t key, uint32_t& token, uint64_t& idsn);
@@ -614,10 +614,10 @@ protected: // protected methods
   //! Disabled
   virtual void ReceivedData ( Ptr<Packet>, const TcpHeader&); // Recv of a data, put into buffer, call L7 to get it if necessary
 
-  virtual void ProcessDSS( const TcpHeader& tcpHeader, Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
-  virtual void ProcessDSSClosing( Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
-  virtual void ProcessDSSWait( Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
-  virtual void ProcessDSSEstablished( const TcpHeader& tcpHeader, Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
+//  virtual void ProcessDSS( const TcpHeader& tcpHeader, Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
+//  virtual void ProcessDSSClosing( Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
+//  virtual void ProcessDSSWait( Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
+//  virtual void ProcessDSSEstablished( const TcpHeader& tcpHeader, Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf);
 
 
   /** Does nothing */
@@ -707,7 +707,7 @@ protected: // protected methods
   /**
    *
    */
-  virtual void ProcessMpTcpOptions(TcpHeader h, Ptr<MpTcpSubflow> sf);
+//  virtual void ProcessMpTcpOptions(TcpHeader h, Ptr<MpTcpSubflow> sf);
 
 
   virtual void OnTimeWaitTimeOut();

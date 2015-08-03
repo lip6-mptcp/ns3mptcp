@@ -1051,28 +1051,28 @@ private:
  * \param ret save found option in ret, otherwise
  * \return true if matching option type found. If false, ret should be considered invalid
 */
-template<class T>
-bool
-GetMpTcpOption (const TcpHeader& header, Ptr<T>& ret)
-{
-  TcpHeader::TcpOptionList l;
-  header.GetOptions (l);
-  for (TcpHeader::TcpOptionList::const_iterator it = l.begin (); it != l.end (); ++it)
-    {
-      if ( (*it)->GetKind () == TcpOption::MPTCP)
-        {
-          Ptr<TcpOptionMpTcpMain> opt = DynamicCast<TcpOptionMpTcpMain> (*it);
-          NS_ASSERT (opt);
-          T temp;
-          if ( opt->GetSubType () == temp.GetSubType ()  )
-            {
-              ret = DynamicCast<T> (opt);
-              return true;
-            }
-        }
-    }
-  return false;
-}
+//template<class T>
+//bool
+//GetMpTcpOption (const TcpHeader& header, Ptr<T>& ret)
+//{
+//  TcpHeader::TcpOptionList l;
+//  header.GetOptions (l);
+//  for (TcpHeader::TcpOptionList::const_iterator it = l.begin (); it != l.end (); ++it)
+//    {
+//      if ( (*it)->GetKind () == TcpOption::MPTCP)
+//        {
+//          Ptr<TcpOptionMpTcpMain> opt = DynamicCast<TcpOptionMpTcpMain> (*it);
+//          NS_ASSERT (opt);
+//          T temp;
+//          if ( opt->GetSubType () == temp.GetSubType ()  )
+//            {
+//              ret = DynamicCast<T> (opt);
+//              return true;
+//            }
+//        }
+//    }
+//  return false;
+//}
 
 /**
  * \brief Like GetMpTcpOption but if does not find the option then it creates one
@@ -1085,7 +1085,7 @@ template<class T>
 bool
 GetOrCreateMpTcpOption (TcpHeader& header, Ptr<T>& ret)
 {
-  if (!GetMpTcpOption (header,ret))
+  if (!GetTcpOption (header,ret))
     {
       ret = Create<T> ();
       header.AppendOption (ret);

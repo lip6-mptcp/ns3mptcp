@@ -91,6 +91,7 @@ SequenceNumber64 SEQ32TO64(SequenceNumber32 seq)
 //  virtual void SetMapping (uint64_t headDsn, uint32_t headSsn, uint16_t length, const bool trunc_to_32bits = true);
 
 
+// TODO to remove, they moved to mptcp-subflow
 static inline
 void
 SetMapping(Ptr<TcpOptionMpTcpDSS> dss, MpTcpMapping mapping)
@@ -169,6 +170,9 @@ MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
     //
     NS_LOG_FUNCTION(this);
     NS_LOG_LOGIC("Copying from TcpSocketBase");
+    m_remotePathIdManager = Create<MpTcpPathIdManagerImpl>();
+    m_scheduler = Create<MpTcpSchedulerRoundRobin>();
+    m_scheduler->SetMeta(this);
 }
 
 
@@ -340,13 +344,11 @@ MpTcpSocketBase::SetPeerKey(uint64_t remoteKey)
 {
 //  NS_ASSERT( m_peerKey == 0);
 //  NS_ASSERT( m_state != CLOSED);
-//(uint64_t)
   uint64_t idsn = 0;
   m_peerKey = remoteKey;
 
   // not  sure yet. Wait to see if SYN/ACK is acked
   NS_LOG_DEBUG("Peer key set to " << m_peerKey);
-
 
 
   //! TODO generate remote token/IDSN
@@ -355,6 +357,8 @@ MpTcpSocketBase::SetPeerKey(uint64_t remoteKey)
 // TODO use the one  from mptcp-crypo.h
   GenerateTokenForKey(HMAC_SHA1, m_peerKey, m_peerToken, idsn);
 
+  NS_LOG_DEBUG("Peer token set to " << m_peerToken);
+
   //! TODO Set in TcpSocketBase an attribute to enable idsn random
   // motivation is that it's clearer to plot from 0
   if(m_nullIsn)
@@ -362,7 +366,8 @@ MpTcpSocketBase::SetPeerKey(uint64_t remoteKey)
     idsn = 0;
   }
   // + 1 ?
-  m_rxBuffer->SetNextRxSequence(SequenceNumber32( (uint32_t)idsn ));
+  NS_LOG_DEBUG("test");
+//  m_rxBuffer->SetNextRxSequence(SequenceNumber32( (uint32_t)idsn ));
 }
 
 
@@ -527,6 +532,7 @@ MpTcpSocketBase::UpdateWindowSize(const TcpHeader& header)
   //!
   NS_LOG_FUNCTION(this);
   m_rWnd = header.GetWindowSize();
+  NS_LOG_DEBUG("Meta Receiver window=" << m_rWnd);
   return true;
 }
 
@@ -560,163 +566,59 @@ DATA_ACK + receive window)
 
 
 // TODO rename into DSS
-
-void
-MpTcpSocketBase::ProcessMpTcpOptions(TcpHeader header, Ptr<MpTcpSubflow> sf)
-{
-  NS_LOG_FUNCTION(this);
-  TcpHeader::TcpOptionList l;
-  header.GetOptions(l);
-  for(TcpHeader::TcpOptionList::const_iterator it = l.begin(); it != l.end(); ++it)
-  {
-    if( (*it)->GetKind() == TcpOption::MPTCP)
-    {
-      Ptr<TcpOptionMpTcpMain> opt = DynamicCast<TcpOptionMpTcpMain>(*it);
-      NS_ASSERT(opt);
-//      T temp;
-      switch(opt->GetSubType()) {
-        //!
-        case TcpOptionMpTcpMain::MP_CAPABLE:
-        case TcpOptionMpTcpMain::MP_JOIN:
-            // Handled at subflow level
-//            NS_LOG_DEBUG("Handled at subflow level");
-            break;
-        case TcpOptionMpTcpMain::MP_DSS:
-          {
-
-            Ptr<TcpOptionMpTcpDSS> dss = DynamicCast<TcpOptionMpTcpDSS>(opt);
-            ProcessDSS(header,dss,sf);
-          }
-            break;
-
-        // TODO redirect options to mptcp id manager
-        case TcpOptionMpTcpMain::MP_ADD_ADDR:
-        case TcpOptionMpTcpMain::MP_REMOVE_ADDR:
-        case TcpOptionMpTcpMain::MP_PRIO:
-        case TcpOptionMpTcpMain::MP_FAIL:
-        case TcpOptionMpTcpMain::MP_FASTCLOSE:
-          NS_LOG_WARN("Unsupported option yet");
-          break;
-      }
-
-//      == temp.GetSubType()  )
-//      {
-//        //!
-//        ret = DynamicCast<T>(opt);
-//        return true;
-//      }
-    }
-  }
-
-}
-
-
-/*
-Quote from rfc 6824:
-    Because of this, an implementation MUST NOT use the RCV.WND
-    field of a TCP segment at the connection level if it does not also
-    carry a DSS option with a Data ACK field
-
-    and in not established mode ?
-    TODO
-*/
-void
-MpTcpSocketBase::ProcessDSS(const TcpHeader& tcpHeader, Ptr<TcpOptionMpTcpDSS> dss
-                             , Ptr<MpTcpSubflow> sf
-                             )
-{
-  NS_LOG_FUNCTION ( this << "Received ack " << dss << " from subflow " << sf);
-
-  // might be suboptimal but should make sure it gets properly updated
-//  m_cWnd = ComputeTotalCWND();
-//  SequenceNumber32 dfin;
-//  SequenceNumber32 dack;
-  if(!m_receivedDSS )
-  {
-    NS_LOG_LOGIC("First DSS received !");
-    m_receivedDSS = true;
-    // Wrong, one should be able to send this a lot before
-    ConnectionSucceeded();
-  }
-
-  // TODO maybe this should be done within an processMPTCPoption, more global. For instance during 3WHS
-  /*Because of this, an implementation MUST NOT use the RCV.WND
-  field of a TCP segment at the connection level if it does not also
-  carry a DSS option with a Data ACK field*/
-  if(dss->GetFlags() & TcpOptionMpTcpDSS::DataAckPresent)
-  {
-
-    /*
-    The receive window is relative to the DATA_ACK.  As in TCP, a
-    receiver MUST NOT shrink the right edge of the receive window (i.e.,
-    DATA_ACK + receive window).  The receiver will use the data sequence
-    number to tell if a packet should be accepted at the connection
-    level.
-
-    TODO use, OutOfRange or IsInWindow ?
-    */
-    if( dss->GetDataAck() + tcpHeader.GetWindowSize() >= m_rxBuffer->NextRxSequence().GetValue() + m_rWnd)
-    {
-      // TODO update all r_wnd of subflows
-      NS_LOG_LOGIC("Updating receive window");
-//      SetRemoteWindow(tcpHeader.GetWindowSize());
-    }
-    else {
-//      NS_LOG_DEBUG("Not advancing window");
-    }
-
-
-
-
-
-  }
-
-
-
-
-
-//  #if 0
-  switch(m_state)
-  {
-
-    case ESTABLISHED:
-      ProcessDSSEstablished(tcpHeader, dss, sf);
-      break;
-
-    case LAST_ACK:
-    case CLOSING:
-      ProcessDSSClosing(dss,sf);
-      break;
-    case FIN_WAIT_1:
-    case FIN_WAIT_2:
-    case CLOSE_WAIT:
-
-    case TIME_WAIT:
-      // do nothing just wait for subflows to be closed
-      ProcessDSSWait(dss,sf);
-      break;
-
-
-    case SYN_RCVD:
-      NS_LOG_ERROR("Unhandled DSS but Thing is I should not receive a DSS ack right now right ?");
-      break;
-    case LISTEN:
-    case SYN_SENT:
-    default:
-      NS_FATAL_ERROR("Unhandled case to process DSS" << TcpStateName[m_state]);
-      break;
-  };
-//  #endif
-  // If there is any data piggybacked, store it into m_rxBuffer
-//  if (packet->GetSize() > 0)
-//    {
-//      ReceivedData(packet, tcpHeader);
-//    }
-//  #endif
-
-}
-
 //
+//void
+//MpTcpSocketBase::ProcessMpTcpOptions(TcpHeader header, Ptr<MpTcpSubflow> sf)
+//{
+//  NS_LOG_FUNCTION(this);
+//  TcpHeader::TcpOptionList l;
+//  header.GetOptions(l);
+//  for(TcpHeader::TcpOptionList::const_iterator it = l.begin(); it != l.end(); ++it)
+//  {
+//    if( (*it)->GetKind() == TcpOption::MPTCP)
+//    {
+//      Ptr<TcpOptionMpTcpMain> opt = DynamicCast<TcpOptionMpTcpMain>(*it);
+//      NS_ASSERT(opt);
+////      T temp;
+//      switch(opt->GetSubType()) {
+//        //!
+//        case TcpOptionMpTcpMain::MP_CAPABLE:
+//        case TcpOptionMpTcpMain::MP_JOIN:
+//            // Handled at subflow level
+////            NS_LOG_DEBUG("Handled at subflow level");
+//            break;
+//        case TcpOptionMpTcpMain::MP_DSS:
+//          {
+//
+//            Ptr<TcpOptionMpTcpDSS> dss = DynamicCast<TcpOptionMpTcpDSS>(opt);
+//            ProcessDSS(header,dss,sf);
+//          }
+//            break;
+//
+//        // TODO redirect options to mptcp id manager
+//        case TcpOptionMpTcpMain::MP_ADD_ADDR:
+//        case TcpOptionMpTcpMain::MP_REMOVE_ADDR:
+//        case TcpOptionMpTcpMain::MP_PRIO:
+//        case TcpOptionMpTcpMain::MP_FAIL:
+//        case TcpOptionMpTcpMain::MP_FASTCLOSE:
+//          NS_LOG_WARN("Unsupported option yet");
+//          break;
+//      }
+//
+////      == temp.GetSubType()  )
+////      {
+////        //!
+////        ret = DynamicCast<T>(opt);
+////        return true;
+////      }
+//    }
+//  }
+//
+//}
+
+
+
+
 //void
 //MpTcpSocketBase::DupAck( SequenceNumber32 dack,Ptr<MpTcpSubflow> sf, uint32_t count)
 //{
@@ -741,20 +643,6 @@ MpTcpSocketBase::ReceivedAck(Ptr<Packet> packet, const TcpHeader& mptcpHeader)
   NS_FATAL_ERROR("Disabled");
 }
 
-
-//void
-//MpTcpSocketBase::SetSegSize(uint32_t size)
-//{
-//  m_segmentSize = size;
-//  NS_ABORT_MSG_UNLESS(m_state == CLOSED, "Cannot change segment size dynamically.");
-//}
-//
-//uint32_t
-//MpTcpSocketBase::GetSegSize(void) const
-//{
-//  return m_segmentSize;
-//}
-
 uint32_t
 MpTcpSocketBase::SendDataPacket(SequenceNumber32 seq, uint32_t maxSize, bool withAck)
 {
@@ -766,47 +654,8 @@ MpTcpSocketBase::SendDataPacket(SequenceNumber32 seq, uint32_t maxSize, bool wit
 
 
 
-//...........................................................................................
-// Following implementation has derived from tcp-reno implementation
-//...........................................................................................
-//void
-//MpTcpSocketBase::SetSSThresh(uint32_t threshold)
-//{
-//  m_ssThresh = threshold;
-//}
-//
-//uint32_t
-//MpTcpSocketBase::GetSSThresh(void) const
-//{
-//  return m_ssThresh;
-//}
-
-//void
-//MpTcpSocketBase::SetInitialCwnd(uint32_t cwnd)
-//{
-//  NS_ABORT_MSG_UNLESS(m_state == CLOSED, "MpTcpsocketBase::SetInitialCwnd() cannot change initial cwnd after connection started.");
-//  m_initialCWnd = cwnd;
-//}
-
-//uint32_t
-//MpTcpSocketBase::GetInitialCwnd(void) const
-//{
-//  return m_initialCWnd;
-//}
-
-
-//
-//Ptr<TcpSocketBase>
-//MpTcpSocketBase::Fork(void)
-//{
-//  return ForkAsMeta();
-//  CopyObject<TcpSocketBase>(this);
-//}
 
 /** Cut cwnd and enter fast recovery mode upon triple dupack TODO ?*/
-
-
-//
 //void
 //MpTcpSocketBase::DupAck(const TcpHeader& t, uint32_t count)
 //{
@@ -1033,8 +882,9 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
 )
 {
   NS_LOG_LOGIC("subflow " << sf << " state changed from " << TcpStateName[oldState] << " to " << TcpStateName[newState]);
+  NS_LOG_LOGIC("Current rWnd=" << m_rWnd);
 
-
+  ComputeTotalCWND();
 
   if(sf->IsMaster() && newState == SYN_RCVD)
   {
@@ -1042,6 +892,7 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
       NS_LOG_LOGIC("moving meta to SYN_RCVD");
       m_server = true;
       m_state = SYN_RCVD;
+      m_rWnd = sf->m_rWnd;
   }
 
   // Only react when it gets established
@@ -1192,7 +1043,7 @@ MpTcpSocketBase::AddSubflow(
     Ptr<MpTcpSubflow> sflow
     )
 {
-    NS_LOG_FUNCTION(sflow);
+  NS_LOG_FUNCTION(sflow);
 
 //  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
   Ptr<MpTcpSubflow> sf = sflow;
@@ -2644,212 +2495,18 @@ MpTcpSocketBase::ReceivedAck(
 
 
 
-void
-MpTcpSocketBase::ProcessDSSEstablished(const TcpHeader& tcpHeader, Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf)
-{
-  NS_LOG_FUNCTION (this << dss << " from subflow " << sf);
-
-//  #if 0
-//  uint32_t ack = (tcpHeader.GetAckNumber()).GetValue();
-//  uint32_t tmp = ((ack - initialSeqNb) / m_segmentSize) % mod;
-//  ACK.push_back(std::make_pair(Simulator::Now().GetSeconds(), tmp));
-  if ( dss->GetFlags() & TcpOptionMpTcpDSS::DataFin)
-  {
-    NS_LOG_LOGIC("DFIN detected " << dss->GetDataFinDSN());
-    PeerClose( SequenceNumber32(dss->GetDataFinDSN()), sf);
-  }
-
-
-  // TOdO replace that
-
-  if( dss->GetFlags() & TcpOptionMpTcpDSS::DataAckPresent)
-  {
-//    NS_LOG_DEBUG("DataAck detected");
-    ReceivedAck( SequenceNumber32(dss->GetDataAck()), sf, false);
-//    SequenceNumber32 dack = SequenceNumber32(dss->GetDataAck());
-
-
-  }
-
-  //! datafin case handled at the start of the function
-  if( (dss->GetFlags() & TcpOptionMpTcpDSS::DSNMappingPresent) && !dss->DataFinMappingOnly() )
-  {
-      MpTcpMapping m;
-      m = GetMapping(dss);
-//      dss->GetMapping()
-      sf->AddPeerMapping(m);
-  }
-}
-
-/* process while in CLOSING/LAST_ACK */
-void
-MpTcpSocketBase::ProcessDSSClosing( Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf)
-{
-
-  /////////////////////////////////////////////
-  ////
-  //// ZIS FUNCTION IS NEVER CALLED for now
-  ////
-  ////
-  /////////////////////////////////////////////
-  //// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  NS_LOG_FUNCTION (this << dss << " from " << sf);
-
-
-// CLOSING state means simultaneous close, i.e. no one is sending data to
-      // anyone. If anything other than ACK is received, respond with a reset.
-//  if(dss->GetFlags() & TcpOptionMpTcpDSS::DataFin) {
-//    if()else
-//    { // CLOSING state means simultaneous close, i.e. no one is sending data to
-//      // anyone. If anything other than ACK is received, respond with a reset.
-//      SendFastClose(sf);
-//      CloseAndNotify();
-//    }
-//  }
-
-  // If there is a datafin in there, I should ack it
-  if ( dss->GetFlags() & TcpOptionMpTcpDSS::DataFin) {
-    //
-    PeerClose( SequenceNumber32(dss->GetDataFinDSN()), sf);
-  }
-
-
-  if(dss->GetFlags() & TcpOptionMpTcpDSS::DataAckPresent)
-  {
-    SequenceNumber32 dack(dss->GetDataAck());
-    NS_LOG_LOGIC("Received while closing dack="<< dack);
-    // TODO maybe add 1 since it acknowledges the datafin ?
-    // or maybe it is already
-    // I changed m_rx by m_tx here
-//    if ( dack == m_txBuffer->NextRxSequence())
-    if ( dack == m_nextTxSequence)
-    { // This ACK corresponds to the FIN sent
-      NS_LOG_LOGIC("Our datafin got acked since dack=m_nextTxSequence="<< m_nextTxSequence);
-      TimeWait(); //! TimeWait starts closing the subflows
-      return;
-    }
-  }
-
-
-// CLOSING state means simultaneous close, i.e. no one is sending data to
-//      // anyone. If anything other than ACK is received, respond with a reset.
-//  SendFastClose(sf);
-//  CloseAndNotify();
-}
-
-/** when in m_closed fin_wait etc
-According to 6824
-A connection is considered closed once both hosts' DATA_FINs have
-been acknowledged by DATA_ACKs.
-*/
-void
-MpTcpSocketBase::ProcessDSSWait( Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow> sf)
-{
-  NS_LOG_FUNCTION (this << dss << " from " << sf << " while in state [" << TcpStateName[m_state] << "]");
-
-  if(dss->GetFlags() & TcpOptionMpTcpDSS::DataFin)
-  {
-    NS_LOG_LOGIC("Received DFIN");
-//    if(m_state == FIN_WAIT_1)
-//    {
-      // TODO send
-      PeerClose( SequenceNumber32(dss->GetDataFinDSN() ), sf);
-//      TcpHeader header;
-//      sf->GenerateEmptyPacketHeader(header,TcpHeader::ACK);
-//      AppendDataAck(header);
-//      sf->SendEmptyPacket(header);
-
-//      NS_LOG_INFO("FIN_WAIT_1 -> CLOSING");
-//      m_state = CLOSING;
-
-//    }
-//    else {
-//      SendFastClose(sf);
-////      CloseAndNotify();
-//    }
-  }
-
-  // TODO I should check
-  // m_txBuffer->SetHeadSequence(m_nextTxSequence)
-  if(dss->GetFlags() & TcpOptionMpTcpDSS::DataAckPresent)
-  {
-    SequenceNumber32 dack(dss->GetDataAck() );
-    ReceivedAck(dack,sf,false);
-
-
-    NS_LOG_INFO("dack=" << dack <<  " to compare with m_nextTxSequence=" << m_nextTxSequence);
-//    if (dack == m_rxBuffer->NextRxSequence())
-//    if (dack == m_nextTxSequence)
-//    { // This ACK corresponds to the DATA FIN sent
-//      NS_LOG_LOGIC("Ack corresponds to DFIN sent");
-//      NS_LOG_DEBUG("Setting m_nextTxSequence to ");
-//      m_nextTxSequence = dack;
-//      SyncTxBuffers();
-
-      if(m_state == FIN_WAIT_1 && FirstUnackedSeq() == m_txBuffer->TailSequence()) {
-        NS_LOG_LOGIC(" FIN_WAIT_1 -> FIN_WAIT_2");
-        m_state= FIN_WAIT_2;
-        return;
-      }
-//      // CLOSING or LAST_ACK
-//      else if(m_state == CLOSING || m_state == LAST_ACK){
-//        TimeWait();
-//        return;
-//      }
-//      else {
-//        NS_LOG_ERROR("dack=" << dack << " not equal to the one expected " << m_nextTxSequence);
-//      }
-  // Check if the close responder sent an in-sequence FIN, if so, respond ACK
-
-
-    // Finished renvoie m_gotFin && m_finSeq < m_nextRxSeq
-    NS_LOG_DEBUG("Is Rx Buffer finished ?" << m_rxBuffer->Finished());
-    if ((m_state == FIN_WAIT_1 || m_state == FIN_WAIT_2) && m_rxBuffer->Finished())
-    {
-      if (m_state == FIN_WAIT_1)
-        {
-          NS_LOG_INFO ("FIN_WAIT_1 -> CLOSING");
-          m_state = CLOSING;
-          if (m_txBuffer->Size() == 0 && FirstUnackedSeq() == m_txBuffer->TailSequence())
-            { // This ACK corresponds to the FIN sent
-              TimeWait();
-            }
-        }
-      else if (m_state == FIN_WAIT_2)
-        {
-          TimeWait();
-        }
-//      SendEmptyPacket(TcpHeader::ACK);
-      if (!m_shutdownRecv)
-        {
-          NotifyDataRecv();
-        }
-    }
-  }
-
-
-  if( (dss->GetFlags() & TcpOptionMpTcpDSS::DSNMappingPresent) && !dss->DataFinMappingOnly() )
-  {
-      MpTcpMapping m = GetMapping(dss);
-      sf->AddPeerMapping(m);
-  }
-
-
-
-}
-
 
 
 
 /** Received a packet upon CLOSE_WAIT, FIN_WAIT_1, or FIN_WAIT_2 states */
-void
-MpTcpSocketBase::ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader)
-{
-  NS_LOG_FUNCTION (this << tcpHeader);
-
-  NS_FATAL_ERROR("TO remove");
-
-}
+//void
+//MpTcpSocketBase::ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader)
+//{
+//  NS_LOG_FUNCTION (this << tcpHeader);
+//
+//  NS_FATAL_ERROR("TO remove");
+//
+//}
 
 
 /** Peacefully close the socket by notifying the upper layer and deallocate end point */
@@ -3254,7 +2911,7 @@ MpTcpSocketBase::ComputeTotalCWND()
   }
   m_tcb->m_cWnd = totalCwnd;
 //  m_cWnd = totalCwnd;
-//    NS_LOG_DEBUG("Cwnd after computation=" << m_cWnd.Get());
+  NS_LOG_DEBUG("Cwnd after computation=" << m_tcb->m_cWnd.Get());
   return totalCwnd;
 }
 

@@ -811,7 +811,14 @@ protected:
   virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
   virtual int ProcessTcpOptionsListen(const TcpHeader& header);
   virtual int ProcessTcpOptionsSynRcvd(const TcpHeader& header);
-
+  virtual int ProcessTcpOptionsEstablished(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsClosing(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsTimeWait(const TcpHeader& header);
+  /**
+   *
+   */
+//  virtual int ProcessTcpOption(const Ptr<const TcpOption> option);
+  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
   /**
    *
    * \return 1
