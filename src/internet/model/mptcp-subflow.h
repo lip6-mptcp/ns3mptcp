@@ -213,6 +213,7 @@ public:
   Recv(void);
 
   /**
+  *
   * \param dsn will set the dsn of the beginning of the data
   * \param only_full_mappings Set to true if you want to extract only packets that match a whole mapping
   * \param dsn returns the head DSN of the returned packet
@@ -222,9 +223,10 @@ public:
   *
   */
   virtual Ptr<Packet>
-//  RecvWithMapping(uint32_t maxSize, bool only_full_mappings, SequenceNumber32 &dsn);
-//  Ptr<Packet>
   ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mappings, SequenceNumber64& dsn);
+
+  //  RecvWithMapping(uint32_t maxSize, bool only_full_mappings, SequenceNumber32 &dsn);
+//  Ptr<Packet>
 
   //! TODO should notify upper layer
 //  virtual void
@@ -404,7 +406,7 @@ protected:
   ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
 //  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
-  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
+  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> optionMapTo);
 
   /**
     GetMeta()->m_rxBuffer.NextRxSequence().GetValue()
@@ -416,15 +418,28 @@ public:
   GetMeta() const;
 
 protected:
+  /**
+   * \brief Creates a DSS option if does not exist and configures it to have a dataack
+   * TODO what happens if existing datack already set ?
+   */
+  virtual void
+  AppendDSSAck();
+  virtual void
+  AddMpTcpOptionDSS(TcpHeader& header);
+
+  /**
+   *
+   */
+  virtual void
+  AppendDSSFin();
+  virtual void
+  AppendDSSMapping(const MpTcpMapping& mapping);
+
   virtual void
   ReceivedAck(Ptr<Packet>, const TcpHeader&); // Received an ACK packet
   virtual void
   ReceivedData(Ptr<Packet>, const TcpHeader&);
 
-  /**
-  */
-  uint32_t
-  SendDataPacket(SequenceNumber32 seq, uint32_t maxSize, bool withAck);
 
   /**
 
@@ -512,14 +527,18 @@ protected:
 
 
 protected:
-  Ptr<MpTcpSocketBase> m_metaSocket;
+  Ptr<MpTcpSocketBase> m_metaSocket;    //!< Meta
 
 
 //private:
 
 private:
-  virtual void
-  SendPacket(TcpHeader header, Ptr<Packet> p);
+  // Delayed values to
+  uint8_t m_dssFlags;   //!< used to know if AddMpTcpOptions should send a flag
+  MpTcpMapping m_dssMapping;
+
+  //!
+  virtual void SendPacket(TcpHeader header, Ptr<Packet> p);
 
   bool m_backupSubflow; //!< Priority
   bool m_masterSocket;  //!< True if this is the first subflow established (with MP_CAPABLE)

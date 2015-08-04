@@ -58,7 +58,7 @@ TcpOptionWinScale::GetInstanceTypeId (void) const
 void
 TcpOptionWinScale::Print (std::ostream &os) const
 {
-  os << static_cast<int> (m_scale);
+  os << "WinScale=" << static_cast<int> (m_scale);
 }
 
 uint32_t

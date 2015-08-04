@@ -59,6 +59,12 @@ TcpOption::GetInstanceTypeId (void) const
   return GetTypeId ();
 }
 
+void
+TcpOption::Print (std::ostream &os) const
+{
+  os << "TCP option kind=" << GetKind() << " size=" << static_cast<int>(GetSerializedSize());
+}
+
 Ptr<TcpOption>
 TcpOption::CreateOption (uint8_t kind)
 {
@@ -191,6 +197,12 @@ TcpOptionUnknown::GetKind (void) const
   return m_kind;
 }
 
+std::ostream &
+operator << (std::ostream &os, const TcpOption &option)
+{
+  option.Print(os);
+  return os;
+}
 std::ostream&
 operator<< (std::ostream& os, Ptr<const TcpOption> opt)
 {

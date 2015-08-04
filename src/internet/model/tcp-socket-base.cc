@@ -1149,6 +1149,7 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
       return; // Discard invalid packet
     }
 
+  NS_LOG_UNCOND("TOTO=" << packet->GetSize ());
     // TODO bad idea to put it here.
     // should first check that packet is in range
     // + processing should be state dependant
@@ -1708,7 +1709,7 @@ TcpSocketBase::ProcessTcpOptionsListen(const TcpHeader& header)
 //            ProcessOptionMpTcp(option);
             {
                 //!
-              Ptr<TcpOptionMpTcpCapable> mpc;
+              Ptr<const TcpOptionMpTcpCapable> mpc;
 
               if(GetTcpOption(header, mpc))
               {

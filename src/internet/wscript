@@ -243,7 +243,7 @@ def build(bld):
         'test/tcp-option-test.cc',
         'test/tcp-option-mptcp-test.cc',
         'test/mptcp-crypto-test.cc',
-#        'test/mptcp-mapping-test.cc',
+        'test/mptcp-mapping-test.cc',
         'test/mptcp-tcp-multi.cc',
         # TO remove once tcp-multi is confirmed
         'test/mptcp-tcp-test.cc',
@@ -254,7 +254,7 @@ def build(bld):
         'test/ipv6-fragmentation-test.cc',
         'test/ipv6-forwarding-test.cc',
         'test/ipv6-ripng-test.cc',
-     	'test/ipv6-address-helper-test-suite.cc',
+        'test/ipv6-address-helper-test-suite.cc',
         'test/rtt-test.cc',
         'test/codel-queue-test-suite.cc',
         ]

@@ -542,7 +542,7 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
       NS_LOG_LOGIC ("No Ipv4 endpoints matched on TcpL4Protocol, checking if it's a MPTCP JOIN"<<this);
     // MPTCP related modification----------------------------
     // Extract MPTCP options if there is any
-    Ptr<TcpOptionMpTcpJoin> join;
+    Ptr<const TcpOptionMpTcpJoin> join;
     Ptr<MpTcpSocketBase> meta;
 
     // If it is a SYN packet with an MP_JOIN option

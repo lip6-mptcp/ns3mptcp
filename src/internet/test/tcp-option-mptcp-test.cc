@@ -209,22 +209,15 @@ public:
         uint16_t dataLvlLen = 32;
         uint64_t dsn = 54;
         uint32_t ssn = 40;
-//          mapping.SetHeadDSN( SequenceNumber32(dsn));
-//          mapping.SetMappingSize(dataLvlLen);
-//          mapping.MapToSSN( SequenceNumber32(ssn));
-
 
         // TODO test truncated dsns
         // TODO test enable datafin yes/no
         dss1->SetMapping (dsn, ssn, dataLvlLen, false);
-
-
         AddTestCase (
           new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1, TcpOptionMpTcpMain::MP_DSS, "DSN mapping only"),
           QUICK
           );
 
-//        dss1->AddDataFin ( (dsn + dataLvlLen + 1), true);
         dss1->SetMapping (dsn, ssn, dataLvlLen, true);
         AddTestCase (
           new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss1, TcpOptionMpTcpMain::MP_DSS, "DSN mapping + DFIN"),
@@ -243,14 +236,12 @@ public:
           QUICK
           );
 
-
-//        dss3->AddDataFin ( 45 );
+//
 //        AddTestCase (
 //          new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss3, TcpOptionMpTcpMain::MP_DSS, "DataFin only"),
 //          QUICK
 //          );
 
-//        dss4->AddDataFin ( 32 );
         dss4->SetDataAck (45000);
         AddTestCase (
           new TcpOptionMpTcpTestCase<TcpOptionMpTcpDSS> (dss4, TcpOptionMpTcpMain::MP_DSS, "DataAck + DSN mapping + Datafin"),

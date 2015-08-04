@@ -192,6 +192,7 @@ MpTcpTestCase::DoRun (void)
   memset (m_serverRxPayload, 0, m_totalBytes);
 
   Config::SetDefault ("ns3::TcpSocketBase::EnableMpTcp", BooleanValue(true) );
+  Packet::EnablePrinting();
 
   if (m_useIpv6 == true)
     {

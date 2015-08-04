@@ -88,16 +88,6 @@ SequenceNumber64 SEQ32TO64(SequenceNumber32 seq)
 //   * \param trunc_to_32bits Set to true to send a 32bit DSN
 //   * \warn Mapping can be set only once, otherwise it will crash ns3
 //   */
-//  virtual void SetMapping (uint64_t headDsn, uint32_t headSsn, uint16_t length, const bool trunc_to_32bits = true);
-
-
-// TODO to remove, they moved to mptcp-subflow
-static inline
-void
-SetMapping(Ptr<TcpOptionMpTcpDSS> dss, MpTcpMapping mapping)
-{
-    dss->SetMapping( mapping.HeadDSN().GetValue(), mapping.HeadSSN().GetValue(), mapping.GetLength(), true);
-}
 
 //! wrapper function
 static inline
@@ -429,7 +419,7 @@ MpTcpSocketBase::CompleteFork(
 //
 //  NS_ASSERT(InetSocketAddress::ConvertFrom(fromAddress).GetIpv4() == m_endPoint->GetPeerAddress());
 //  NS_ASSERT(InetSocketAddress::ConvertFrom(fromAddress).GetPort() == m_endPoint->GetPeerPort());
-  Ptr<TcpOptionMpTcpCapable> mpc;
+  Ptr<const TcpOptionMpTcpCapable> mpc;
   NS_ASSERT( GetTcpOption(mptcpHeader, mpc) );
 
   m_server = true;
@@ -510,12 +500,15 @@ MpTcpSocketBase::ReceivedData(Ptr<Packet> p, const TcpHeader& mptcpHeader)
 
 /** Process the newly received ACK */
 //, uint32_t dack
+#if 0
 void
 MpTcpSocketBase::AppendDataAck(TcpHeader& hdr) const
 {
   NS_LOG_FUNCTION(this);
+  NS_FATAL_ERROR("Does not work anymore");
 
-  Ptr<TcpOptionMpTcpDSS> dss;
+
+  Ptr<const TcpOptionMpTcpDSS> dss;
 
   //! if a bigger dataack is already set, what happens ?
   GetOrCreateMpTcpOption(hdr, dss);
@@ -523,8 +516,8 @@ MpTcpSocketBase::AppendDataAck(TcpHeader& hdr) const
   uint32_t dack = m_rxBuffer->NextRxSequence().GetValue();
   dss->SetDataAck( dack );
 
-
 }
+#endif
 
 bool
 MpTcpSocketBase::UpdateWindowSize(const TcpHeader& header)
@@ -719,8 +712,6 @@ MpTcpSocketBase::OnSubflowClosed(Ptr<MpTcpSubflow> subflow, bool reset)
 // m_containers[Closing].erase(it);
 //NS_ASSERT(it != m_subflows[Closing].end());
   SubflowList::iterator it = std::remove(m_subflows[Closing].begin(), m_subflows[Closing].end(), subflow);
-
-
 }
 
 void
@@ -761,13 +752,15 @@ MpTcpSocketBase::OnSubflowRecv(Ptr<MpTcpSubflow> sf)
   SequenceNumber32 expectedDSN = m_rxBuffer->NextRxSequence();
 
   /* Extract one by one mappings from subflow */
-  while(true) {
+  while(true)
+  {
 
     Ptr<Packet> p;
     SequenceNumber64 dsn;
     uint32_t canRead = m_rxBuffer->MaxBufferSize() - m_rxBuffer->Size();
 
-    if(canRead <= 0) {
+    if(canRead <= 0)
+    {
       NS_LOG_LOGIC("No free space in meta Rx Buffer");
       break;
     }
@@ -799,7 +792,7 @@ MpTcpSocketBase::OnSubflowRecv(Ptr<MpTcpSubflow> sf)
 //    NS_ASSERT_MSG(m_rxBuffer->Add(p, dsn), "Data got LOST");
 //    NS_ASSERT_MSG(m_rxBuffer->Add(p, dsn), "Data got LOST");
     NS_LOG_DEBUG( "After adding to metaRx: RxBufferHead=" << m_rxBuffer->HeadSequence() << " NextRxSequence=" << m_rxBuffer->NextRxSequence());
-  }
+  } // end of the while
 
   // TODO should restablish delayed acks ?
   NS_LOG_UNCOND("=> Dumping RxBuffers after extraction");
@@ -841,16 +834,16 @@ MpTcpSocketBase::OnSubflowRecv(Ptr<MpTcpSubflow> sf)
 /**
 TODO check that it autodisconnects when we destroy the object ?
 **/
-void
-MpTcpSocketBase::OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd)
-{
-  NS_LOG_LOGIC("Subflow updated window from " << oldCwnd << " to " << newCwnd
-//        << " (context=" << context << ")"
-        );
-
-  //
-//  m_cWnd = ComputeTotalCWND();
-}
+//void
+//MpTcpSocketBase::OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd)
+//{
+//  NS_LOG_LOGIC("Subflow updated window from " << oldCwnd << " to " << newCwnd
+////        << " (context=" << context << ")"
+//        );
+//
+//  //
+////  m_cWnd = ComputeTotalCWND();
+//}
 
 
 /**
@@ -1047,9 +1040,9 @@ MpTcpSocketBase::AddSubflow(
 
 //  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
   Ptr<MpTcpSubflow> sf = sflow;
-
-  bool ok = sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this));
-  NS_ASSERT_MSG(ok, "Tracing mandatory to update the MPTCP global congestion window");
+  bool ok;
+// ok = sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this));
+//  NS_ASSERT_MSG(ok, "Tracing mandatory to update the MPTCP global congestion window");
 
   //! We need to act on certain subflow state transitions according to doc "There is not a version with bound arguments."
     //  NS_ASSERT(sFlow->TraceConnect ("State", "State", MakeCallback(&MpTcpSocketBase::OnSubflowNewState, this)) );
@@ -1102,7 +1095,7 @@ MpTcpSocketBase::NewSubflowRequest(
 const TcpHeader & header,
 const Address & fromAddress,
 const Address & toAddress,
-Ptr<TcpOptionMpTcpJoin> join
+Ptr<const TcpOptionMpTcpJoin> join
 )
 {
   NS_LOG_LOGIC("Received request for a new subflow while in state " << TcpStateName[m_state]);
@@ -1408,7 +1401,7 @@ MpTcpSocketBase::PeerClose( SequenceNumber32 dsn, Ptr<MpTcpSubflow> sf)
       // TODO should send dataACK
       TcpHeader header;
       sf->GenerateEmptyPacketHeader(header,TcpHeader::ACK);
-      AppendDataAck(header);
+      sf->AppendDSSAck();
       sf->SendEmptyPacket(header);
 //      return;
 //    }
@@ -1494,9 +1487,10 @@ MpTcpSocketBase::SyncTxBuffers()
         m_state=FIN_WAIT_2;
         TcpHeader header;
 
-        GetSubflow(0)->GenerateEmptyPacketHeader(header, TcpHeader::ACK);
-        AppendDataAck(header);
-        GetSubflow(0)->SendEmptyPacket(header);
+        Ptr<MpTcpSubflow> sf = GetSubflow(0);
+        sf->GenerateEmptyPacketHeader(header, TcpHeader::ACK);
+        sf->AppendDSSAck();
+        sf->SendEmptyPacket(header);
         //!
 
       }
@@ -1911,10 +1905,10 @@ MpTcpSocketBase::DoRetransmit()
           TcpHeader header;
         Ptr<MpTcpSubflow> subflow = GetSubflow(0);
 //          m_state = FIN_WAIT_1;
-          subflow->GenerateEmptyPacketHeader(header,TcpHeader::ACK);
+//          subflow->GenerateEmptyPacketHeader(header,);
     //      SendEmptyPacket(header);
-          AppendDataFin(header);
-          subflow->SendEmptyPacket(header);
+          subflow->AppendDSSFin();
+          subflow->SendEmptyPacket(TcpHeader::ACK);
 
         }
       return;
@@ -2691,10 +2685,11 @@ MpTcpSocketBase::DoPeerClose(void)
 //    #error TODO send Dataack
       TcpHeader header;
 
-      GenerateEmptyPacketHeader(header,TcpHeader::ACK);
+      GenerateEmptyPacketHeader(header, TcpHeader::ACK);
       //!
-      AppendDataAck(header);
-      GetSubflow(0)->SendEmptyPacket(header);
+      Ptr<MpTcpSubflow> sf = GetSubflow(0);
+      sf->AppendDSSAck();
+      sf->SendEmptyPacket(header);
     }
 
   if (m_state == LAST_ACK)
@@ -2735,14 +2730,16 @@ MpTcpSocketBase::SendEmptyPacket(TcpHeader& header)
   NS_FATAL_ERROR("Disabled. Should call subflow member");
 }
 
+  #if 0
 void
 MpTcpSocketBase::AppendDataFin(TcpHeader& header) const
 //const
 {
   // TODO
+
   NS_LOG_LOGIC("Appending a DFIN with seq " << m_txBuffer->TailSequence());
 //  NS_ASSERT(m_state == )
-  Ptr<TcpOptionMpTcpDSS> dss;
+  Ptr<const TcpOptionMpTcpDSS> dss;
   GetOrCreateMpTcpOption(header,dss);
 //  if(!GetMpTcpOption(header,dss))
 //    dss = Create<>(TcpOptionMpTcpMain::MP_DSS);
@@ -2750,8 +2747,9 @@ MpTcpSocketBase::AppendDataFin(TcpHeader& header) const
   //well so far this worked
   // TailSequence = lastByte (+1) of the buffer
 //  dss->AddDataFin ( SEQ32TO64(m_txBuffer->TailSequence()));
-}
 
+}
+#endif
 
 /** Do the action to close the socket. Usually send a packet with appropriate
  flags depended on the current m_state.
@@ -2771,6 +2769,7 @@ MpTcpSocketBase::DoClose()
   TcpHeader header;
 
 
+  Ptr<MpTcpSubflow> subflow = GetSubflow(0);
 
   switch (m_state)
   {
@@ -2780,11 +2779,11 @@ MpTcpSocketBase::DoClose()
       {
       NS_LOG_INFO ("ESTABLISHED -> FIN_WAIT_1");
 
-        Ptr<MpTcpSubflow> subflow = GetSubflow(0);
+
       m_state = FIN_WAIT_1;
       subflow->GenerateEmptyPacketHeader(header,TcpHeader::ACK);
 //      SendEmptyPacket(header);
-      AppendDataFin(header);
+      subflow->AppendDSSFin();
       subflow->SendEmptyPacket(header);
       }
       break;
@@ -2795,9 +2794,9 @@ MpTcpSocketBase::DoClose()
       NS_LOG_INFO ("CLOSE_WAIT -> LAST_ACK");
       m_state = LAST_ACK;
 
-      Ptr<MpTcpSubflow> subflow = GetSubflow(0);
+//      Ptr<MpTcpSubflow> subflow = GetSubflow(0);
       subflow->GenerateEmptyPacketHeader(header, TcpHeader::ACK);
-      AppendDataAck(header);
+      subflow->AppendDSSAck();
       subflow->SendEmptyPacket(header);
 //      SendEmptyPacket(TcpHeader::FIN | TcpHeader::ACK);
       }
@@ -2882,10 +2881,10 @@ TODO fix this to handle fast recovery
 uint32_t
 MpTcpSocketBase::ComputeTotalCWND()
 {
-  NS_LOG_DEBUG("Cwnd before update=" <<
-               Window()
+  NS_LOG_DEBUG("Cwnd before update=" << Window()
 //               m_tcb->m_cWnd.Get()
                );
+
   uint32_t totalCwnd = 0;
 
   for (uint32_t i = 0; i < Maximum; i++)

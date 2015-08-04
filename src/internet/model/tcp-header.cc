@@ -460,7 +460,7 @@ TcpHeader::CalculateHeaderLength () const
 }
 
 bool
-TcpHeader::AppendOption (Ptr<TcpOption> option)
+TcpHeader::AppendOption (Ptr<const TcpOption> option)
 {
   if (m_optionsLen + option->GetSerializedSize () <= m_maxOptionsLen)
     {
@@ -474,6 +474,9 @@ TcpHeader::AppendOption (Ptr<TcpOption> option)
         {
           m_options.push_back (option);
           m_optionsLen += option->GetSerializedSize ();
+          NS_LOG_DEBUG("Added option [" << option  << "] "
+                       << " of size=" << static_cast<int> (option->GetSerializedSize ())
+                       << ". New m_optionsLen=" << static_cast<int> (m_optionsLen));
 
           uint32_t totalLen = 20 + 3 + m_optionsLen;
           m_length = totalLen >> 2;
@@ -482,6 +485,7 @@ TcpHeader::AppendOption (Ptr<TcpOption> option)
       return true;
     }
 
+  NS_LOG_WARN ("Not enough space to add option " << option );
   return false;
 }
 

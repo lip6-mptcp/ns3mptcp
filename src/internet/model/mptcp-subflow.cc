@@ -58,6 +58,23 @@ namespace ns3 {
 
 NS_OBJECT_ENSURE_REGISTERED(MpTcpSubflow);
 
+
+static inline
+SequenceNumber32 SEQ64TO32(SequenceNumber64 seq)
+{
+    //!
+    return SequenceNumber32( seq.GetValue());
+}
+
+static inline
+SequenceNumber64 SEQ32TO64(SequenceNumber32 seq)
+{
+    //!
+    return SequenceNumber64( seq.GetValue());
+}
+
+
+
 TypeId
 MpTcpSubflow::GetTypeId(void)
 {
@@ -76,13 +93,6 @@ MpTcpSubflow::GetTypeId(void)
 }
 
 
-
-static inline
-void
-SetMapping(Ptr<TcpOptionMpTcpDSS> dss, MpTcpMapping mapping)
-{
-    dss->SetMapping( mapping.HeadDSN().GetValue(), mapping.HeadSSN().GetValue(), mapping.GetLength(), true);
-}
 
 //! wrapper function
 static inline
@@ -253,7 +263,8 @@ If copied from a legacy socket, then it's a master socket
 */
 MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
     : TcpSocketBase(sock),
-    m_masterSocket(true)
+    m_masterSocket(true),
+    m_dssFlags(0)
 
 {
     NS_LOG_FUNCTION (this << &sock);
@@ -270,16 +281,9 @@ MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
 // Does this constructor even make sense ? no ? to remove ?
 MpTcpSubflow::MpTcpSubflow(const MpTcpSubflow& sock)
   : TcpSocketBase(sock),
-//  m_cWnd(sock.m_cWnd),
-//  m_ssThresh(sock.m_ssThresh),
-//  m_initialCWnd (sock.m_initialCWnd),
   m_masterSocket(sock.m_masterSocket),  //!false
-  m_localNonce(sock.m_localNonce)
-
-// , m_remoteToken(sock.m_remoteToken)
-// TODO
-//    m_retxThresh (sock.m_retxThresh),
-//    m_inFastRec (false),
+  m_localNonce(sock.m_localNonce),
+  m_dssFlags(0)
 {
   NS_LOG_FUNCTION (this << &sock);
   NS_LOG_LOGIC ("Invoked the copy constructor");
@@ -290,37 +294,17 @@ MpTcpSubflow::MpTcpSubflow(
 ) :
     TcpSocketBase(),
     m_routeId(0),
-//    m_ssThresh(65535),
-//    m_initialCWnd(10),
-//    m_metaSocket(metaSocket),
+    m_metaSocket(0),
     m_backupSubflow(false),
     m_masterSocket(false),
     m_localNonce(0)
 {
   NS_LOG_FUNCTION(this);
-//  m_cnRetries = 3;
-//  Time est = MilliSeconds(200);
-//  m_cnTimeout = est;
-//  initialSequnceNumber = 0;
-//  m_retxThresh = 3; // TODO retrieve from meta
-//  m_inFastRec = false;
-//  m_limitedTx = false;
-//  m_dupAckCount = 0;
-//  PktCount = 0;
-//  m_recover = SequenceNumber32(0);
 }
 
 MpTcpSubflow::~MpTcpSubflow()
 {
   NS_LOG_FUNCTION(this);
-  // TODO cancel times
-  //std::list<DSNMapping *>
-//  for (MappingList::iterator it = m_mapDSN.begin(); it != m_mapDSN.end(); ++it)
-//    {
-//      DSNMapping * ptrDSN = *it;
-//      delete ptrDSN;
-//    }
-//  m_mapDSN.clear();
 }
 
 
@@ -462,17 +446,7 @@ MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
 
 
 
-uint32_t
-MpTcpSubflow::SendDataPacket(SequenceNumber32 seq, uint32_t maxSize, bool withAck)
-{
-  //!
-//  NS_LOG_FUNCTION (this << "seq" << seq << "with max size " << maxSize << "and ack"<< withAck);  //NS_LOG_INFO("SendDataPacket -> SeqNb: " << seq);
-  TcpHeader header;
 
-  GenerateEmptyPacketHeader(header, withAck ? TcpHeader::ACK : 0);
-
-  return SendDataPacket( header, seq, maxSize);
-}
 
 //uint32_t
 //MpTcpSubflow::SendDataPacket(TcpHeader& header, const SequenceNumber32& ssn, uint32_t maxSize)
@@ -496,13 +470,9 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
   MpTcpMapping mapping;
 
   SequenceNumber32 ssnHead = header.GetSequenceNumber();
-//  uint32_t p->GetSize()
   SequenceNumber32 ssnTail = ssnHead + SequenceNumber32(p->GetSize());
 
-//  uint32_t coveredLen = 0;
   /**
-  TODO move that to SendPacket
-
   In this loop, we make sure we don't send data for which there is no
   Tx mapping. A packet may be spanned over
    Packets may contain data described by several mappings
@@ -523,6 +493,8 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
   }
 
   TcpSocketBase::SendPacket(header,p);
+
+  m_dssFlags = 0; // reset for next packet
 }
 
 /**
@@ -542,21 +514,26 @@ MpTcpSubflow::SendDataPacket(TcpHeader& header, const SequenceNumber32& ssnHead,
     NS_FATAL_ERROR("Could not find mapping associated to ssn");
   }
 
+  // For now we always append the mapping but we could have mappings spanning over several packets.
+  AppendDSSMapping(mapping);
+
+
+  #if 0
+  // TODO move to
   Ptr<TcpOptionMpTcpDSS> dsnOption = Create<TcpOptionMpTcpDSS>();
 
   // TODO don't send  mapping for every subsequent packet
   // New prototype
   //SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
-  dsnOption->SetMapping(mapping.HeadDSN().GetValue(), mapping.HeadSSN().GetValue(), mapping.GetLength(), true);
-
-
+  bool sendDataFin = false;
+  dsnOption->SetMapping(mapping.HeadDSN().GetValue(), mapping.HeadSSN().GetValue(), mapping.GetLength(), sendDataFin);
 
 //  NS_ASSERT( dsnOption->GetMapping().HeadSSN() )
   header.AppendOption(dsnOption);
 
-
   //! We put a dack in every segment 'coz wi r crazy YOUHOU
   GetMeta()->AppendDataAck( header );
+  #endif
 
   // Here we set the maxsize to the size of the mapping
   return TcpSocketBase::SendDataPacket(header, ssnHead, mapping.GetLength());
@@ -778,6 +755,48 @@ MpTcpSubflow::ProcessEstablished(Ptr<Packet> packet, const TcpHeader& header)
 
 
 void
+MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
+{
+  NS_LOG_FUNCTION(this);
+  Ptr<TcpOptionMpTcpDSS> dss = Create<TcpOptionMpTcpDSS>();
+  const bool sendDataFin = m_dssFlags &  TcpOptionMpTcpDSS::DataFin;
+  const bool sendDataAck = m_dssFlags & TcpOptionMpTcpDSS::DataAckPresent;
+
+  if(sendDataAck)
+  {
+      // TODO replace with member function to keep isolation
+      uint32_t dack = GetMeta()->m_rxBuffer->NextRxSequence().GetValue();
+      dss->SetDataAck( dack );
+  }
+
+  // If no mapping set but datafin set , we have to create the mapping from scratch
+  if( sendDataFin && !(m_dssFlags & TcpOptionMpTcpDSS::DSNMappingPresent))
+  {
+    // TODO replace with member function to keep isolation
+
+    // TODO map to ssn
+    m_dssMapping.MapToSSN( m_txBuffer->TailSequence());
+    m_dssMapping.SetHeadDSN(SEQ64TO32(GetMeta()->m_txBuffer->TailSequence() ));
+
+    m_dssFlags |= TcpOptionMpTcpDSS::DSNMappingPresent;
+  }
+
+  // if there is a mapping to send
+  if(m_dssFlags & TcpOptionMpTcpDSS::DSNMappingPresent)
+  {
+
+
+      // TODO don't send  mapping for every subsequent packet
+      // New prototype
+      //SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
+      dss->SetMapping(m_dssMapping.HeadDSN().GetValue(), m_dssMapping.HeadSSN().GetValue(),
+                            m_dssMapping.GetLength(), sendDataFin);
+   }
+  header.AppendOption(dss);
+}
+
+
+void
 MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
 {
     NS_LOG_FUNCTION(this);
@@ -801,17 +820,20 @@ MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
     }
     // as long as we've not received an ack from the peer we
     // send an MP_CAPABLE with both keys
-    else if(!GetMeta()->m_receivedDSS){
+    // TODO create a member function that returns if multipath is available
+    else if(!GetMeta()->m_receivedDSS)
+    {
         AddOptionMpTcp3WHS(header);
     }
 
-  /*
-  TODO here we should parse the flags and append the correct option according to it
-  */
-//  if(m_state != SYN_SENT && m_state != SYN_RCVD)
-//  {
-//    GetMeta()->AppendDataAck(header);
-//  }
+
+  /// Constructs DSS if necessary
+  /////////////////////////////////////////
+    if(m_dssFlags)
+    {
+        AddMpTcpOptionDSS(header);
+
+    }
 
 }
 
@@ -1304,11 +1326,6 @@ MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
         mpc->SetSenderKey( GetMeta()->GetLocalKey() );
         mpc->SetPeerKey( GetMeta()->GetPeerKey() );
         break;
-
-
-//        mpc->SetSenderKey( GetMeta()->GetLocalKey() );
-//        break;
-
       default:
         NS_FATAL_ERROR("Should never happen");
         break;
@@ -2004,27 +2021,6 @@ MpTcpSubflow::NewAck(SequenceNumber32 const& ack)
 }
 
 
-//void
-//MpTcpSubflow::DiscardTxMappingsUpToDSN(SequenceNumber32 seq)
-//{
-//  NS_LOG_INFO("Discarding mappings up to " << seq);
-//  MappingList& l = m_TxMappings;
-//  for( MappingList::iterator it = l.begin(); it != l.end(); it++ )
-//  {
-//    //HeadDSN
-//    if( it->TailDSN() < seq  )
-//    {
-//      //it =
-////      NS_ASSERT( );
-//      // TODO check mapping transfer was completed on this subflow
-////      if( m_txBuffer->HeadSequence() <  )
-////      {
-////
-////      }
-//      l.erase(it);
-//    }
-//  }
-//}
 
 Ptr<Packet>
 MpTcpSubflow::RecvFrom(uint32_t maxSize, uint32_t flags, Address &fromAddress)
@@ -2074,9 +2070,15 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
   MpTcpMapping mapping;
   Ptr<Packet> p = Create<Packet>();
 
-  if(!GetRxAvailable()) {
+  uint32_t rxAvailable = GetRxAvailable();
+  if(rxAvailable == 0)
+  {
     NS_LOG_LOGIC("Nothing to extract");
     return p;
+  }
+  else
+  {
+    NS_LOG_LOGIC(rxAvailable  << " Rx available");
   }
 
   // as in linux, we extract in order
@@ -2089,8 +2091,10 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
    if(!m_RxMappings.GetMappingForSSN(headSSN, mapping))
 //  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
   {
-    m_RxMappings.Dump();
+//      NS_LOG_DEBUG("Could not find a mapping for headSSN=" << headSSN );
+      m_RxMappings.Dump();
     NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
+//    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
   }
   NS_LOG_DEBUG("Extracting mapping " << mapping);
 
@@ -2098,12 +2102,14 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
 
   if(only_full_mapping) {
 
-    if(mapping.GetLength() > maxSize) {
+    if(mapping.GetLength() > maxSize)
+    {
       NS_LOG_DEBUG("Not enough space available to extract the full mapping");
       return p;
     }
 
-    if(m_rxBuffer->Available() < mapping.GetLength()) {
+    if(m_rxBuffer->Available() < mapping.GetLength())
+    {
       NS_LOG_DEBUG("Mapping not fully received yet");
       return p;
     }
@@ -2131,9 +2137,9 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
   {
     NS_ASSERT_MSG(!only_full_mapping, "The only extracted size possible should be the one of the mapping");
     // only if data extracted covers full mapping we can remove the mapping
-
   }
-  else {
+  else
+  {
     m_RxMappings.DiscardMapping(mapping);
   }
 //  m_RxMappings.DiscardMappingsUpToSN( mapping.TailDSN() + SequenceNumber32(1), mapping.TailSSN());
@@ -2176,6 +2182,29 @@ MpTcpSubflow::RecvWithMapping(uint32_t maxSize, bool only_full_mapping, Sequence
 //}
 
 
+
+void
+MpTcpSubflow::AppendDSSMapping(const MpTcpMapping& mapping)
+{
+    NS_LOG_FUNCTION(this);
+    m_dssFlags |= TcpOptionMpTcpDSS::DSNMappingPresent;
+    m_dssMapping = mapping;
+}
+
+void
+MpTcpSubflow::AppendDSSAck()
+{
+    NS_LOG_FUNCTION(this);
+    m_dssFlags |= TcpOptionMpTcpDSS::DataAckPresent;
+}
+
+void
+MpTcpSubflow::AppendDSSFin()
+{
+    NS_LOG_FUNCTION(this);
+    m_dssFlags |= TcpOptionMpTcpDSS::DataFin;
+}
+
 /**
 TODO here I should look for an associated mapping.
 
@@ -2215,6 +2244,7 @@ MpTcpSubflow::ReceivedData(Ptr<Packet> p, const TcpHeader& tcpHeader)
 
   // Put into Rx buffer
   SequenceNumber32 expectedSSN = m_rxBuffer->NextRxSequence();
+//  NS_LOG_DEBUG("adding packet " << p->ToString());
   if (!m_rxBuffer->Add(p, tcpHeader))
     { // Insert failed: No data or RX buffer full
       NS_LOG_WARN("Insert failed, No data (" << p->GetSize() << ") ?"
@@ -2227,12 +2257,8 @@ MpTcpSubflow::ReceivedData(Ptr<Packet> p, const TcpHeader& tcpHeader)
           );
       m_rxBuffer->Dump();
 
-//      dss->SetDataAck( GetMeta()->m_rxBuffer->NextRxSequence().GetValue() );
-      // TODO rather use a goto
-      TcpHeader answerHeader;
-      GenerateEmptyPacketHeader(answerHeader, TcpHeader::ACK);
-      GetMeta()->AppendDataAck( answerHeader );
-      SendEmptyPacket(answerHeader);
+      AppendDSSAck();
+      SendEmptyPacket(TcpHeader::ACK);
       return;
     }
 
@@ -2289,11 +2315,14 @@ MpTcpSubflow::ReceivedData(Ptr<Packet> p, const TcpHeader& tcpHeader)
     // For now we always sent an ack
 
     // should be always true hack to allow compilation
-    if(sendAck) {
-      TcpHeader answerHeader;
-      GenerateEmptyPacketHeader(answerHeader, TcpHeader::ACK);
-      GetMeta()->AppendDataAck(answerHeader);
-      SendEmptyPacket(answerHeader);
+    if(sendAck)
+    {
+        // This should be done automatically
+//      TcpHeader answerHeader;
+//      GenerateEmptyPacketHeader(answerHeader, TcpHeader::ACK);
+//      GetMeta()->AppendDataAck(answerHeader);
+//      SendEmptyPacket(answerHeader);
+      SendEmptyPacket(TcpHeader::ACK);
     }
 
   // TODO handle out of order case look at parent's member.

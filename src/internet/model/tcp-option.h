@@ -74,7 +74,7 @@ public:
    * \brief Print the Option contents
    * \param os the output stream
    */
-  virtual void Print (std::ostream &os) const = 0;
+  virtual void Print (std::ostream &os) const;
   /**
    * \brief Serialize the Option to a buffer iterator
    * \param start the buffer iterator
@@ -149,6 +149,11 @@ private:
   uint8_t m_content[40]; //!< The option data
 
 };
+
+std::ostream &
+operator << (std::ostream &os, const TcpOption &option);
+
+
 
 } // namespace ns3
 

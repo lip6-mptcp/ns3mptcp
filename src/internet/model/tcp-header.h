@@ -185,7 +185,7 @@ public:
    */
 //  Ptr<TcpOption> GetOption (uint8_t kind) const;
 
-  typedef std::list< Ptr<TcpOption> > TcpOptionList; /**< List of TcpOption */
+  typedef std::list< Ptr<const TcpOption> > TcpOptionList; /**< List of TcpOption */
 
   /**
    * \brief Copy all options in a list
@@ -206,7 +206,7 @@ public:
    * \param option The option to append
    * \return true if option has been appended, false otherwise
    */
-  bool AppendOption (Ptr<TcpOption> option);
+  bool AppendOption (Ptr<const TcpOption> option);
 
   /**
    * \brief Initialize the TCP checksum.
@@ -351,7 +351,7 @@ private:
 */
 template<class T>
 bool
-GetTcpOption (const TcpHeader& header, Ptr<T>& ret)
+GetTcpOption (const TcpHeader& header, Ptr<const T>& ret)
 {
   TcpHeader::TcpOptionList l;
   header.GetOptions (l);
@@ -362,7 +362,7 @@ GetTcpOption (const TcpHeader& header, Ptr<T>& ret)
                     ;
       if ( (*it)->GetInstanceTypeId () == T::GetTypeId())
         {
-              ret = DynamicCast<T> ( *it );
+              ret = DynamicCast<const T> ( *it );
               return (ret != 0);
         }
     }

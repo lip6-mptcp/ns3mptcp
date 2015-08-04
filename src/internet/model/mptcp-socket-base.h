@@ -168,8 +168,8 @@ public:
    * It detects such events by tracing its subflow m_state.
    *
    */
-  virtual void
-  OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
+//  virtual void
+//  OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
 
   virtual int
   ConnectNewSubflow(const Address &local, const Address &remote);
@@ -490,13 +490,9 @@ protected: // protected methods
    * \brief Creates a DSS option if does not exist and configures it to have a dataack
    * TODO what happens if existing datack already set ?
    */
-  virtual void
-  AppendDataAck(TcpHeader& hdr) const;
-
-  /**
-   *
-   */
-  virtual void AppendDataFin(TcpHeader& header) const;
+//  virtual void
+//  AppendDataAck(TcpHeader& hdr) const;
+//  virtual void AppendDataFin(TcpHeader& header) const;
 
   /**
   Called when a subflow that initiated the connection
@@ -728,7 +724,7 @@ protected: // protected variables
     const TcpHeader & header,
     const Address & fromAddress,
     const Address & toAddress,
-    Ptr<TcpOptionMpTcpJoin> join
+    Ptr<const TcpOptionMpTcpJoin> join
   );
 
   // ?
@@ -805,7 +801,7 @@ private:
 //  Callback<void, Ptr<Socket> >                   m_connectionFailed;     //!< connection failed callback
 //  Callback<void, Ptr<Socket> >                   m_normalClose;          //!< connection closed callback
 //  Callback<void, Ptr<Socket> >                   m_errorClose;           //!< connection closed due to errors callback
-  Callback<bool, const Address &>   m_joinRequest;    //!< connection request callback
+  Callback<bool, const Address &>       m_joinRequest;    //!< connection request callback
   Callback<void, Ptr<MpTcpSubflow> >    m_joinSubflowCreated; //!< connection created callback
 
 // , const Address &, bool master
