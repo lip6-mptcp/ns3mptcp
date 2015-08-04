@@ -148,7 +148,7 @@ public:
    *        completed. The callback is passed back a pointer to the
    *        same socket object.
    */
-  void SetConnectCallback (Callback<void, Ptr<Socket> > connectionSucceeded,
+  virtual void SetConnectCallback (Callback<void, Ptr<Socket> > connectionSucceeded,
                            Callback<void,  Ptr<Socket> > connectionFailed);
   /**
    * \brief Detect socket recv() events such as graceful shutdown or error.
@@ -165,7 +165,7 @@ public:
    * \param errorClose this callback is invoked when the
    *        connection closes abnormally
    */
-  void SetCloseCallbacks (Callback<void, Ptr<Socket> > normalClose,
+  virtual void SetCloseCallbacks (Callback<void, Ptr<Socket> > normalClose,
                           Callback<void, Ptr<Socket> > errorClose);
   /**
    * \brief Accept connection requests from remote hosts
@@ -184,7 +184,7 @@ public:
    *        passed a pointer to the new socket, and the ip address and
    *        port number of the connection originator.
    */
-  void SetAcceptCallback (Callback<bool, Ptr<Socket>,
+  virtual void SetAcceptCallback (Callback<bool, Ptr<Socket>,
                                    const Address &> connectionRequest,
                           Callback<void, Ptr<Socket>,
                                    const Address&> newConnectionCreated);
@@ -195,7 +195,7 @@ public:
    *        underlying transport protocol.  This callback is passed a
    *        pointer to the socket, and the number of bytes sent.
    */
-  void SetDataSentCallback (Callback<void, Ptr<Socket>,
+  virtual void SetDataSentCallback (Callback<void, Ptr<Socket>,
                                      uint32_t> dataSent);
   /**
    * \brief Notify application when space in transmit buffer is added
@@ -854,32 +854,32 @@ protected:
    * \param from the address the connection is incoming from
    * \returns true if the connection must be accepted, false otherwise.
    */
-  bool NotifyConnectionRequest (const Address &from);
+  virtual bool NotifyConnectionRequest (const Address &from);
 
   /**
    * \brief Notify through the callback (if set) that a new connection has been
    *        created, i.e. it is a server side callback.
    */
-  void NotifyNewConnectionCreated (Ptr<Socket> socket, const Address &from);
+  virtual void NotifyNewConnectionCreated (Ptr<Socket> socket, const Address &from);
 
   /**
    * \brief Notify through the callback (if set) that some data have been sent.
    *
    * \param size number of sent bytes.
    */
-  void NotifyDataSent (uint32_t size);
+  virtual void NotifyDataSent (uint32_t size);
 
   /**
    * \brief Notify through the callback (if set) that some data have been sent.
    *
    * \param spaceAvailable the number of bytes available in the transmission buffer.
    */
-  void NotifySend (uint32_t spaceAvailable);
+  virtual void NotifySend (uint32_t spaceAvailable);
 
   /**
    * \brief Notify through the callback (if set) that some data have been received.
    */
-  void NotifyDataRecv (void);
+  virtual void NotifyDataRecv (void);
 
   // inherited function, no doc necessary
   virtual void DoDispose (void);

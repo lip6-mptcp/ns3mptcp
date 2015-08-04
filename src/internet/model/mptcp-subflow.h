@@ -446,7 +446,7 @@ protected:
   */
   uint32_t
 //  SendDataPacket(SequenceNumber32 seq, uint32_t maxSize, bool withAck); // Send a data packet
-  SendDataPacket(TcpHeader& header, const SequenceNumber32& ssn, uint32_t maxSize);
+  SendDataPacket(TcpHeader& header, SequenceNumber32 ssn, uint32_t maxSize);
 
   /**
   * Like send, but pass on the global seq number associated with

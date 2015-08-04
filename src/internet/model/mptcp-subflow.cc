@@ -273,10 +273,23 @@ MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
 //  {
 //    m_endPoint = sock.m_endPoint;
 //  }
+
+    // We need to update the endpoint callbnacks so that packets come to this socket
+    // instead of the abstract meta
+    // this is necessary for the client socket
     NS_LOG_UNCOND("Cb=" << m_sendCb.IsNull () << " endPoint=" << m_endPoint);
     m_endPoint = (sock.m_endPoint);
     m_endPoint6 = (sock.m_endPoint6);
+    SetupCallback();
+//    NS_ASSERT(res == 0);
 }
+
+
+//void
+//MpTcpSubflow::NotifyNewConnectionCreated (Ptr<Socket> socket, const Address &from)
+//{
+//    //!
+//}
 
 // Does this constructor even make sense ? no ? to remove ?
 MpTcpSubflow::MpTcpSubflow(const MpTcpSubflow& sock)
@@ -500,7 +513,7 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
 /**
 **/
 uint32_t
-MpTcpSubflow::SendDataPacket(TcpHeader& header, const SequenceNumber32& ssnHead, uint32_t length)
+MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32_t length)
 {
   NS_LOG_FUNCTION(this << "Sending packet starting at SSN [" << ssnHead.GetValue() << "] with len=" << length);
 
@@ -516,24 +529,6 @@ MpTcpSubflow::SendDataPacket(TcpHeader& header, const SequenceNumber32& ssnHead,
 
   // For now we always append the mapping but we could have mappings spanning over several packets.
   AppendDSSMapping(mapping);
-
-
-  #if 0
-  // TODO move to
-  Ptr<TcpOptionMpTcpDSS> dsnOption = Create<TcpOptionMpTcpDSS>();
-
-  // TODO don't send  mapping for every subsequent packet
-  // New prototype
-  //SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
-  bool sendDataFin = false;
-  dsnOption->SetMapping(mapping.HeadDSN().GetValue(), mapping.HeadSSN().GetValue(), mapping.GetLength(), sendDataFin);
-
-//  NS_ASSERT( dsnOption->GetMapping().HeadSSN() )
-  header.AppendOption(dsnOption);
-
-  //! We put a dack in every segment 'coz wi r crazy YOUHOU
-  GetMeta()->AppendDataAck( header );
-  #endif
 
   // Here we set the maxsize to the size of the mapping
   return TcpSocketBase::SendDataPacket(header, ssnHead, mapping.GetLength());

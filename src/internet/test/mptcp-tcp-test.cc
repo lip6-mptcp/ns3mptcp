@@ -232,6 +232,7 @@ MpTcpTestCase::ServerHandleConnectionCreated (Ptr<Socket> s, const Address & add
   // TODO setup tracing there !
 
   Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(s);
+  NS_LOG_DEBUG("meta " << server_meta);
 //  server_meta->SetupMetaTracing("server");
 }
 

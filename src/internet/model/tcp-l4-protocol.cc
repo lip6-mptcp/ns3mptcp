@@ -552,8 +552,8 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
        )
     {
         meta = DynamicCast<MpTcpSocketBase>(LookupMpTcpToken(join->GetPeerToken()));
-        if(meta) {
-
+        if(meta)
+        {
 
             NS_LOG_DEBUG("Found meta matching MP_JOIN token " << join->GetPeerToken());
 
@@ -619,7 +619,7 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
     }
 
   NS_ASSERT_MSG (endPoints.size () == 1, "Demux returned more than one endpoint");
-  NS_LOG_LOGIC ("TcpL4Protocol " << this << " forwarding up to endpoint/socket");
+  NS_LOG_LOGIC ("TcpL4Protocol " << this << " forwarding up to endpoint/socket" << (*endPoints.begin ()));
 
   (*endPoints.begin ())->ForwardUp (packet, incomingIpHeader,
                                     incomingTcpHeader.GetSourcePort (),

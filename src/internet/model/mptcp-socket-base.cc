@@ -1027,6 +1027,58 @@ MpTcpSocketBase::CreateSubflow(
   return sFlow;
 }
 
+
+void
+MpTcpSocketBase::OnSubflowCreated (Ptr<Socket> socket, const Address &from)
+{
+    NS_LOG_LOGIC(this);
+    Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
+    if(sf->IsMaster())
+    {
+        TcpSocketBase::NotifyNewConnectionCreated (this, from);
+    }
+    else
+    {
+        // use a specific callback
+//        NotifyNewSubflowConnected(sf);
+        NS_FATAL_ERROR("TODO");
+    }
+}
+
+void
+MpTcpSocketBase::OnSubflowConnectionSuccess (Ptr<Socket> socket)
+{
+    NS_LOG_LOGIC(this);
+    Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
+    if(sf->IsMaster())
+    {
+//        TcpSocketBase::NotifyConnectionSucceeded (this, from);
+        ConnectionSucceeded();
+    }
+    else
+    {
+        // use a specific callback
+//        NotifyNewSubflowConnected(sf);
+        NS_FATAL_ERROR("TODO");
+    }
+}
+
+void
+MpTcpSocketBase::OnSubflowConnectionFailure (Ptr<Socket> socket)
+{
+    NS_LOG_LOGIC(this);
+    Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
+    if(sf->IsMaster())
+    {
+        TcpSocketBase::NotifyConnectionFailed();
+    }
+    else
+    {
+        // use a specific callback
+        NS_FATAL_ERROR("TODO");
+    }
+}
+
 //
 //  Ptr<MpTcpSubflow>
 //Ptr<MpTcpSubflow>
@@ -1055,10 +1107,30 @@ MpTcpSocketBase::AddSubflow(
       m_state = sf->GetState();
       m_mptcpLocalKey = sf->m_mptcpLocalKey;
       m_mptcpLocalToken = sf->m_mptcpLocalToken;
+
+      // Those may be overriden later
+      m_endPoint = sf->m_endPoint;
+      m_endPoint6 = sf->m_endPoint6;
   }
 
   //!
   sf->SetMeta(this);
+
+  /* We override here callbacks so that subflows
+  don't communicate with the applications directly. The meta socket will
+  */
+//  sf->SetSendCallback ( MakeCallback);
+  sf->SetConnectCallback (MakeCallback (&MpTcpSocketBase::OnSubflowConnectionSuccess,this),
+                          MakeCallback (&MpTcpSocketBase::OnSubflowConnectionFailure,this));   // Ok
+  sf->SetAcceptCallback (
+                         MakeNullCallback<bool, Ptr<Socket>, const Address &>(),
+//                         MakeCallback (&MpTcpSocketBase::NotifyConnectionRequest,this)
+                         MakeCallback (&MpTcpSocketBase::OnSubflowCreated,this));
+//  sf->SetDataSentCallback (  );
+//  sf->RecvCallback (cbRcv);
+
+
+
 
   m_subflows[Others].push_back( sf );
 
@@ -1079,7 +1151,12 @@ which would have been hackish otherwise
 //  TcpSocketBase::DoForwardUp(packet,header,port,incomingInterface);
 //
 //}
-
+void
+MpTcpSocketBase::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface)
+{
+    NS_LOG_DEBUG(this << " called with endpoint " << m_endPoint);
+    TcpSocketBase::ForwardUp(packet, header, port, incomingInterface);
+}
 
 uint32_t
 MpTcpSocketBase::GetToken() const

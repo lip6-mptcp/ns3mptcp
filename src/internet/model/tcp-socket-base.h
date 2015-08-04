@@ -410,7 +410,7 @@ protected:
    * \param port the remote port
    * \param incomingInterface the incoming interface
    */
-  void ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
+  virtual void ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
 
   /**
    * \brief Called by the L3 protocol when it received a packet to pass on to TCP.

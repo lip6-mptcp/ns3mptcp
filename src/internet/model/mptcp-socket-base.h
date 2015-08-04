@@ -124,6 +124,24 @@ public:
   // This was moved to TcpSocketState
 //  TracedValue<uint32_t>  m_cWnd;         //< Congestion window
 
+   ////////////////////////////////////////////
+   /// List of overriden callbacks
+   ////////////////////////////////////////////
+  /**
+   * This is callback called by subflow NotifyNewConnectionCreated. If
+   * the calling subflow is the master, then the call is forwarded through meta's
+   * NotifyNewConnectionCreated, else it is forward to the JoinCreatedCallback
+   *
+   * \see Socket::NotifyNewConnectionCreated
+   */
+  virtual void OnSubflowCreated (Ptr<Socket> socket, const Address &from);
+  virtual void OnSubflowConnectionFailure (Ptr<Socket> socket);
+  virtual void OnSubflowConnectionSuccess (Ptr<Socket> socket);
+
+
+
+
+
 
   static TypeId GetTypeId(void);
 
@@ -335,7 +353,8 @@ public:
   virtual uint32_t GetRxAvailable(void) const;
 
   // TODO maybe this could be removed ?
-  void DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
+//  void DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
+  virtual void ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface);
 
   /**
   \return Number of connected subflows (that is that ran the 3whs)

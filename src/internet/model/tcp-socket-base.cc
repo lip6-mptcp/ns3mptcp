@@ -1491,8 +1491,8 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
 
 //      Ptr<MpTcpSubflow> sf = new MpTcpSubflow(*newSock);
       Ptr<MpTcpSubflow> master = newSock->UpgradeToMeta();
-      Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>(newSock);
-      NS_LOG_UNCOND("meta=" << meta);
+//      Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>(newSock);
+//      NS_LOG_UNCOND("meta=" << meta);
 //      Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>(this);
 //      Simulator::ScheduleNow (&MpTcpSocketBase::CompleteFork, this,
 //                          packet, tcpHeader,
@@ -1519,6 +1519,8 @@ TcpSocketBase::UpgradeToMeta()
   MpTcpSubflow *subflow = new MpTcpSubflow(*this);
 //  CompleteConstruct(sf);
   Ptr<MpTcpSubflow> master(subflow, true);
+//  master->SetupCallback();
+
 
   // TODO set SetSendCallback but for meta
 //  Callback<void, Ptr<Socket>, uint32_t >
@@ -1527,7 +1529,8 @@ TcpSocketBase::UpgradeToMeta()
   Callback<void, Ptr<Socket>, uint32_t>  cbDataSent = this->m_dataSent;
   Callback<void, Ptr<Socket> >  cbConnectFail = this->m_connectionFailed;
   Callback<void, Ptr<Socket> >  cbConnectSuccess = this->m_connectionSucceeded;
-
+  Callback<bool, Ptr<Socket>, const Address &> connectionRequest = this->m_connectionRequest;
+  Callback<void, Ptr<Socket>, const Address&> newConnectionCreated = this->m_newConnectionCreated;
   ////////////////////////
   //// !! CAREFUL !!
   //// all callbacks are disabled
@@ -1554,11 +1557,15 @@ TcpSocketBase::UpgradeToMeta()
 //  MpTcpSocketBase* meta = new (this) MpTcpSocketBase();
 //  meta->m_sendCb =sf->m_sendCb;
   meta->AddSubflow(master);
+
+  // TODO convert this into a Socket member function so that
+  // members can become private again
   meta->SetSendCallback(cbSend);
   meta->SetConnectCallback (cbConnectSuccess, cbConnectFail);   // Ok
   meta->SetDataSentCallback (cbDataSent);
   meta->SetRecvCallback (cbRcv);
-    return master;
+  meta->SetAcceptCallback(connectionRequest, newConnectionCreated);
+  return master;
 //    return 0;
 }
 
@@ -1782,9 +1789,13 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       if(ProcessTcpOptionsSynSent(tcpHeader) == 1)
       {
         // SendRst?
-        Ptr<MpTcpSubflow> sf = UpgradeToMeta();
+        // TODO save endpoint
+//        if(m_endpoint != 0)
+        Ptr<MpTcpSubflow> master = UpgradeToMeta();
+//        master->Bind();
+
         // Carrément le renvoyer à forwardUp pour forcer la relecture de la windowsize
-        Simulator::ScheduleNow( &MpTcpSubflow::ProcessSynSent, sf, packet, tcpHeader);
+        Simulator::ScheduleNow( &MpTcpSubflow::ProcessSynSent, master, packet, tcpHeader);
         return;
       }
 
