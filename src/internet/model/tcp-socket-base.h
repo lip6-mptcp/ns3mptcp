@@ -532,12 +532,12 @@ protected:
    *
    * \returns 0 on success
    */
-  int DoClose (void);
+  virtual int DoClose (void);
 
   /**
    * \brief Peacefully close the socket by notifying the upper layer and deallocate end point
    */
-  void CloseAndNotify (void);
+  virtual void CloseAndNotify (void);
 
   /**
    * \brief Kill this socket by zeroing its attributes (IPv4)
@@ -545,7 +545,7 @@ protected:
    * This is a callback function configured to m_endpoint in
    * SetupCallback(), invoked when the endpoint is destroyed.
    */
-  void Destroy (void);
+  virtual void Destroy (void);
 
   /**
    * \brief Kill this socket by zeroing its attributes (IPv6)
@@ -553,12 +553,12 @@ protected:
    * This is a callback function configured to m_endpoint in
    * SetupCallback(), invoked when the endpoint is destroyed.
    */
-  void Destroy6 (void);
+  virtual void Destroy6 (void);
 
   /**
    * \brief Deallocate m_endPoint and m_endPoint6
    */
-  void DeallocateEndPoint (void);
+  virtual void DeallocateEndPoint (void);
 
   /**
    * \brief Received a FIN from peer, notify rx buffer

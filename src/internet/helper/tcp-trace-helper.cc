@@ -97,6 +97,7 @@ TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string pr
   Ptr<OutputStreamWrapper> streamSSThreshold = asciiTraceHelper.CreateFileStream (prefix+"_ssThresh.csv", mode);
 
   Time now = Simulator::Now();
+  // TODO use GetInitialCwnd, GetValue  etc...
   *streamTxNext->GetStream() << "Time,oldNextTxSequence,newNextTxSequence" << std::endl
 //                             << now << ",," << sock->m_nextTxSequence << std::endl
                                 ;

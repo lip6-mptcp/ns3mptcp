@@ -64,8 +64,7 @@ public:
   virtual ~TcpTraceHelper () {}
 
 
-  void
-  SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix);
+  virtual void SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix);
 };
 
 

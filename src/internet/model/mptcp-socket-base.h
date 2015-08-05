@@ -124,22 +124,6 @@ public:
   // This was moved to TcpSocketState
 //  TracedValue<uint32_t>  m_cWnd;         //< Congestion window
 
-   ////////////////////////////////////////////
-   /// List of overriden callbacks
-   ////////////////////////////////////////////
-  /**
-   * This is callback called by subflow NotifyNewConnectionCreated. If
-   * the calling subflow is the master, then the call is forwarded through meta's
-   * NotifyNewConnectionCreated, else it is forward to the JoinCreatedCallback
-   *
-   * \see Socket::NotifyNewConnectionCreated
-   */
-  virtual void OnSubflowCreated (Ptr<Socket> socket, const Address &from);
-  virtual void OnSubflowConnectionFailure (Ptr<Socket> socket);
-  virtual void OnSubflowConnectionSuccess (Ptr<Socket> socket);
-
-
-
 
 
 
@@ -157,23 +141,45 @@ public:
    * Should be called only by subflows when they update their receiver window
    */
   virtual bool UpdateWindowSize(const TcpHeader& header);
+
+protected:
+   ////////////////////////////////////////////
+   /// List of overriden callbacks
+   ////////////////////////////////////////////
+  /**
+   * This is callback called by subflow NotifyNewConnectionCreated. If
+   * the calling subflow is the master, then the call is forwarded through meta's
+   * NotifyNewConnectionCreated, else it is forward to the JoinCreatedCallback
+   *
+   * \see Socket::NotifyNewConnectionCreated
+   */
+  virtual void OnSubflowCreated (Ptr<Socket> socket, const Address &from);
+  virtual void OnSubflowConnectionFailure (Ptr<Socket> socket);
+  virtual void OnSubflowConnectionSuccess (Ptr<Socket> socket);
+
+public:
   /**
   these callbacks will be passed on to
-  **/
+   * \see Socket::Set
+   */
   virtual void
-  SetJoinAcceptCallback(Callback<void, Ptr<MpTcpSubflow> >);
+  SetSubflowAcceptCallback(Callback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > connectionRequest,
+                           Callback<void, Ptr<MpTcpSubflow> > connectionCreated
+                           );
 
   virtual void
-  SetJoinConnectCallback(Callback<void, Ptr<MpTcpSubflow> >);
+  SetSubflowConnectCallback(Callback<void, Ptr<MpTcpSubflow> > connectionSucceeded,
+                           Callback<void, Ptr<MpTcpSubflow> > connectionFailure
+                            );
 
-  virtual void
-  SetJoinCreatedCallback(Callback<void, Ptr<MpTcpSubflow> >);
+//  virtual void
+//  SetJoinCreatedCallback(Callback<void, Ptr<MpTcpSubflow> >);
 
   /**
    *
    */
   void
-  NotifySubflowCreatedOnJoinRequest(Ptr<MpTcpSubflow> sf);
+  NotifySubflowCreated(Ptr<MpTcpSubflow> sf);
 
   /**
    *
@@ -239,6 +245,7 @@ public:
   /* Sum congestio nwindows across subflows to compute global cwin
   WARNING: it does not take flows that are closing yet so that may be a weakness depending on the scenario
   to update
+  TODO: should be done in the congestion controller
   */
   virtual uint32_t
   ComputeTotalCWND();
@@ -304,6 +311,10 @@ public:
   virtual int Listen(void);
 
   /**
+   * \brief Same as MpTcpSocketBase::Close
+   *
+   * The default behavior is to do nothing until all the data is transmitted.
+   * Only then are
   RFC 6824:
    - When an application calls close() on a socket, this indicates that it
    has no more data to send; for regular TCP, this would result in a FIN
@@ -372,20 +383,12 @@ public:
   virtual void ClosingOnEmpty(TcpHeader& header);
 
   /**
-  Sends RST on all subflows
-  and MP_FASTCLOSE on one of the subflows
-  */
+   * \brief Send a fast close
+   *
+   * Sends RST on all subflows
+   * and MP_FASTCLOSE on one of the subflows
+   */
   virtual void SendRST(void);
-  // Setter for congestion Control and data distribution algorithm
-//  void SetCongestionCtrlAlgo(CongestionCtrl_t ccalgo);  // This would be used by attribute system for setting congestion control
-//  void SetDataDistribAlgo(DataDistribAlgo_t ddalgo);    // Round Robin is only algorithms used.
-
-  /**
-  TODO remove ? transfom into attribute ?
-  \brief Allow to set the congestion control algorithm in use. You can choose between OLIA,LIA,COUPLED,UNCOUPLED.
-  \bug Should not be possible to change CC after connection has started
-  */
-//  void SetCongestionCtrlAlgo(Ptr<MpTcpCongestionControl> ccalgo);
 
   /**
   public equivalent ?
@@ -636,7 +639,7 @@ protected: // protected methods
 
 
   /** Does nothing */
-  virtual void EstimateRtt (const TcpHeader&);
+//  virtual void EstimateRtt (const TcpHeader&);
 
 //  virtual bool ReadOptions (uint8_t sFlowIdx, Ptr<Packet> pkt, const TcpHeader&); // Read option from incoming packets
 //  virtual bool ReadOptions (Ptr<Packet> pkt, const TcpHeader&); // Read option from incoming packets (Listening Socket only)
@@ -816,15 +819,15 @@ private:
    */
   void MoveSubflow(Ptr<MpTcpSubflow> sf, mptcp_container_t from, mptcp_container_t to);
 
-  Callback<void, Ptr<MpTcpSubflow> > m_joinConnectionSucceeded;  //!< connection succeeded callback
-//  Callback<void, Ptr<Socket> >                   m_connectionFailed;     //!< connection failed callback
+  Callback<void, Ptr<MpTcpSubflow> > m_subflowConnectionSucceeded;  //!< connection succeeded callback
+  Callback<void, Ptr<MpTcpSubflow> > m_subflowConnectionFailure;     //!< connection failed callback
 //  Callback<void, Ptr<Socket> >                   m_normalClose;          //!< connection closed callback
 //  Callback<void, Ptr<Socket> >                   m_errorClose;           //!< connection closed due to errors callback
-  Callback<bool, const Address &>       m_joinRequest;    //!< connection request callback
-  Callback<void, Ptr<MpTcpSubflow> >    m_joinSubflowCreated; //!< connection created callback
+  Callback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & >       m_joinRequest;    //!< connection request callback
+  Callback<void, Ptr<MpTcpSubflow> >    m_subflowCreated; //!< connection created callback
 
 // , const Address &, bool master
-  Callback<void, Ptr<MpTcpSubflow> >    m_newSubflowConnected; //!< connection created callback
+//  Callback<void, Ptr<MpTcpSubflow> >    m_subflowConnectionSucceeded; //!< connection created callback
 
 };
 

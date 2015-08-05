@@ -719,7 +719,7 @@ public:
 // 2100 is ok, 2200 fails
 //    AddTestCase (new MpTcpMultihomedTestCase (5000, 100, 50, 100, 20, false), TestCase::EXTENSIVE);
 //    AddTestCase (new MpTcpMultihomedTestCase (10000, 100, 50, 100, 50, false), TestCase::QUICK);
-    AddTestCase (new MpTcpMultihomedTestCase (10000, 100, 50, 100, 20, false), TestCase::QUICK);
+//    AddTestCase (new MpTcpMultihomedTestCase (10000, 100, 50, 100, 20, false), TestCase::QUICK);
 
 
 

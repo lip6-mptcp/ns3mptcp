@@ -1,7 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2007 Georgia Tech Research Corporation
- * Copyright (c) 2009 INRIA
+ * Copyright (c) 2015 Université Pierre et Marie Curie (UPMC)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,8 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Authors: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
- *          Raj Bhattacharjea <raj.b@gatech.edu>
+ * Authors: Matthieu Coudron <matthieu.coudron@lip6.fr>
  */
 
 #include "ns3/test.h"
@@ -40,6 +38,7 @@
 #include "ns3/string.h"
 #include "ns3/tcp-socket-base.h"
 #include "ns3/mptcp-socket-base.h"
+#include "ns3/mptcp-subflow.h"
 
 #include "ns3/ipv4-end-point.h"
 #include "ns3/arp-l3-protocol.h"
@@ -63,44 +62,51 @@ NS_LOG_COMPONENT_DEFINE ("MpTcpTestSuite");
 
 using namespace ns3;
 
-//std::ofstream source_f;
-//std::ofstream server_f;
 
-//void
-////dumpNextTxSequence(Ptr<OutputStreamWrapper> stream, SequenceNumber32 oldSeq, SequenceNumber32 newSeq)
-//dumpNextTxSequence(Ptr<OutputStreamWrapper> stream, std::string context, SequenceNumber32 oldSeq, SequenceNumber32 newSeq)
-//{
-//  //<< context <<
-////  if (context == "NextTxSequence")
-//
-//  *stream->GetStream() << Simulator::Now() << "," << oldSeq << "," << newSeq << "\n";
-//}
-//
-//
-//void
-//dumpUint32(Ptr<OutputStreamWrapper> stream, std::string context, uint32_t oldVal, uint32_t newVal) {
-//
-////  NS_LOG_UNCOND("Context " << context << "oldVal=" << oldVal << "newVal=" << newVal);
-//
-//  *stream->GetStream() << Simulator::Now() << "," << oldVal << "," << newVal << "\n";
-//}
+/**
+I know I should not use helpers in tests but moving this code to example or scratch folder would
+break all my workflow
+**/
 
+/* shamefully copied from tcp-test.cc */
+static inline std::string GetString (Ptr<Packet> p)
+{
+  std::ostringstream oss;
+  p->CopyData (&oss, p->GetSize ());
+  return oss.str ();
+}
 
-
+/**
+This is a copy of the TCP test
+**/
 class MpTcpTestCase : public TestCase
 {
 public:
-  MpTcpTestCase (uint32_t totalStreamSize,
+  MpTcpTestCase (
+               int numberOfSubflows,
+               uint32_t totalStreamSize,
                uint32_t sourceWriteSize,
                uint32_t sourceReadSize,
                uint32_t serverWriteSize,
                uint32_t serverReadSize,
                bool useIpv6);
+
+
+  // When the meta connection gets established
+  void OnMetaConnectionSuccessful (Ptr<Socket> newSubflow);
+  void OnSubflowConnectionSuccess (Ptr<MpTcpSubflow> newSubflow);
+  void OnSubflowConnectionCreated (Ptr<MpTcpSubflow> newSubflow);
+  void OnSubflowConnectionFailure (Ptr<MpTcpSubflow> newSubflow);
+  void OnSubflowCreationSuccess (Ptr<MpTcpSubflow> newSubflow);
+
 private:
+  virtual void DoSetup (void);
   virtual void DoRun (void);
   virtual void DoTeardown (void);
   void SetupDefaultSim (void);
   void SetupDefaultSim6 (void);
+
+  void SetupMpTcpSpecificCallbacks(Ptr<MpTcpSocketBase> meta);
 
   Ptr<Node> CreateInternetNode (void);
   Ptr<Node> CreateInternetNode6 (void);
@@ -126,6 +132,15 @@ private:
   uint8_t* m_serverRxPayload;
 
   bool m_useIpv6;
+
+  //
+  int m_numberOfSubflows;
+  int m_numberOfTimesMetaConnectionCreatedCallbackGotCalled;
+  int m_numberOfTimesMetaConnectionSucceedCallbackGotCalled;
+  int m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled;
+  int m_numberOfTimesSubflowConnectionFailureCallbackGotCalled;
+  Ptr<MpTcpSocketBase> m_metaClient;
+  Ptr<MpTcpSocketBase> m_metaServer;
 };
 
 static std::string Name (std::string str, uint32_t totalStreamSize,
@@ -142,16 +157,13 @@ static std::string Name (std::string str, uint32_t totalStreamSize,
   return oss.str ();
 }
 
-#ifdef NS3_LOG_ENABLE
-static std::string GetString (Ptr<Packet> p)
-{
-  std::ostringstream oss;
-  p->CopyData (&oss, p->GetSize ());
-  return oss.str ();
-}
-#endif /* NS3_LOG_ENABLE */
 
-MpTcpTestCase::MpTcpTestCase (uint32_t totalStreamSize,
+/**
+TODO derive it to support several topologies
+**/
+MpTcpTestCase::MpTcpTestCase (
+                          int numberOfSubflows,
+                          uint32_t totalStreamSize,
                           uint32_t sourceWriteSize,
                           uint32_t sourceReadSize,
                           uint32_t serverWriteSize,
@@ -169,12 +181,82 @@ MpTcpTestCase::MpTcpTestCase (uint32_t totalStreamSize,
     m_sourceReadSize (sourceReadSize),
     m_serverWriteSize (serverWriteSize),
     m_serverReadSize (serverReadSize),
-    m_useIpv6 (useIpv6)
+    m_useIpv6 (useIpv6),
+    m_numberOfSubflows(numberOfSubflows),
+    m_numberOfTimesMetaConnectionCreatedCallbackGotCalled(0),
+    m_numberOfTimesMetaConnectionSucceedCallbackGotCalled(0),
+    m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled(0),
+    m_numberOfTimesSubflowConnectionFailureCallbackGotCalled(0),
+    m_metaClient(0),
+    m_metaServer(0)
 {
 }
 
+
 void
-MpTcpTestCase::DoRun (void)
+MpTcpTestCase::SetupMpTcpSpecificCallbacks(Ptr<MpTcpSocketBase> meta)
+{
+    //!
+    NS_ASSERT(meta);
+
+//    meta->
+    meta->SetSubflowConnectCallback(
+                        MakeCallback(&MpTcpTestCase::OnSubflowConnectionSuccess, this),
+                        MakeCallback(&MpTcpTestCase::OnSubflowConnectionFailure, this)
+                                    );
+    meta->SetSubflowAcceptCallback(
+                        MakeNullCallback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > (),
+//                        MakeCallback(&MpTcpTestCase::OnSubflowNewRequest, this)
+//                        MakeNullCallback<void, Ptr<MpTcpSubflow>()
+                        MakeCallback(&MpTcpTestCase::OnSubflowCreationSuccess, this)
+                                    );
+}
+
+
+void
+MpTcpTestCase::OnSubflowConnectionFailure (Ptr<MpTcpSubflow> newSubflow)
+{
+    NS_LOG_FUNCTION(this);
+    m_numberOfTimesSubflowConnectionFailureCallbackGotCalled++;
+}
+
+void
+MpTcpTestCase::OnSubflowConnectionSuccess (Ptr<MpTcpSubflow> newSubflow)
+{
+    NS_LOG_FUNCTION(this);
+    m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled++;
+
+    TcpTraceHelper tcpHelper;
+    tcpHelper.SetupSocketTracing(newSubflow, "source/sf");
+}
+
+void
+MpTcpTestCase::OnSubflowCreationSuccess (Ptr<MpTcpSubflow> newSubflow)
+{
+    NS_LOG_FUNCTION(this);
+    m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled++;
+
+    TcpTraceHelper tcpHelper;
+    tcpHelper.SetupSocketTracing(newSubflow, "server/sf");
+}
+
+void
+MpTcpTestCase::OnMetaConnectionSuccessful (Ptr<Socket> socket)
+{
+    //!
+    NS_LOG_LOGIC("Meta connection successful");
+
+    m_numberOfTimesMetaConnectionSucceedCallbackGotCalled++;
+
+    m_metaClient = DynamicCast<MpTcpSocketBase>(socket);
+    NS_ASSERT_MSG(m_metaClient, "The passed socket should be the MPTCP meta socket");
+
+    // Setup join callbacks
+    SetupMpTcpSpecificCallbacks ( m_metaClient );
+}
+
+void
+MpTcpTestCase::DoSetup (void)
 {
   m_currentSourceTxBytes = 0;
   m_currentSourceRxBytes = 0;
@@ -202,7 +284,11 @@ MpTcpTestCase::DoRun (void)
     {
       SetupDefaultSim ();
     }
+}
 
+void
+MpTcpTestCase::DoRun (void)
+{
   Simulator::Run ();
 
   NS_TEST_EXPECT_MSG_EQ (m_currentSourceTxBytes, m_totalBytes, "Source sent all bytes");
@@ -212,7 +298,19 @@ MpTcpTestCase::DoRun (void)
                          "Server received expected data buffers");
   NS_TEST_EXPECT_MSG_EQ (memcmp (m_sourceTxPayload, m_sourceRxPayload, m_totalBytes), 0,
                          "Source received back expected data buffers");
+
+  NS_TEST_EXPECT_MSG_EQ (m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled,
+                         m_numberOfSubflows, "The callback should be called as many times as"
+                         " the number of requested subflows");
+
+  NS_TEST_EXPECT_MSG_EQ (m_numberOfTimesMetaConnectionSucceedCallbackGotCalled,
+                         1, "The callback should be called only once since ");
+  NS_TEST_EXPECT_MSG_EQ (m_numberOfTimesMetaConnectionCreatedCallbackGotCalled,
+                         1, "The callback should be called only once since ");
+
+
 }
+
 void
 MpTcpTestCase::DoTeardown (void)
 {
@@ -223,15 +321,21 @@ MpTcpTestCase::DoTeardown (void)
 }
 
 void
-MpTcpTestCase::ServerHandleConnectionCreated (Ptr<Socket> s, const Address & addr)
+MpTcpTestCase::ServerHandleConnectionCreated (Ptr<Socket> sock, const Address & addr)
 {
   NS_LOG_DEBUG("ServerHandleConnectionCreated");
-  s->SetRecvCallback (MakeCallback (&MpTcpTestCase::ServerHandleRecv, this));
-  s->SetSendCallback (MakeCallback (&MpTcpTestCase::ServerHandleSend, this));
+
+  m_numberOfTimesMetaConnectionCreatedCallbackGotCalled++;
+
+  TcpTraceHelper TcpTraceHelper;
+  TcpTraceHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(sock), "server/meta_");
+
+  sock->SetRecvCallback (MakeCallback (&MpTcpTestCase::ServerHandleRecv, this));
+  sock->SetSendCallback (MakeCallback (&MpTcpTestCase::ServerHandleSend, this));
 
   // TODO setup tracing there !
 
-  Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(s);
+  Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(sock);
   NS_LOG_DEBUG("meta " << server_meta);
 //  server_meta->SetupMetaTracing("server");
 }
@@ -463,9 +567,9 @@ MpTcpTestCase::SetupDefaultSim (void)
 
 //  server_meta->SetupMetaTracing("server");
 //  source_meta->SetupMetaTracing("source");
-  TcpTraceHelper tcpHelper;
-  tcpHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(server), "server/meta_");
-  tcpHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(source), "source/meta_");
+  TcpTraceHelper TcpTraceHelper;
+
+  TcpTraceHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(source), "source/meta_");
 
   uint16_t port = 50000;
   InetSocketAddress serverlocaladdr (Ipv4Address::GetAny (), port);
@@ -477,6 +581,9 @@ MpTcpTestCase::SetupDefaultSim (void)
                              MakeCallback (&MpTcpTestCase::ServerHandleConnectionCreated,this));
 
 //  NS_LOG_INFO( "test" << server);
+  // TODO check Connect called only once
+  source->SetConnectCallback(MakeCallback (&MpTcpTestCase::OnMetaConnectionSuccessful,this),
+                             MakeNullCallback<void, Ptr<Socket> >());
   source->SetRecvCallback (MakeCallback (&MpTcpTestCase::SourceHandleRecv, this));
   source->SetSendCallback (MakeCallback (&MpTcpTestCase::SourceHandleSend, this));
 
@@ -575,24 +682,30 @@ public:
 
 
     Time::SetResolution (Time::MS);
-    // Arguments to these test cases are 1) totalStreamSize,
-    // 2) source write size, 3) source read size
-    // 4) server write size, and 5) server read size
-    // with units of bytes
-    AddTestCase (new MpTcpTestCase (13, 200, 200, 200, 200, false), TestCase::QUICK);
-//    AddTestCase (new MpTcpTestCase (13, 1, 1, 1, 1, false), TestCase::QUICK);
-//    AddTestCase (new MpTcpTestCase (100000, 100, 50, 100, 20, false), TestCase::QUICK);
 
-// here it's a test where I lower streamsize to see where it starts failing.
-// 2100 is ok, 2200 fails
-//    AddTestCase (new MpTcpTestCase (5000, 100, 50, 100, 20, false), TestCase::EXTENSIVE);
-//    AddTestCase (new MpTcpTestCase (5000, 100, 50, 100, 20, false), TestCase::QUICK);
+    const int MaxNumberOfSubflows = 1;
+    for(int i = 1; i <= MaxNumberOfSubflows;++i)
+    {
+        // Arguments to these test cases are 1) totalStreamSize,
+        // 2) source write size, 3) source read size
+        // 4) server write size, and 5) server read size
+        // with units of bytes
+//        AddTestCase (new MpTcpTestCase ( i, 13, 200, 200, 200, 200, false), TestCase::QUICK);
+        AddTestCase (new MpTcpTestCase (i, 13, 1, 1, 1, 1, false), TestCase::QUICK);
+    //    AddTestCase (new MpTcpTestCase (i, 100000, 100, 50, 100, 20, false), TestCase::QUICK);
+
+    // here it's a test where I lower streamsize to see where it starts failing.
+    // 2100 is ok, 2200 fails
+    //    AddTestCase (new MpTcpTestCase (5000, 100, 50, 100, 20, false), TestCase::EXTENSIVE);
+    //    AddTestCase (new MpTcpTestCase (5000, 100, 50, 100, 20, false), TestCase::QUICK);
 
 
-    // Disable IPv6 tests; not supported yet
-//    AddTestCase (new MpTcpTestCase (13, 200, 200, 200, 200, true), TestCase::QUICK);
-//    AddTestCase (new MpTcpTestCase (13, 1, 1, 1, 1, true), TestCase::QUICK);
-//    AddTestCase (new MpTcpTestCase (100000, 100, 50, 100, 20, true), TestCase::QUICK);
+        // Disable IPv6 tests; not supported yet
+    //    AddTestCase (new MpTcpTestCase (13, 200, 200, 200, 200, true), TestCase::QUICK);
+    //    AddTestCase (new MpTcpTestCase (13, 1, 1, 1, 1, true), TestCase::QUICK);
+    //    AddTestCase (new MpTcpTestCase (100000, 100, 50, 100, 20, true), TestCase::QUICK);
+    }
+
   }
 
 } g_tcpTestSuite;

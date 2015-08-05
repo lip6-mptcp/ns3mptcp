@@ -370,8 +370,6 @@ this fct asserts when the mapping length is 0 but in fact it can be possible
 when there is an infinite mapping
 
 Probleme ici c si j'essaye
-
-
 **/
 int
 MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
@@ -508,6 +506,7 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
   TcpSocketBase::SendPacket(header,p);
 
   m_dssFlags = 0; // reset for next packet
+  m_dssMapping.Reset();
 }
 
 /**
@@ -594,6 +593,7 @@ MpTcpSubflow::Retransmit(void)
 void
 MpTcpSubflow::DoRetransmit()
 {
+  NS_LOG_FUNCTION(this);
   // TODO maybe this call should go to DoRetransmit
   GetMeta()->OnSubflowRetransmit(this);
 
