@@ -44,6 +44,7 @@ MpTcpMapping::~MpTcpMapping(void)
   NS_LOG_FUNCTION(this);
 };
 
+
 void
 MpTcpMapping::SetMappingSize(uint16_t const& length)
 {
@@ -479,6 +480,8 @@ MpTcpMappingContainer::DiscardMappingsUpToDSN(const SequenceNumber32& dsn)
 bool
 MpTcpMappingContainer::GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& mapping)
 {
+  NS_LOG_FUNCTION(ssn);
+
   MappingList& l = m_mappings;
   for( MappingList::const_iterator it = l.begin(); it != l.end(); it++ )
   {

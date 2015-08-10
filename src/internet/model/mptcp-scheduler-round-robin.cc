@@ -188,6 +188,7 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
 
     mapping.SetHeadDSN( metaNextTxSeq);
     mapping.SetMappingSize(amountOfDataToSend);
+//    NS_LOG_DEBUG("Generated mapping " << mapping);
     mappings.push_back( std::make_pair( i, mapping) );
     metaNextTxSeq += amountOfDataToSend;
 //    m_lastUsedFlowId = (m_lastUsedFlowId + 1) %m_metaSock->GetNActiveSubflows();

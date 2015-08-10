@@ -750,7 +750,7 @@ protected: // protected variables
   );
 
   // ?
-  int CloseSubflow(Ptr<MpTcpSubflow> sf);
+//  int CloseSubflow(Ptr<MpTcpSubflow> sf);
 
 
   /**

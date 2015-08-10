@@ -374,7 +374,7 @@ Probleme ici c si j'essaye
 int
 MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
 {
-  NS_LOG_FUNCTION (this << mapping);
+  NS_LOG_FUNCTION (this << p << mapping);
   NS_ASSERT(p);
 
   NS_ASSERT_MSG(mapping.GetLength() != 0,"Mapping should not be empty" );
@@ -395,7 +395,7 @@ MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
 //    NS_LOG_ERROR("Too much data to send");
 //    return -ERROR_MSGSIZE;
 //  }
-  NS_LOG_FUNCTION (this << p);
+//  NS_LOG_FUNCTION (this << p);
 //  NS_ABORT_MSG_IF(flags, "use of flags is not supported in TcpSocketBase::Send()");
   //! & !m_closeOnEmpty
   if (m_state == ESTABLISHED || m_state == SYN_SENT || m_state == CLOSE_WAIT)
@@ -506,7 +506,6 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
   TcpSocketBase::SendPacket(header,p);
 
   m_dssFlags = 0; // reset for next packet
-  m_dssMapping.Reset();
 }
 
 /**
@@ -770,8 +769,9 @@ MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
     // TODO replace with member function to keep isolation
 
     // TODO map to ssn
-    m_dssMapping.MapToSSN( m_txBuffer->TailSequence());
+    m_dssMapping.MapToSSN(SequenceNumber32(0));
     m_dssMapping.SetHeadDSN(SEQ64TO32(GetMeta()->m_txBuffer->TailSequence() ));
+    m_dssMapping.SetMappingSize(1);
 
     m_dssFlags |= TcpOptionMpTcpDSS::DSNMappingPresent;
   }
@@ -2181,7 +2181,7 @@ MpTcpSubflow::RecvWithMapping(uint32_t maxSize, bool only_full_mapping, Sequence
 void
 MpTcpSubflow::AppendDSSMapping(const MpTcpMapping& mapping)
 {
-    NS_LOG_FUNCTION(this);
+    NS_LOG_FUNCTION(this << mapping);
     m_dssFlags |= TcpOptionMpTcpDSS::DSNMappingPresent;
     m_dssMapping = mapping;
 }

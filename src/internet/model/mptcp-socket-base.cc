@@ -1067,7 +1067,8 @@ void
 MpTcpSocketBase::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface)
 {
     NS_LOG_DEBUG(this << " called with endpoint " << m_endPoint);
-    TcpSocketBase::ForwardUp(packet, header, port, incomingInterface);
+    NS_FATAL_ERROR("This socket should never receive any packet");
+//    TcpSocketBase::ForwardUp(packet, header, port, incomingInterface);
 }
 
 uint32_t
@@ -1221,7 +1222,7 @@ MpTcpSocketBase::SendFastClose(Ptr<MpTcpSubflow> sf)
   // TODO: send an MPTCP_fail
    TcpHeader header;
 //   Ptr<MpTcpSubflow> sf = GetSubflow(0);
-  sf->GenerateEmptyPacketHeader(header,TcpHeader::RST);
+  sf->GenerateEmptyPacketHeader(header, TcpHeader::RST);
   Ptr<TcpOptionMpTcpFastClose> opt = Create<TcpOptionMpTcpFastClose>();
 
   opt->SetPeerKey( GetPeerKey() );
@@ -2398,39 +2399,26 @@ MpTcpSocketBase::Close(void)
   #endif
 }
 
-/**
-TODO it should trigger an event in the path id manager
-**/
-int
-MpTcpSocketBase::CloseSubflow(Ptr<MpTcpSubflow> sf)
-{
-  NS_LOG_LOGIC("Closing sf " << sf);
-
-  int ret = sf->Close();
-  if(ret != 0) {
-    NS_FATAL_ERROR("Could not close subflow");
-  }
-
-  return ret;
-}
-
 void
 MpTcpSocketBase::CloseAllSubflows()
 {
   NS_LOG_FUNCTION(this << "Closing all subflows");
-  NS_ASSERT( m_state == FIN_WAIT_2 || m_state == CLOSING || m_state == CLOSE_WAIT);
+  NS_ASSERT( m_state == FIN_WAIT_2 || m_state == CLOSING || m_state == CLOSE_WAIT || m_state == LAST_ACK);
 
-  for(int i = 0; i < Closing; ++i) {
+  for(int i = 0; i < Closing; ++i)
+  {
 //    Established
     NS_LOG_INFO("Closing all subflows in state [" << containerNames [i] << "]");
 //    std::for_each( );
     for( SubflowList::const_iterator it = m_subflows[i].begin(); it != m_subflows[i].end(); it++ )
     {
         Ptr<MpTcpSubflow> sf = *it;
-        NS_ASSERT( CloseSubflow(sf) == 0);
+        //   TODO trigger events in path manager
+          NS_LOG_LOGIC("Closing sf " << sf);
 
+          int ret = sf->Close();
 //        }
-//        NS_ASSERT_MSG(sf->Close() == 0, "Can't close subflow");
+        NS_ASSERT_MSG(ret == 0, "Can't close subflow");
     }
 
     m_subflows[Closing].insert( m_subflows[Closing].end(), m_subflows[i].begin(), m_subflows[i].end());
@@ -2452,7 +2440,7 @@ MpTcpSocketBase::ReceivedAck(
   , bool count_dupacks
   )
 {
-    #if 0
+//    NS_FATAL_ERROR("Received DACK " << dack << "from subflow" << sf << "(Enable dupacks:" << count_dupacks << " )");
   NS_LOG_FUNCTION("Received DACK " << dack << "from subflow" << sf << "(Enable dupacks:" << count_dupacks << " )");
 //  NS_ASSERT( dss->GetFlags() & TcpOptionMpTcpDSS::DataAckPresent);
 
@@ -2482,7 +2470,7 @@ MpTcpSocketBase::ReceivedAck(
       NewAck( dack );
       m_dupAckCount = 0;
     }
-    #endif
+
 
 }
 
@@ -2546,6 +2534,7 @@ MpTcpSocketBase::OnTimeWaitTimeOut(void)
   // Would normally call CloseAndNotify
   NS_LOG_LOGIC("Timewait timeout expired");
   NS_LOG_UNCOND("after timewait timeout, there are still " << m_subflows[Closing].size() << " subflows pending");
+
   CloseAndNotify();
 }
 
@@ -2816,10 +2805,12 @@ MpTcpSocketBase::DoClose()
 
       break;
   case LISTEN:
+      CloseAndNotify();
+      break;
   case LAST_ACK:
 //      CloseAllSubflows();
 // In these three states, move to CLOSED and tear down the end point
-      CloseAndNotify();
+      TimeWait();
 
       break;
   case CLOSED:

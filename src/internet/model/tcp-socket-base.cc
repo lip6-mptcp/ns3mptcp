@@ -1312,7 +1312,11 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
 
 /* Process the newly received ACK */
 void
-TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
+TcpSocketBase::ReceivedAck (Ptr<Packet> packet,
+                            const TcpHeader& tcpHeader
+
+
+                            )
 {
   NS_LOG_FUNCTION (this << tcpHeader);
 
