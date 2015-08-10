@@ -364,30 +364,12 @@ MpTcpSocketBase::SetPeerKey(uint64_t remoteKey)
 
 
 
-// TODO on peut le supprimer
-void
-MpTcpSocketBase::ProcessOptionMpTcp(const Ptr<const TcpOption> opt)
-{
-//    switch(opt->GetSubType())
-//    {
-//        case TcpOptionMpTcpMain::MP_DSS:
-//            break;
-//
-//        case TcpOptionMpTcpMain::MP_CAPABLE:
-//
-//            break;
-//
-//        case TcpOptionMpTcpMain::MP_JOIN:
-//            break;
-//
-////case TcpOptionMpTcpMain::MP_REMOVE_ADDR:
-////        case TcpOptionMpTcpMain::MP_PRIO:
-////            break;
-////        case TcpOptionMpTcpMain::MP_ADD_ADDR:
-//        default:
-//            NS_LOG_INFO("Mptcp option not handled (yet)");
-//    };
-}
+// TODO this should get reestablished and process the option depending on the state ?
+//int
+//MpTcpSocketBase::ProcessOptionMpTcp(const Ptr<const TcpOption> opt)
+//{
+//   NS_FATAL_ERROR("disabled .");
+//}
 
 
 
@@ -2720,26 +2702,6 @@ MpTcpSocketBase::SendEmptyPacket(TcpHeader& header)
   NS_FATAL_ERROR("Disabled. Should call subflow member");
 }
 
-  #if 0
-void
-MpTcpSocketBase::AppendDataFin(TcpHeader& header) const
-//const
-{
-  // TODO
-
-  NS_LOG_LOGIC("Appending a DFIN with seq " << m_txBuffer->TailSequence());
-//  NS_ASSERT(m_state == )
-  Ptr<const TcpOptionMpTcpDSS> dss;
-  GetOrCreateMpTcpOption(header,dss);
-//  if(!GetMpTcpOption(header,dss))
-//    dss = Create<>(TcpOptionMpTcpMain::MP_DSS);
-
-  //well so far this worked
-  // TailSequence = lastByte (+1) of the buffer
-//  dss->AddDataFin ( SEQ32TO64(m_txBuffer->TailSequence()));
-
-}
-#endif
 
 /** Do the action to close the socket. Usually send a packet with appropriate
  flags depended on the current m_state.
@@ -2759,7 +2721,7 @@ MpTcpSocketBase::DoClose()
   TcpHeader header;
 
 
-  Ptr<MpTcpSubflow> subflow = GetSubflow(0);
+
 
   switch (m_state)
   {
@@ -2771,6 +2733,7 @@ MpTcpSocketBase::DoClose()
 
 
       m_state = FIN_WAIT_1;
+      Ptr<MpTcpSubflow> subflow = GetSubflow(0);
       subflow->GenerateEmptyPacketHeader(header,TcpHeader::ACK);
 //      SendEmptyPacket(header);
       subflow->AppendDSSFin();
@@ -2782,6 +2745,7 @@ MpTcpSocketBase::DoClose()
       {
 // send ACK to close the peer
       NS_LOG_INFO ("CLOSE_WAIT -> LAST_ACK");
+      Ptr<MpTcpSubflow> subflow = GetSubflow(0);
       m_state = LAST_ACK;
 
       subflow->GenerateEmptyPacketHeader(header, TcpHeader::ACK);
@@ -2810,10 +2774,7 @@ MpTcpSocketBase::DoClose()
       CloseAndNotify();
       break;
   case LAST_ACK:
-//      CloseAllSubflows();
-// In these three states, move to CLOSED and tear down the end point
       TimeWait();
-
       break;
   case CLOSED:
   case FIN_WAIT_1:

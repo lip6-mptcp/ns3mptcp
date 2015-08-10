@@ -253,8 +253,8 @@ public:
 //  virtual void ParseDSS(Ptr<Packet> p, const TcpHeader& header, Ptr<TcpOptionMpTcpDSS> dss);
 
     // State transition functions
-  virtual void
-  ProcessEstablished(Ptr<Packet>, const TcpHeader&); // Received a packet upon ESTABLISHED state
+//  virtual void
+//  ProcessEstablished(Ptr<Packet>, const TcpHeader&); // Received a packet upon ESTABLISHED state
 
   /**
   * \
@@ -316,7 +316,7 @@ TODO move this up to TcpSocketBase
    * Parse DSS essentially
 
    */
-  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
+//  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
   virtual int ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS> option);
 
 //  virtual int ProcessTcpOptionMpTcpDSS(Ptr<const TcpOptionMpTcpDSS> dss);
@@ -339,15 +339,14 @@ protected:
   /**
   * This is a public function in TcpSocketBase but it shouldn't be public here !
   **/
-  virtual int
-  Close(void);   // Close by app: Kill socket upon tx buffer emptied
+  virtual int Close(void);
 
 
   /**
-  TODO mvoe to TcpSocketBase. Split  SendDataPacket into several functions ?
+  TODO move to TcpSocketBase. Split  SendDataPacket into several functions ?
+  TODO remove
   */
-  void
-  GenerateDataPacketHeader(TcpHeader& header, SequenceNumber32 seq, uint32_t maxSize, bool withAck);
+  void GenerateDataPacketHeader(TcpHeader& header, SequenceNumber32 seq, uint32_t maxSize, bool withAck);
 
 
   virtual void
@@ -405,40 +404,38 @@ protected:
   virtual void
   ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
-//  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
-  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> optionMapTo);
+  virtual int ProcessOptionMpTcp (const Ptr<const TcpOption> option);
 
   /**
-    GetMeta()->m_rxBuffer.NextRxSequence().GetValue()
-  **/
-//  virtual void
-//  AppendDataAck(TcpHeader& hdr) const;
+   * To deal with MP_JOIN/MP_CAPABLE
+   */
+  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> optionMapTo);
+
+
 public:
-  Ptr<MpTcpSocketBase>
-  GetMeta() const;
+  /**
+   *
+   */
+  Ptr<MpTcpSocketBase> GetMeta() const;
 
 protected:
   /**
    * \brief Creates a DSS option if does not exist and configures it to have a dataack
    * TODO what happens if existing datack already set ?
    */
-  virtual void
-  AppendDSSAck();
-  virtual void
-  AddMpTcpOptionDSS(TcpHeader& header);
+  virtual void AppendDSSAck();
+  virtual void AddMpTcpOptionDSS(TcpHeader& header);
 
   /**
    *
    */
-  virtual void
-  AppendDSSFin();
-  virtual void
-  AppendDSSMapping(const MpTcpMapping& mapping);
+  virtual void AppendDSSFin();
+  virtual void AppendDSSMapping(const MpTcpMapping& mapping);
 
-  virtual void
-  ReceivedAck(Ptr<Packet>, const TcpHeader&); // Received an ACK packet
-  virtual void
-  ReceivedData(Ptr<Packet>, const TcpHeader&);
+  virtual void ReceivedAck(Ptr<Packet>, const TcpHeader&); // Received an ACK packet
+//  virtual void ReceivedAck(SequenceNumber32 seq); // Received an ACK packet
+
+  virtual void ReceivedData(Ptr<Packet>, const TcpHeader&);
 
 
   /**

@@ -560,8 +560,10 @@ protected: // protected methods
   virtual void
   ConnectionSucceeded(void); // Schedule-friendly wrapper for Socket::NotifyConnectionSucceeded()
 
-  virtual
-  void ProcessOptionMpTcp(const Ptr<const TcpOption> );
+//  virtual void ProcessOptionMpTcp(const Ptr<const TcpOption> );
+
+//  virtual int ProcessTcpOptionsClosing(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsLastAck(const TcpHeader& header);
 
   //! disabled
   virtual int

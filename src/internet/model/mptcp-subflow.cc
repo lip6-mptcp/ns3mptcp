@@ -713,7 +713,6 @@ Ptr<MpTcpSocketBase>
 MpTcpSubflow::GetMeta() const
 {
   NS_ASSERT(m_metaSocket);
-  //!
   return m_metaSocket;
 }
 
@@ -733,20 +732,26 @@ MpTcpSubflow::TimeWait()
   m_timewaitEvent = Simulator::Schedule(Seconds( m_msl), &MpTcpSubflow::CloseAndNotify, this);
 }
 
-void
-MpTcpSubflow::ProcessEstablished(Ptr<Packet> packet, const TcpHeader& header)
-{
-//  Ptr<TcpOptionMpTcpDSS> dss;
+//void
+//MpTcpSubflow::ProcessEstablished(Ptr<Packet> packet, const TcpHeader& header)
+//{
+//  NS_LOG_FUNCTION (this);
+//  TcpSocketBase::ProcessEstablished(packet,header);
+//}
+
+//int
+//MpTcpSubflow::ProcessTcpOptionsLastAck(const TcpHeader& header)
+//{
+//  NS_LOG_FUNCTION (this << header);
+//  TcpSocketBase::ProcessTcpOptionsLastAck(header);
+//}
 //
-//  //! TODO in the long term, I should rather loop over options and assign a callback ?
-//  if(GetMpTcpOption(header, dss))
-//  {
-//    ParseDSS(packet,header,dss);
-//  }
-
-  TcpSocketBase::ProcessEstablished(packet,header);
-}
-
+//int
+//MpTcpSubflow::ProcessTcpOptionsClosing(const TcpHeader& header)
+//{
+//  NS_LOG_FUNCTION (this << header);
+//  TcpSocketBase::ProcessTcpOptionsClosing(tcpHeader);
+//}
 
 void
 MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
@@ -1233,7 +1238,7 @@ MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
     */
     // Expect an MP_CAPABLE option
     Ptr<const TcpOptionMpTcpCapable> mpcRcvd = DynamicCast<const TcpOptionMpTcpCapable>(option);
-    NS_ASSERT(mpcRcvd);
+    NS_ASSERT_MSG(mpcRcvd, "There must be a MP_CAPABLE option");
 //        if(mpcRcvd) {
 //            return 2;
 //        }
@@ -1277,27 +1282,58 @@ MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
 }
 
 
-//void
-//MpTcpSubflow::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
-//{
-//    //!
-//    NS_LOG_DEBUG("Does nothing");
-//    switch(m_state)
-//    {
-//        //!
-//    case LISTEN:
-//    case SYN_RCVD:
-//        ProcessOptionMpTcpSynSent(option);
-//        break;
-//    case SYN_SENT:
-//        ProcessOptionMpTcpSynSent(option);
-////        AddOptionMpTcp3WHS(TcpHeader& hdr);
-//        break;
-//
-//    default:
-//        break;
-//    };
-//}
+int
+MpTcpSubflow::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
+{
+    //! adds the header
+    NS_LOG_FUNCTION(option);
+    // TODO
+    Ptr<const TcpOptionMpTcpMain> main = DynamicCast<const TcpOptionMpTcpMain>(option);
+    switch(main->GetSubType())
+    {
+        case TcpOptionMpTcpMain::MP_CAPABLE:
+        case TcpOptionMpTcpMain::MP_JOIN:
+            ProcessOptionMpTcpSynSent(option);
+            break;
+        case TcpOptionMpTcpMain::MP_DSS:
+            {
+                Ptr<const TcpOptionMpTcpDSS> dss = DynamicCast<const TcpOptionMpTcpDSS>(option);
+                NS_ASSERT(dss);
+                // Update later on
+                ProcessOptionMpTcpDSSEstablished(dss);
+            }
+            break;
+
+        case TcpOptionMpTcpMain::MP_FASTCLOSE:
+        case TcpOptionMpTcpMain::MP_FAIL:
+        default:
+            NS_FATAL_ERROR("Unsupported yet");
+            break;
+
+
+    };
+
+    #if 0
+    switch(m_state)
+    {
+        //!
+        case LISTEN:
+        case SYN_RCVD:
+            ProcessOptionMpTcpSynSent(option);
+            break;
+        case SYN_SENT:
+            ProcessOptionMpTcpSynSent(option);
+//        AddOptionMpTcp3WHS(TcpHeader& hdr);
+        break;
+        case ESTABLISHED:
+            P
+    default:
+        break;
+    };
+    #endif
+
+    return 0;
+}
 
 //TcpOptionMpTcpJoin::State
 // TODO move to meta and adapt meta state
@@ -2460,22 +2496,22 @@ MpTcpSubflow::ClosingOnEmpty(TcpHeader& header)
 //
 //}
 
-
-int
-MpTcpSubflow::ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option)
-{
-    NS_LOG_FUNCTION(this << option);
-    //! Just looking for DSS
-//    Ptr<TcpOptionMpTcpFastClose> fastClose;
-//    GetTcpOption(fastClose)
-//    Ptr<const TcpOptionMpTcpFastClose> fastClose = DynamicCast<const TcpOptionMpTcpFastClose>(option);
-    Ptr<const TcpOptionMpTcpDSS> dss = DynamicCast<const TcpOptionMpTcpDSS>(option);
-    if(dss)
-    {
-        ProcessOptionMpTcpDSSEstablished(dss);
-    }
-
-}
+//
+//int
+//MpTcpSubflow::ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option)
+//{
+//    NS_LOG_FUNCTION(this << option);
+//    //! Just looking for DSS
+////    Ptr<TcpOptionMpTcpFastClose> fastClose;
+////    GetTcpOption(fastClose)
+////    Ptr<const TcpOptionMpTcpFastClose> fastClose = DynamicCast<const TcpOptionMpTcpFastClose>(option);
+//    Ptr<const TcpOptionMpTcpDSS> dss = DynamicCast<const TcpOptionMpTcpDSS>(option);
+//    if(dss)
+//    {
+//        ProcessOptionMpTcpDSSEstablished(dss);
+//    }
+//
+//}
 
 //int
 //MpTcpSubflow::ProcessOptionMpTcpClosing(const Ptr<const TcpOption> option)

@@ -712,9 +712,10 @@ protected:
    */
   virtual void ReceivedAck (SequenceNumber32 ack);
 
-  // TODO remove this function and dispatch the packet inspection somewhere else
-  virtual void ReceivedAck (Ptr<Packet> packet,
-                            const TcpHeader& tcpHeader);
+  // TODO remove this function
+  // use ReceivedAck (SequenceNumber32 ack); instead and dispatch the packet inspection somewhere else
+  virtual void ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+
   /**
    * \brief Recv of a data, put into buffer, call L7 to get it if necessary
    * \param packet the packet
@@ -812,24 +813,37 @@ protected:
   virtual Ptr<MpTcpSubflow> UpgradeToMeta();
 
   /**
+   * TODO replace all of them by ProcessTcpOptions ?
+   * than just override processMpTcp depending on the state ?
    *
+   *
+   * \return if it returns 1, then we need to upgrade the meta socket
    */
-  virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
-  virtual int ProcessTcpOptionsListen(const TcpHeader& header);
-  virtual int ProcessTcpOptionsSynRcvd(const TcpHeader& header);
-  virtual int ProcessTcpOptionsEstablished(const TcpHeader& header);
+  virtual int ProcessTcpOptions(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsListen(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsSynRcvd(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsEstablished(const TcpHeader& header);
 //  virtual int ProcessTcpOptionsClosing(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsLastAck(const TcpHeader& header);
 //  virtual int ProcessTcpOptionsTimeWait(const TcpHeader& header);
   /**
    *
    */
 //  virtual int ProcessTcpOption(const Ptr<const TcpOption> option);
-  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
+  // TODO this should be removed and Tcp Options done in a better way
+//  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
   /**
    *
    * \return 1
    */
-  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
+//  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
+
+  /**
+   * In this baseclass, this only deals with MpTcpCapable options in order to know if the socket
+   * should be converted to an MPTCP meta socket.
+   */
+  virtual int ProcessOptionMpTcp(const Ptr<const TcpOption> option);
 
   /**
    * \brief Read and parse the Window scale option
