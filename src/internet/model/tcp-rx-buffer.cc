@@ -156,11 +156,11 @@ TcpRxBuffer::Finished (void)
   return (m_gotFin && m_finSeq < m_nextRxSeq);
 }
 
-bool
-TcpRxBuffer::Add (Ptr<Packet> p, TcpHeader const& tcph)
-{
-    return Add (p, tcph.GetSequenceNumber());
-}
+//bool
+//TcpRxBuffer::Add (Ptr<Packet> p, TcpHeader const& tcph)
+//{
+//    return Add (p, tcph.GetSequenceNumber());
+//}
 
 bool
 TcpRxBuffer::Add (Ptr<Packet> p,  SequenceNumber32 const& _headSeq)

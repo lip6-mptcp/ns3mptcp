@@ -1310,21 +1310,33 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
     }
 }
 
-/* Process the newly received ACK */
+
+// TODO this function should be removed
 void
 TcpSocketBase::ReceivedAck (Ptr<Packet> packet,
                             const TcpHeader& tcpHeader
-
-
                             )
 {
-  NS_LOG_FUNCTION (this << tcpHeader);
+  // If there is any data piggybacked, store it into m_rxBuffer
 
   NS_ASSERT (0 != (tcpHeader.GetFlags () & TcpHeader::ACK));
-  NS_ASSERT (m_tcb->m_segmentSize > 0);
-  SequenceNumber32 ack = tcpHeader.GetAckNumber ();
+  ReceivedAck(tcpHeader.GetAckNumber());
+  if (packet->GetSize () > 0)
+    {
+      ReceivedData (packet, tcpHeader);
+    }
+}
 
-  uint32_t bytesAcked = tcpHeader.GetAckNumber () - FirstUnackedSeq();
+/* Process the newly received ACK */
+void
+TcpSocketBase::ReceivedAck (SequenceNumber32 ack)
+{
+  NS_LOG_FUNCTION (this << ack);
+
+  NS_ASSERT (m_tcb->m_segmentSize > 0);
+//  SequenceNumber32 ack = tcpHeader.GetAckNumber ();
+
+  uint32_t bytesAcked = ack - FirstUnackedSeq();
   uint32_t segsAcked  = bytesAcked / m_tcb->m_segmentSize;
   m_bytesAckedNotProcessed += bytesAcked % m_tcb->m_segmentSize;
 
@@ -1454,12 +1466,6 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet,
 
       NewAck (ack);
       m_dupAckCount = 0;
-    }
-
-  // If there is any data piggybacked, store it into m_rxBuffer
-  if (packet->GetSize () > 0)
-    {
-      ReceivedData (packet, tcpHeader);
     }
 }
 
@@ -2813,7 +2819,7 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
 
   // Put into Rx buffer
   SequenceNumber32 expectedSeq = m_rxBuffer->NextRxSequence ();
-  if (!m_rxBuffer->Add (p, tcpHeader))
+  if (!m_rxBuffer->Add (p, tcpHeader.GetSequenceNumber ()))
     { // Insert failed: No data or RX buffer full
       SendEmptyPacket (TcpHeader::ACK);
       return;

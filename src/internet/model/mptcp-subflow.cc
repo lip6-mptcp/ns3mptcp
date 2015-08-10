@@ -2240,7 +2240,7 @@ MpTcpSubflow::ReceivedData(Ptr<Packet> p, const TcpHeader& tcpHeader)
   // Put into Rx buffer
   SequenceNumber32 expectedSSN = m_rxBuffer->NextRxSequence();
 //  NS_LOG_DEBUG("adding packet " << p->ToString());
-  if (!m_rxBuffer->Add(p, tcpHeader))
+  if (!m_rxBuffer->Add(p, tcpHeader.GetSequenceNumber()))
     { // Insert failed: No data or RX buffer full
       NS_LOG_WARN("Insert failed, No data (" << p->GetSize() << ") ?"
           // Size() returns the actual buffer occupancy

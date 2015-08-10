@@ -123,7 +123,7 @@ public:
    * \param tcph packet's TCP header
    * \return True when success, false otherwise.
    */
-  bool Add (Ptr<Packet> p, TcpHeader const& tcph);
+//  bool Add (Ptr<Packet> p, TcpHeader const& tcph);
   bool Add (Ptr<Packet> p,  SequenceNumber32 const& headSeq);
 
   /**

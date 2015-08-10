@@ -710,14 +710,20 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  virtual void ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ReceivedAck (SequenceNumber32 ack);
 
+  // TODO remove this function and dispatch the packet inspection somewhere else
+  virtual void ReceivedAck (Ptr<Packet> packet,
+                            const TcpHeader& tcpHeader);
   /**
    * \brief Recv of a data, put into buffer, call L7 to get it if necessary
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  virtual void ReceivedData (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ReceivedData (Ptr<Packet> packet,
+                             const TcpHeader& tcpHeader
+
+                             );
 
   /**
    * \brief Take into account the packet for RTT estimation
