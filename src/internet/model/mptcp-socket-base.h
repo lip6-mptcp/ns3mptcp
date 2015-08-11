@@ -735,6 +735,8 @@ protected: // protected methods
 
 protected: // protected variables
 
+  virtual void UpdateTxBuffer();
+
   friend class TcpL4Protocol;
   friend class MpTcpSchedulerRoundRobin;
 

@@ -285,12 +285,6 @@ MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
 }
 
 
-//void
-//MpTcpSubflow::NotifyNewConnectionCreated (Ptr<Socket> socket, const Address &from)
-//{
-//    //!
-//}
-
 // Does this constructor even make sense ? no ? to remove ?
 MpTcpSubflow::MpTcpSubflow(const MpTcpSubflow& sock)
   : TcpSocketBase(sock),
@@ -502,7 +496,8 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
     NS_LOG_DEBUG("mapping " << mapping << " covers it");
 
   }
-
+  // we append hte ack everytime
+//  AppendDSSAck();
   TcpSocketBase::SendPacket(header,p);
 
   m_dssFlags = 0; // reset for next packet
@@ -1166,7 +1161,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
       NS_LOG_INFO ("SYN_SENT -> ESTABLISHED");
       m_state = ESTABLISHED;
 
-      // TODO send ConnectionSucceeded or NotifyNewConnectionCreated ?
+      // TODO send ConnectionSucceeded or
 //      GetMeta()->OnSubflowEstablishment(this);
 //      m_connected = true;
 
@@ -1218,16 +1213,14 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 //
 //  }
 //}
+
+
+
 int
-MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
+MpTcpSubflow::ProcessOptionMpTcpCapable(const Ptr<const TcpOptionMpTcpMain> option)
 {
-   NS_LOG_FUNCTION(this << option);
-
-   uint8_t addressId = 0; //!< each mptcp subflow has a uid assigned
-
-  if( IsMaster())
-  {
-    NS_LOG_DEBUG("master subflow: retreiving peer key");
+    NS_LOG_LOGIC(this << option);
+    NS_ASSERT_MSG(IsMaster(), "You can receive MP_CAPABLE only on the master subflow");
 
     /**
     * Here is how the MPTCP 3WHS works:
@@ -1244,26 +1237,37 @@ MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
 //        }
 //        NS_ASSERT_MSG( GetTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
 
+    // TODO depending on the state
     GetMeta()->SetPeerKey( mpcRcvd->GetSenderKey() );
 
-  }
-  else
-  {
-    NS_LOG_DEBUG("Expecting MP_JOIN...");
-    /**
-           |             |   SYN + MP_JOIN(Token-B, R-A)  |
-           |             |------------------------------->|
-           |             |<-------------------------------|
-           |             | SYN/ACK + MP_JOIN(HMAC-B, R-B) |
-           |             |                                |
-           |             |     ACK + MP_JOIN(HMAC-A)      |
-           |             |------------------------------->|
-           |             |<-------------------------------|
-           |             |             ACK                |
+    // TODO add it to the manager too
+    return 0;
+}
 
-     HMAC-A = HMAC(Key=(Key-A+Key-B), Msg=(R-A+R-B))
-     HMAC-B = HMAC(Key=(Key-B+Key-A), Msg=(R-B+R-A))
-      */
+
+/**
+       |             |   SYN + MP_JOIN(Token-B, R-A)  |
+       |             |------------------------------->|
+       |             |<-------------------------------|
+       |             | SYN/ACK + MP_JOIN(HMAC-B, R-B) |
+       |             |                                |
+       |             |     ACK + MP_JOIN(HMAC-A)      |
+       |             |------------------------------->|
+       |             |<-------------------------------|
+       |             |             ACK                |
+
+ HMAC-A = HMAC(Key=(Key-A+Key-B), Msg=(R-A+R-B))
+ HMAC-B = HMAC(Key=(Key-B+Key-A), Msg=(R-B+R-A))
+  */
+
+int
+MpTcpSubflow::ProcessOptionMpTcpJoin(const Ptr<const TcpOptionMpTcpMain> option)
+{
+   NS_LOG_FUNCTION(this << option);
+
+   uint8_t addressId = 0; //!< each mptcp subflow has a uid assigned
+
+    NS_LOG_DEBUG("Expecting MP_JOIN...");
 
     Ptr<const TcpOptionMpTcpJoin> join = DynamicCast<const TcpOptionMpTcpJoin>(option);
     // TODO should be less restrictive in case there is a loss
@@ -1275,7 +1279,6 @@ MpTcpSubflow::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
     // TODO Here we should check the tokens
 //        uint8_t buf[20] =
 //        opt3->GetTruncatedHmac();
-  }
   NS_LOG_DEBUG("Id manager");
   GetIdManager()->AddRemoteAddr(addressId, m_endPoint->GetPeerAddress(), m_endPoint->GetPeerPort() );
   return 0;
@@ -1292,9 +1295,11 @@ MpTcpSubflow::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
     switch(main->GetSubType())
     {
         case TcpOptionMpTcpMain::MP_CAPABLE:
+            return ProcessOptionMpTcpCapable(main);
+
         case TcpOptionMpTcpMain::MP_JOIN:
-            ProcessOptionMpTcpSynSent(option);
-            break;
+            return ProcessOptionMpTcpJoin(main);
+
         case TcpOptionMpTcpMain::MP_DSS:
             {
                 Ptr<const TcpOptionMpTcpDSS> dss = DynamicCast<const TcpOptionMpTcpDSS>(option);
@@ -1312,25 +1317,6 @@ MpTcpSubflow::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
 
 
     };
-
-    #if 0
-    switch(m_state)
-    {
-        //!
-        case LISTEN:
-        case SYN_RCVD:
-            ProcessOptionMpTcpSynSent(option);
-            break;
-        case SYN_SENT:
-            ProcessOptionMpTcpSynSent(option);
-//        AddOptionMpTcp3WHS(TcpHeader& hdr);
-        break;
-        case ESTABLISHED:
-            P
-    default:
-        break;
-    };
-    #endif
 
     return 0;
 }
@@ -2797,7 +2783,16 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
 
     // Wrong, one should be able to send this a lot before
     // should be called only on client side
-    GetMeta()->ConnectionSucceeded();
+//    GetMeta()->ConnectionSucceeded();
+  }
+
+  //! datafin case handled at the start of the function
+  if( (dss->GetFlags() & TcpOptionMpTcpDSS::DSNMappingPresent) && !dss->DataFinMappingOnly() )
+  {
+      MpTcpMapping m;
+      m = GetMapping(dss);
+//      dss->GetMapping()
+      AddPeerMapping(m);
   }
 
 //  #if 0
@@ -2819,14 +2814,7 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
 //    SequenceNumber32 dack = SequenceNumber32(dss->GetDataAck());
   }
 
-  //! datafin case handled at the start of the function
-  if( (dss->GetFlags() & TcpOptionMpTcpDSS::DSNMappingPresent) && !dss->DataFinMappingOnly() )
-  {
-      MpTcpMapping m;
-      m = GetMapping(dss);
-//      dss->GetMapping()
-      AddPeerMapping(m);
-  }
+
 
   return 0;
 }

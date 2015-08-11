@@ -54,6 +54,7 @@ class Packet;
 class TcpL4Protocol;
 class TcpHeader;
 class MpTcpSubflow;
+class TcpTraceHelper;
 
 /**
  * \ingroup tcp
@@ -817,7 +818,8 @@ protected:
    * than just override processMpTcp depending on the state ?
    *
    *
-   * \return if it returns 1, then we need to upgrade the meta socket
+   * \return if it returns 1, we need to upgrade the meta socket
+   * if negative then it should discard the packet ?
    */
   virtual int ProcessTcpOptions(const TcpHeader& header);
 //  virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
@@ -827,6 +829,8 @@ protected:
 //  virtual int ProcessTcpOptionsClosing(const TcpHeader& header);
 //  virtual int ProcessTcpOptionsLastAck(const TcpHeader& header);
 //  virtual int ProcessTcpOptionsTimeWait(const TcpHeader& header);
+//  virtual void ProcessSynRcvdOptions(const TcpHeader& hdr);
+
   /**
    *
    */
@@ -928,7 +932,6 @@ protected:
    */
   virtual Time ComputeRTO() const;
 
-  virtual void ProcessSynRcvdOptions(const TcpHeader& hdr);
   /**
    *
    */
@@ -946,8 +949,10 @@ protected:
   virtual uint64_t GenerateUniqueMpTcpKey() ;
 
 protected:
+  //!< TODO try to remove some friends
   friend class MpTcpSubflow;
-  friend class MpTcpSchedulerRoundRobin;    //!< TODO this should not be necessary
+  friend class MpTcpSchedulerRoundRobin;
+  friend class TcpTraceHelper;
 
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event

@@ -128,8 +128,8 @@ TcpTxBuffer::SizeFromSequence (const SequenceNumber32& seq) const
   // Sequence of last byte in buffer
   SequenceNumber32 lastSeq = m_firstByteSeq + SequenceNumber32 (m_size);
   // Non-negative size
-  NS_LOG_LOGIC ("HeadSeq=" << m_firstByteSeq << ", lastSeq=" << lastSeq << ", size=" << m_size <<
-                ", returns " << lastSeq - seq);
+  NS_LOG_LOGIC ("HeadSeq=" << m_firstByteSeq << ", size=" << m_size <<
+                ", returns lastSeq(=" << lastSeq << ")-seq(=" << seq << ")="  << lastSeq - seq);
   return lastSeq - seq;
 }
 

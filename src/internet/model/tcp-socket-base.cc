@@ -1886,11 +1886,11 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 //      master->ProcessSynRcvd();
 //}
 
-void
-TcpSocketBase::ProcessSynRcvdOptions(const TcpHeader& tcpHeader)
-{
-  NS_LOG_FUNCTION(tcpHeader);
-}
+//void
+//TcpSocketBase::ProcessSynRcvdOptions(const TcpHeader& tcpHeader)
+//{
+//  NS_LOG_FUNCTION(tcpHeader);
+//}
 
 //void
 //TcpSocketBase::ProcessListenOptions(const TcpHeader& tcpHeader)
@@ -1956,7 +1956,7 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       // Remove to get the behaviour of old NS-3 code.
       m_delAckCount = m_delAckMaxCount;
 
-      ProcessSynRcvdOptions(tcpHeader);
+      ProcessTcpOptions(tcpHeader);
 //      if(){
 //        return;
 //      }
@@ -2693,9 +2693,10 @@ TcpSocketBase::SendDataPacket (TcpHeader& header, SequenceNumber32 seq, uint32_t
 bool
 TcpSocketBase::SendPendingData (bool withAck)
 {
-  NS_LOG_FUNCTION (this << withAck);
+  NS_LOG_FUNCTION (this << withAck << " in state " << TcpStateName[m_state]);
   if (m_txBuffer->Size () == 0)
     {
+      NS_LOG_DEBUG("Nothing to send");
       return false;                           // Nothing to send
     }
   if (m_endPoint == 0 && m_endPoint6 == 0)
@@ -2725,10 +2726,11 @@ TcpSocketBase::SendPendingData (bool withAck)
                     " w " << w <<
                     " rxwin " << m_rWnd <<
                     " segsize " << m_tcb->m_segmentSize <<
-                    " nextTxSeq " << m_nextTxSequence <<
+//                    " nextTxSeq " <<  <<
                     " highestRxAck " << FirstUnackedSeq() <<
-                    " pd->Size " << m_txBuffer->Size () <<
-                    " pd->SFS " << m_txBuffer->SizeFromSequence (m_nextTxSequence));
+                    " TxBufferSize=" << m_txBuffer->Size () <<
+                    " pd->SizeFromSequence( " << m_nextTxSequence << ")="
+                    << m_txBuffer->SizeFromSequence (m_nextTxSequence));
       uint32_t s = std::min (w, m_tcb->m_segmentSize);  // Send no more than window
       uint32_t sz = SendDataPacket (m_nextTxSequence, s, withAck);
       nPacketsSent++;                             // Count sent this loop

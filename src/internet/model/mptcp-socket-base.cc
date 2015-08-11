@@ -394,7 +394,7 @@ MpTcpSocketBase::CompleteFork(
 )
 {
   NS_LOG_FUNCTION(this);
-
+  #if 0
   // Get port and address from peer (connecting host)
 
   // That should not be the case
@@ -446,6 +446,7 @@ MpTcpSocketBase::CompleteFork(
   }
 
   NS_LOG_INFO(this << "MPTCP connection is initiated (Receiver): ");
+  #endif
 }
 
 
@@ -803,7 +804,8 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
 //      Simulator::ScheduleNow(&MpTcpSocketBase::OnSubflowEstablishment, this, sf);
       OnSubflowEstablishment(sf);
     }
-    else {
+    else
+    {
       NS_FATAL_ERROR("Unhandled case");
     }
   }
@@ -927,35 +929,17 @@ MpTcpSocketBase::OnSubflowCreated (Ptr<Socket> socket, const Address &from)
 {
     NS_LOG_LOGIC(this);
     Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
-    if(sf->IsMaster())
-    {
-        TcpSocketBase::NotifyNewConnectionCreated (this, from);
-    }
-    else
-    {
-        // use a specific callback
-//        NotifySubflowConnected(sf);
-        NS_FATAL_ERROR("TODO");
-    }
+
+    NotifySubflowCreated(sf);
 }
 
 void
 MpTcpSocketBase::OnSubflowConnectionSuccess (Ptr<Socket> socket)
 {
+
     NS_LOG_LOGIC(this);
     Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
-    if(sf->IsMaster())
-    {
-//        TcpSocketBase::NotifyConnectionSucceeded (this, from);
-        ConnectionSucceeded();
-    }
-//    else
-//    {
-        // use a specific callback
-        NotifySubflowConnected(sf);
-//        NS_FATAL_ERROR("TODO");
-////        Notify
-//    }
+    NotifySubflowConnected(sf);
 }
 
 void
@@ -1395,7 +1379,7 @@ MpTcpSocketBase::OnInfiniteMapping(Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow>
 
 /**
 this function supposes that
-
+TODO is  never called apparently
 **/
 void
 MpTcpSocketBase::OnSubflowNewAck(Ptr<MpTcpSubflow> subflow)
@@ -1492,14 +1476,15 @@ void
 MpTcpSocketBase::SyncTxBuffers(Ptr<MpTcpSubflow> subflow)
 {
 
-  NS_LOG_LOGIC("Syncing TxBuffer between meta and subflow " << subflow);
+  NS_LOG_LOGIC("Syncing TxBuffer between meta " << this << " and subflow " << subflow);
 
   while(true)
   {
 //    SequenceNumber32 dack = 0;
     MpTcpMapping mapping;
 
-    if(!subflow->DiscardAtMostOneTxMapping( SEQ32TO64(FirstUnackedSeq()), mapping )) {
+    if(!subflow->DiscardAtMostOneTxMapping( SEQ32TO64(FirstUnackedSeq()), mapping ))
+    {
       NS_LOG_DEBUG("Nothing discarded");
       break;
     }
@@ -1529,7 +1514,17 @@ not been acknowledged at both connection level and on all subflows on
 which it has been sent."
 
 TODO:
+
+
 **/
+
+void
+MpTcpSocketBase::UpdateTxBuffer()
+{
+    NS_LOG_LOGIC("Synchronizing buffers");
+
+    SyncTxBuffers();
+}
 
 
 void
@@ -1537,11 +1532,12 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
 {
   NS_LOG_FUNCTION(this << " new dataack=[" <<  dsn << "]");
 
+  TcpSocketBase::NewAck(dsn);
   // TODO
 //  switch(m_state) {
 //
 //  };
-
+  #if 0
 
   // update tx buffer
   // TODO if I call this, it crashes because on the MpTcpBase client, there is no endpoint configured
@@ -1600,7 +1596,7 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
   **/
   m_firstTxUnack = std::min(dsn, m_txBuffer->TailSequence());;
 
-  SyncTxBuffers();
+
 
   // TODO wrong. what happens with NR-SACK ?
   if (m_firstTxUnack > m_nextTxSequence)
@@ -1608,7 +1604,7 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
       m_nextTxSequence = m_firstTxUnack; // If advanced
     }
 
-  #if 0
+
 
   #endif
 }
@@ -1630,9 +1626,14 @@ MpTcpSocketBase::PersistTimeout()
 bool
 MpTcpSocketBase::SendPendingData(bool withAck)
 {
-  NS_LOG_FUNCTION(this << "Sending data");
+  NS_LOG_FUNCTION(this << "Sending data" << TcpStateName[m_state]);
 
 //  MappingList mappings;
+  if (m_txBuffer->Size () == 0)
+    {
+      NS_LOG_DEBUG("Nothing to send");
+      return false;                           // Nothing to send
+    }
   //start/size
   int nbMappingsDispatched = 0; // mimic nbPackets in TcpSocketBase::SendPendingData
 
@@ -2094,13 +2095,14 @@ MpTcpSocketBase::OnSubflowEstablished(Ptr<MpTcpSubflow> subflow)
       NS_FATAL_ERROR("Unhandled case where subflow got established while meta in " << TcpStateName[m_state] );
     }
   // from
-//    InetSocketAddress addr(subflow->m_endPoint->GetPeerAddress(), subflow->m_endPoint->GetPeerPort());
+    InetSocketAddress addr(subflow->m_endPoint->GetPeerAddress(), subflow->m_endPoint->GetPeerPort());
 //    NotifyNewConnectionCreated(subflow, addr);
+    NotifyNewConnectionCreated(this, addr);
   }
 //  else
 //  {
   ComputeTotalCWND();
-  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowCreated, this, subflow );
+//  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowCreated, this, subflow );
 //  }
 }
 
@@ -2131,14 +2133,14 @@ MpTcpSocketBase::OnSubflowEstablishment(Ptr<MpTcpSubflow> subflow)
     Simulator::ScheduleNow(&MpTcpSocketBase::ConnectionSucceeded, this);
   }
 
-  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowConnected, this, subflow);
+//  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowConnected, this, subflow);
 }
 
 
 void
 MpTcpSocketBase::NotifySubflowCreated(Ptr<MpTcpSubflow> sf)
 {
-  NS_LOG_FUNCTION(this << "Registered cb " << sf);
+  NS_LOG_FUNCTION(this << sf);
   if (!m_subflowCreated.IsNull ())
   {
       m_subflowCreated (sf);
@@ -2164,7 +2166,7 @@ MpTcpSocketBase::SetSubflowAcceptCallback(
 )
 {
   NS_LOG_FUNCTION(this << &joinRequest << " " << &connectionCreated);
-  NS_LOG_WARN("TODO not implemented yet");
+//  NS_LOG_WARN("TODO not implemented yet");
 //  m_subflowConnectionSucceeded = connectionCreated;
   m_joinRequest = joinRequest;
   m_subflowCreated = connectionCreated;
@@ -2415,8 +2417,6 @@ MpTcpSocketBase::CloseAllSubflows()
 
 void
 MpTcpSocketBase::ReceivedAck(
-//  const TcpHeader& tcpHeader,
-//  Ptr<TcpOptionMpTcpDSS> dss
   SequenceNumber32 dack
   , Ptr<MpTcpSubflow> sf
   , bool count_dupacks
@@ -2671,28 +2671,6 @@ MpTcpSocketBase::DoPeerClose(void)
 //      m_lastAckEvent = Simulator::Schedule(m_rtt->RetransmitTimeout(), &TcpSocketBase::LastAckTimeout, this);
     }
 }
-
-//
-//void
-//MpTcpSocketBase::LastAckTimeout(uint8_t sFlowIdx)
-//{
-//  NS_LOG_FUNCTION (this);
-//  Ptr<MpTcpSubflow> sFlow = m_subflows[sFlowIdx];
-//  sFlow->m_lastAckEvent.Cancel();
-//  if (sFlow->state == LAST_ACK)
-//    {
-//      NS_LOG_INFO("(" << (int) sFlow->m_routeId << ") LAST_ACK -> CLOSED {LastAckTimeout}");
-//      CloseAndNotify(sFlowIdx);
-//    }
-////  if (!m_closeNotified)
-////    {
-////      m_closeNotified = true;
-////    }
-//}
-//
-
-
-
 
 
 // TODO this could be reimplemented via choosing

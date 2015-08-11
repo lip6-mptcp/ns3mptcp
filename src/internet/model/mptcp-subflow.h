@@ -52,6 +52,7 @@ namespace ns3
 class MpTcpSocketBase;
 class MpTcpPathIdManager;
 class TcpOptionMpTcpDSS;
+class TcpOptionMpTcpMain;
 
 /**
  * \class MpTcpSubflow
@@ -318,7 +319,8 @@ TODO move this up to TcpSocketBase
    */
 //  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
   virtual int ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS> option);
-
+  virtual int ProcessOptionMpTcpJoin(const Ptr<const TcpOptionMpTcpMain> option);
+  virtual int ProcessOptionMpTcpCapable(const Ptr<const TcpOptionMpTcpMain> option);
 //  virtual int ProcessTcpOptionMpTcpDSS(Ptr<const TcpOptionMpTcpDSS> dss);
 
   Ptr<MpTcpPathIdManager> GetIdManager();
@@ -409,7 +411,7 @@ protected:
   /**
    * To deal with MP_JOIN/MP_CAPABLE
    */
-  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> optionMapTo);
+//  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> optionMapTo);
 
 
 public:
@@ -419,6 +421,8 @@ public:
   Ptr<MpTcpSocketBase> GetMeta() const;
 
 protected:
+
+
   /**
    * \brief Creates a DSS option if does not exist and configures it to have a dataack
    * TODO what happens if existing datack already set ?

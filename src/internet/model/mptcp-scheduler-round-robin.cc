@@ -118,6 +118,7 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
     i++, m_lastUsedFlowId = (m_lastUsedFlowId + 1) % m_metaSock->GetNActiveSubflows()
     )
   {
+//    uint32_t left = m_metaSock->m_txBuffer->SizeFromSequence( metaNextTxSeq );
     uint32_t left = m_metaSock->m_txBuffer->SizeFromSequence( metaNextTxSeq );
     if(left <= 0)
     {
