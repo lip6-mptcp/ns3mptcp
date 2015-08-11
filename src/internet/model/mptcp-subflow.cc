@@ -231,29 +231,31 @@ MpTcpSubflow::Close(void)
   // First we check to see if there is any unread rx data
   // Bug number 426 claims we should send reset in this case.
 
-  if (m_rxBuffer->Size() != 0)
-    {
-      SendRST();
-      return 0;
-    }
-
-  //
-//  if( GetMeta()->GetNClosingSubflows() )
-//  {
+//  if (m_rxBuffer->Size() != 0)
+//    {
+//      SendRST();
+//      return 0;
+//    }
 //
-//  }
+//  //
+////  if( GetMeta()->GetNClosingSubflows() )
+////  {
+////
+////  }
+//
+//
+//  if (m_txBuffer->SizeFromSequence(m_nextTxSequence) > 0)
+//    { // App close with pending data must wait until all data transmitted
+//      if (m_closeOnEmpty == false)
+//        {
+//          m_closeOnEmpty = true;
+//          NS_LOG_INFO ("Socket " << this << " deferring close, state " << TcpStateName[m_state]);
+//        }
+//      return 0;
+//    }
+//  return DoClose();
 
-
-  if (m_txBuffer->SizeFromSequence(m_nextTxSequence) > 0)
-    { // App close with pending data must wait until all data transmitted
-      if (m_closeOnEmpty == false)
-        {
-          m_closeOnEmpty = true;
-          NS_LOG_INFO ("Socket " << this << " deferring close, state " << TcpStateName[m_state]);
-        }
-      return 0;
-    }
-  return DoClose();
+    return TcpSocketBase::Close();
 }
 
 
@@ -596,13 +598,13 @@ MpTcpSubflow::DoRetransmit()
   /**
   We want to send mappings only
   **/
-  MpTcpMapping mapping;
-  if(!m_TxMappings.GetMappingForSSN(FirstUnackedSeq(), mapping))
-//  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
-  {
-    m_TxMappings.Dump();
-    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << FirstUnackedSeq() << "]. Should be impossible");
-  }
+//  MpTcpMapping mapping;
+//  if(!m_TxMappings.GetMappingForSSN(FirstUnackedSeq(), mapping))
+////  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
+//  {
+//    m_TxMappings.Dump();
+//    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << FirstUnackedSeq() << "]. Should be impossible");
+//  }
 
   TcpSocketBase::DoRetransmit();
   #if 0
@@ -1788,8 +1790,6 @@ MpTcpSubflow::DiscardAtMostOneTxMapping(SequenceNumber64 const& firstUnackedMeta
           << " and SSN <" << FirstUnackedSeq()
           );
 
-//  while(true) {
-
   SequenceNumber32 headSSN = m_txBuffer->HeadSequence();
 
 
@@ -1816,7 +1816,6 @@ MpTcpSubflow::DiscardAtMostOneTxMapping(SequenceNumber64 const& firstUnackedMeta
     return true;
   }
 
-//  }
   return false;
 }
 
@@ -2835,6 +2834,9 @@ MpTcpSubflow::ReceivedAck(Ptr<Packet> p, const TcpHeader& header)
   // if packet size > 0 then it will call ReceivedData
   TcpSocketBase::ReceivedAck(p, header );
 
+  // By default we always append a DACK
+  // We should consider more advanced schemes
+  AppendDSSAck();
 }
 
 // TODO remove

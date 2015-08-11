@@ -99,21 +99,21 @@ TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string pr
   Time now = Simulator::Now();
   // TODO use GetInitialCwnd, GetValue  etc...
   *streamTxNext->GetStream() << "Time,oldNextTxSequence,newNextTxSequence" << std::endl
-                             << now << ",," << sock->m_nextTxSequence << std::endl
+                             << now << ",0," << sock->m_nextTxSequence << std::endl
                                 ;
 
   *streamTxHighest->GetStream() << "Time,oldHighestSequence,newHighestSequence" << std::endl
-                              << now << ",," << sock->m_highTxMark << std::endl
+                              << now << ",0," << sock->m_highTxMark << std::endl
                                 ;
 
   // In fact it might be acked but as it neds to be moved on a per-mapping basis
   //
   *streamTxUnack->GetStream() << "Time,oldUnackSequence,newUnackSequence" << std::endl
-                                  << now << ",," << sock->FirstUnackedSeq() << std::endl
+                                  << now << ",0," << sock->FirstUnackedSeq() << std::endl
                                   ;
 
   *streamRxNext->GetStream() << "Time,oldRxNext,newRxNext" << std::endl
-                             << now << ",," << sock->m_rxBuffer->NextRxSequence() << std::endl
+                             << now << ",0," << sock->m_rxBuffer->NextRxSequence() << std::endl
                              ;
 
   *streamRxAvailable->GetStream() << "Time,oldRxAvailable,newRxAvailable" << std::endl
@@ -121,16 +121,17 @@ TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string pr
                                   ;
 
   *streamRxTotal->GetStream() << "Time,oldRxTotal,newRxTotal" << std::endl
-                                  << now << ",," << sock->m_rxBuffer->Size() << std::endl
+                                  << now << ",," << sock->GetRcvBufSize() << std::endl
                                   ;
 
   // TODO
   *streamCwnd->GetStream() << "Time,oldCwnd,newCwnd" << std::endl
-                          << now << ",," << sock->m_tcb->m_cWnd.Get() << std::endl
+
+                          << now << ",0," << sock->GetInitialCwnd() << std::endl
 ;
 
   *streamRwnd->GetStream() << "Time,oldRwnd,newRwnd" << std::endl
-                           << now << ",," << sock->Window() << std::endl
+                           << now << ",0," << sock->Window() << std::endl
                            ;
 
   // We don't plot it, just looking at it so we don't care of the initial state
