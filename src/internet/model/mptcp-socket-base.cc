@@ -2839,7 +2839,6 @@ MpTcpSocketBase::ComputeTotalCWND()
     }
   }
   m_tcb->m_cWnd = totalCwnd;
-//  m_cWnd = totalCwnd;
   NS_LOG_DEBUG("Cwnd after computation=" << m_tcb->m_cWnd.Get());
   return totalCwnd;
 }

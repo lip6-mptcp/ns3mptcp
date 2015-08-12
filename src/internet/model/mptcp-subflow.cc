@@ -336,7 +336,7 @@ Maybe we could allow this providing a mapping already exists ?
 int
 MpTcpSubflow::Send(Ptr<Packet> p, uint32_t flags)
 {
-  NS_FATAL_ERROR("Use sendmapping instead");
+  NS_FATAL_ERROR("Use SendMapping instead");
   return 0;
 }
 
@@ -512,6 +512,7 @@ MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32
 {
   NS_LOG_FUNCTION(this << "Sending packet starting at SSN [" << ssnHead.GetValue() << "] with len=" << length);
 
+  #error TODO copy some commands from TcpSocketBase
 
   MpTcpMapping mapping;
 
@@ -2129,8 +2130,6 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
       NS_LOG_DEBUG("Mapping not fully received yet");
       return p;
     }
-
-
   }
 
   // Extract at most one mapping
@@ -2161,42 +2160,6 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
 //  m_RxMappings.DiscardMappingsUpToSN( mapping.TailDSN() + SequenceNumber32(1), mapping.TailSSN());
   return p;
 }
-
-/*
-This loops over the RxBuffer, extracting mapping one after mapping.
-
-sf->
-*/
-#if 0
-Ptr<Packet>
-MpTcpSubflow::RecvWithMapping(uint32_t maxSize, bool only_full_mapping, SequenceNumber32 &dsn)
-{
-  NS_LOG_FUNCTION(this << "maxSize="<< maxSize);
-  NS_FATAL_ERROR("Use ExtractAtMostOneMapping instead");
-//  Ptr<Packet> p;
-
-//
-////  if (m_rxBuffer->Size() == 0 && m_state == CLOSE_WAIT)
-//  if (m_state == CLOSE_WAIT)
-//    {
-//      NS_LOG_ERROR("CLOSE_WAIT");
-      return Create<Packet>(); // Send EOF on connection close
-//    }
-//
-//
-//  return ExtractAtMostOneMapping();
-}
-#endif
-
-
-
-
-//void
-//MpTcpSubflow::SetupTracing(const std::string prefix)
-//{
-//
-//}
-
 
 
 void

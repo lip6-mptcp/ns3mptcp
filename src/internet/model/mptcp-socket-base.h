@@ -380,6 +380,7 @@ public:
   virtual Ptr<MpTcpSubflow> GetSubflow(uint8_t) const;
 
 
+  // can Potentially be removed ?
   virtual void ClosingOnEmpty(TcpHeader& header);
 
   /**
