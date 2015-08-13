@@ -1642,8 +1642,9 @@ MpTcpSocketBase::SendPendingData(bool withAck)
   //start/size
   int nbMappingsDispatched = 0; // mimic nbPackets in TcpSocketBase::SendPendingData
 
-  MappingVector mappings;
-  SequenceNumber32 dsnHead;
+//  MappingVector mappings;
+
+  SequenceNumber64 dsnHead;
   SequenceNumber32 ssn;
   int subflowArrayId;
   uint16_t length;
@@ -1655,6 +1656,9 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 
   while(m_scheduler->GenerateMapping(subflowArrayId, dsnHead, length))
   {
+      NS_LOG_DEBUG("Generated mapping for sf=" << subflowArrayId << " dsn=" << dsnHead
+                    << " of len=" << length);
+
       bool ok = GetSubflow(subflowArrayId)->AddLooseMapping(dsnHead, length);
       NS_ASSERT(ok);
   }
@@ -1668,7 +1672,8 @@ MpTcpSocketBase::SendPendingData(bool withAck)
     {
         Ptr<MpTcpSubflow> sf = GetSubflow(i);
 
-        std::vector<> temp;
+        #if 0
+        std::vector<MpTcpMapping> temp;
         sf->GetMappedButMissingData(temp);
 
         // go through the unsent meta Tx buffer
@@ -1683,6 +1688,7 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 
             //TODO update m_nextTx / txmark
         }
+        #endif
     }
 
 

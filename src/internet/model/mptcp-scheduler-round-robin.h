@@ -27,7 +27,7 @@ class MpTcpSubflow;
 //typedef std::vector< std::pair<uint8_t, std::pair< SequenceNumber32,uint32_t > > > MappingVector;
 //
 //typedef std::vector< MpTcpMapping > MappingVector;
-typedef std::vector< std::pair<uint8_t, MpTcpMapping > > MappingVector;
+//typedef std::vector< std::pair<uint8_t, MpTcpMapping > > MappingVector;
 //typedef MappingList MappingVector;
 
 
@@ -67,7 +67,7 @@ public:
   */
 //  virtual int GenerateMappings(MappingVector& );
 //  virtual int GenerateMappings(MappingVector& );
-  virtual bool GenerateMapping(int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length) = 0;
+  virtual bool GenerateMapping(int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length);
   /**
   */
   // TODO

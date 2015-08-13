@@ -377,28 +377,28 @@ MpTcpSubflow::SendEmptyPacket(TcpHeader& header)
   TcpSocketBase::SendEmptyPacket(header);
 }
 
-bool
-MpTcpSubflow::HasMappingForDSNRange(SequenceNumber64 dsn, uint16_t len)
-{
-    NS_LOG_FUNCTION(dsn << len);
-
-}
-
+//bool
+//MpTcpSubflow::HasMappingForDSNRange(SequenceNumber64 dsn, uint16_t len)
+//{
+//    NS_LOG_FUNCTION(dsn << len);
+//
+//}
+//
 
 // Return the dsn range
-uint32_t
-MpTcpSubflow::AddMapping(SequenceNumber32 dsn, uint16_t len)
-{
-    NS_LOG_LOGIC("Register mapping");
-    MpTcpMapping mapping;
-    mapping.SetHeadDSN();
-    mapping.SetMappingSize();
-    mapping.MapToSSN( m_txBuffer->TailSequence() );
-    NS_LOG_DEBUG("Generated mapping=" << mapping );
-
-    bool ok = m_TxMappings.AddMapping( mapping  );
-    NS_ASSERT_MSG( ok, "Can't add mapping: 2 mappings overlap");
-}
+//uint32_t
+//MpTcpSubflow::AddMapping(SequenceNumber32 dsn, uint16_t len)
+//{
+//    NS_LOG_LOGIC("Register mapping");
+//    MpTcpMapping mapping;
+//    mapping.SetHeadDSN();
+//    mapping.SetMappingSize();
+//    mapping.MapToSSN( m_txBuffer->TailSequence() );
+//    NS_LOG_DEBUG("Generated mapping=" << mapping );
+//
+//    bool ok = m_TxMappings.AddMapping( mapping  );
+//    NS_ASSERT_MSG( ok, "Can't add mapping: 2 mappings overlap");
+//}
 
 /**
 //! GetLength()
@@ -480,15 +480,18 @@ MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
 //}
 
 bool
-MpTcpSubflow::AddLooseMapping(SequenceNumber64 dsnHead; uint16_t length)
+MpTcpSubflow::AddLooseMapping(SequenceNumber64 dsnHead, uint16_t length)
 {
+    NS_LOG_LOGIC("Adding mapping " << dsnHead << length);
     MpTcpMapping mapping;
 
     mapping.MapToSSN(FirstUnmappedSSN());
     mapping.SetMappingSize(length);
     mapping.SetHeadDSN(dsnHead);
 
-    m_TxMappings.AddMapping(mapping);
+    bool ok = m_TxMappings.AddMapping( mapping  );
+    NS_ASSERT_MSG( ok, "Can't add mapping: 2 mappings overlap");
+    return ok;
 }
 
 SequenceNumber32
@@ -505,21 +508,23 @@ MpTcpSubflow::FirstUnmappedSSN()
 
 // Fills the vector with all the pieces of data it can accept
 // but not in TxBuffer
-void
-MpTcpSubflow::GetMappedButMissingData(
 //                SequenceNumber64 headDsn,
 //                std::vector< std::pair<SequenceNumber64, uint16_t> >& missing
-                std::vector< MpTcpMapping >& missing
+void
+MpTcpSubflow::GetMappedButMissingData(
+                std::set< MpTcpMapping >& missing
                 )
 {
     //!
     NS_LOG_FUNCTION(this);
-    missing.clear();
+//    missing.clear();
 
-    m_TxMappings->Select();
-    m_txBuffer->TailSequence();
+    SequenceNumber32 startingSsn = m_txBuffer->TailSequence();
+
+    m_TxMappings.GetMappingsStartingFromSSN(startingSsn, missing);
 }
 
+#if 0
 bool
 MpTcpSubflow::CheckRangeIsCoveredByMapping(SequenceNumber32 ssnHead, SequenceNumber32 ssnTail)
 {
@@ -550,6 +555,7 @@ MpTcpSubflow::CheckRangeIsCoveredByMapping(SequenceNumber32 ssnHead, SequenceNum
 
   }
 }
+#endif
 
   /* We don't automatically embed mappings since we want the possibility to create mapping spanning over several segments
 //   here, it should already have been put in the packet, we just check
@@ -585,7 +591,7 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
         m_TxMappings.Dump();
         NS_FATAL_ERROR("Could not find mapping associated to ssn");
       }
-      NS_ASSERT(mapping.TailSSN() >= ssnHead +p->GetSize(), "mapping should cover the whole packet" );
+      NS_ASSERT_MSG(mapping.TailSSN() >= ssnHead +p->GetSize(), "mapping should cover the whole packet" );
 
       AppendDSSMapping(mapping);
     ///============================
@@ -614,7 +620,7 @@ MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32
 
 
   // Here we set the maxsize to the size of the mapping
-  return TcpSocketBase::SendDataPacket(header, ssnHead, mapping.GetLength());
+  return TcpSocketBase::SendDataPacket(header, ssnHead, length);
 }
 
 
@@ -1815,7 +1821,8 @@ MpTcpSubflow::DiscardAtMostOneTxMapping(SequenceNumber64 const& firstUnackedMeta
   if(mapping.TailDSN() < firstUnackedMeta && mapping.TailSSN() < FirstUnackedSeq())
   {
     NS_LOG_DEBUG("mapping can be discarded");
-    NS_ASSERT(m_TxMappings.DiscardMapping(mapping));
+    bool ok = m_TxMappings.DiscardMapping(mapping);
+    NS_ASSERT(ok);
     m_txBuffer->DiscardUpTo(mapping.TailSSN() + SequenceNumber32(1));
     return true;
   }
@@ -2761,7 +2768,8 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
       m = GetMapping(dss);
 //      AddPeerMapping(m);
       // Add peer mapping
-      NS_ASSERT(m_RxMappings.AddMapping( mapping ));
+      bool ok = m_RxMappings.AddMapping( m );
+      NS_ASSERT(ok);
   }
 
 //  #if 0

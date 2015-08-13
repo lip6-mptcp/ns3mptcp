@@ -140,11 +140,11 @@ public:
       NS_TEST_EXPECT_MSG_EQ(con0.AddMapping(map0), true, "This is the first mapping registered");
       NS_TEST_EXPECT_MSG_EQ(con1.AddMapping(overlap), true, "This is the first mapping registered");
 
-      NS_TEST_EXPECT_MSG_EQ(con0.FindOverlappingMapping(map0, false, ret), true, "Don't ignore identical mappings");
+//      NS_TEST_EXPECT_MSG_EQ(con0.FindOverlappingMapping(map0, false, ret), true, "Don't ignore identical mappings");
       NS_TEST_EXPECT_MSG_EQ(ret, map0, "Previous test should have filled ret with mapping equal to map0");
 
 //      NS_TEST_EXPECT_MSG_EQ(con0.FindOverlappingMapping(overlap, false, ret), m_shouldOverlap, "Ignore identical mappings so it should find none");
-      NS_TEST_EXPECT_MSG_EQ(con1.FindOverlappingMapping(map0, false, ret), m_shouldOverlap, "Ignore identical mappings so it should find none");
+//      NS_TEST_EXPECT_MSG_EQ(con1.FindOverlappingMapping(map0, false, ret), m_shouldOverlap, "Ignore identical mappings so it should find none");
 
 
 
@@ -168,6 +168,82 @@ protected:
 
   const bool m_shouldOverlap;
 };
+
+/**
+
+*/
+class MpTcpMappingContainerTestCase : public TestCase
+{
+public:
+    MpTcpMappingContainerTestCase () : TestCase("Mptcp mapping testcase")
+    {
+        NS_LOG_FUNCTION(this);
+    }
+
+    virtual ~MpTcpMappingContainerTestCase ()
+    {
+        NS_LOG_FUNCTION(this);
+    }
+
+    virtual void DoRun(void);
+};
+
+void
+MpTcpMappingContainerTestCase::DoRun()
+{
+  MpTcpMapping map0, map1, map2;
+  MpTcpMappingContainer con0,con1;
+
+  map0.SetHeadDSN( SequenceNumber64(40));
+  map0.SetMappingSize(10);
+  map0.MapToSSN( SequenceNumber32(32));
+
+//      con0.AddMapping(map0);
+  MpTcpMapping ret, overlap;
+//      overlap.SetHeadDSN(map0.HeadDSN());
+//      overlap.SetMappingSize(map0.GetLength() + 4);
+//  overlap.SetHeadDSN(m_headDSNbis);
+//  overlap.SetMappingSize(m_lengthbis);
+//  overlap.MapToSSN(m_mappedSSNbis);
+
+  SequenceNumber32 ssn;
+  NS_TEST_EXPECT_MSG_EQ(con0.FirstUnmappedSSN(ssn), false, "An empty container can't return the unmapped ssn");
+
+  NS_TEST_EXPECT_MSG_EQ(con0.AddMapping(map0), true, "This is the first mapping registered");
+//  NS_TEST_EXPECT_MSG_EQ(con0.AddMapping(map0), , "This is the first mapping registered");
+
+  NS_TEST_EXPECT_MSG_EQ(con0.FirstUnmappedSSN(ssn), true, "An empty container can't return the unmapped ssn");
+  NS_TEST_EXPECT_MSG_EQ(ssn, map0.TailSSN()+1, "Now that there is a mapping, it should be able to return a result");
+
+  NS_TEST_EXPECT_MSG_EQ(con0.GetMappingForSSN(map0.HeadSSN(), ret), true, "Now that there is a mapping, it should be able to return a result");
+  NS_TEST_EXPECT_MSG_EQ(ret, map0, "The returnd mapping should be equal to the one inserted");
+
+  // TODO do a test to check that we get all
+
+
+
+
+  //!
+
+//  NS_TEST_EXPECT_MSG_EQ(con0.AddMapping(map0), true, "This is the first mapping registered");
+//  NS_TEST_EXPECT_MSG_EQ(con1.AddMapping(overlap), true, "This is the first mapping registered");
+//
+//  NS_TEST_EXPECT_MSG_EQ(con0.FindOverlappingMapping(map0, false, ret), true, "Don't ignore identical mappings");
+//  NS_TEST_EXPECT_MSG_EQ(ret, map0, "Previous test should have filled ret with mapping equal to map0");
+//
+////      NS_TEST_EXPECT_MSG_EQ(con0.FindOverlappingMapping(overlap, false, ret), m_shouldOverlap, "Ignore identical mappings so it should find none");
+//  NS_TEST_EXPECT_MSG_EQ(con1.FindOverlappingMapping(map0, false, ret), m_shouldOverlap, "Ignore identical mappings so it should find none");
+
+  // GetMappingFor SSN
+
+
+  //! Now we add an overlapping mapping
+
+//      NS_TEST_EXPECT_MSG_EQ(con0.AddMapping(map0), false, "They should intersect");
+
+//        TestSerialize();
+//        TestDeserialize();
+}
 
 
 
@@ -205,6 +281,10 @@ public:
           SequenceNumber64(6660), SequenceNumber32(6661), 100,
           false), QUICK);
 
+          // Mapping container tests
+        AddTestCase(new MpTcpMappingContainerTestCase(
+
+          ), QUICK);
  }
 
 //

@@ -359,8 +359,12 @@ protected:
   * \param mapping
   * \todo should check if mappings intersect, already exist etc...
   */
-  virtual bool AddPeerMapping(const MpTcpMapping& mapping);
+//  virtual bool AddPeerMapping(const MpTcpMapping& mapping);
 
+
+  virtual void GetMappedButMissingData(
+                std::set< MpTcpMapping >& missing
+                );
 
   /**
    * Depending on if this subflow is master or not, we want to
@@ -438,9 +442,9 @@ protected:
    *
    * Thus you should call it with increased dsn.
    *
-   * \param
+   * \param dsnHead
    */
-  bool AddLooseMapping(SequenceNumber64 dsnHead; uint16_t length);
+  bool AddLooseMapping(SequenceNumber64 dsnHead, uint16_t length);
 
   /**
    * If no mappings set yet, then it returns the tail ssn of the Tx buffer.
@@ -482,11 +486,11 @@ protected:
   * Like send, but pass on the global seq number associated with
   * \see Send
   **/
-  virtual int
-  SendMapping(Ptr<Packet> p,
-              //SequenceNumber32 seq
-              MpTcpMapping& mapping
-              );
+//  virtual int
+//  SendMapping(Ptr<Packet> p,
+//              //SequenceNumber32 seq
+//              MpTcpMapping& mapping
+//              );
 
 
   virtual void

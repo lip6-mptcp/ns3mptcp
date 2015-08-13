@@ -24,11 +24,14 @@
 #include <stdint.h>
 #include "ns3/ptr.h"
 #include "ns3/object.h"
+#include "ns3/sequence-number.h"
 //#include "ns3/mp-tcp-socket-base.h"
 
 
 namespace ns3
 {
+
+class MpTcpSocketBase;
 
 /**
  * This class is responsible for
@@ -72,9 +75,9 @@ public:
    * \return true if could generate a mapping
    * \see MpTcpSocketBase::SendPendingData
    */
-  virtual bool GenerateMapping(int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length
-//                               , SequenceNumber32& ssn
-                               ) = 0;
+  virtual bool GenerateMapping(
+        int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length
+                              ) = 0;
 
   virtual void SetMeta(Ptr<MpTcpSocketBase> metaSock) = 0;
   /**

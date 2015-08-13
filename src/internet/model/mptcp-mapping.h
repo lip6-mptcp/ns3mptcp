@@ -158,8 +158,9 @@ public:
 
 
   /**
-  * Necessary for std::set to sort mappings
-  * Compares data seq nb
+  * Necessary for
+  * std::set to sort mappings
+  * Compares ssn
   * \brief Compares mapping based on their DSN number. It is required when inserting into a set
   */
   bool operator<(MpTcpMapping const& ) const;
@@ -243,9 +244,10 @@ class MpTcpMappingContainer
 
 
   \return Number of mappings discarded. >= 0
+  Never used apparently
   **/
-  int
-  DiscardMappingsUpToSN(const SequenceNumber64& maxDsn, const SequenceNumber32& maxSsn);
+//  int
+//  DiscardMappingsUpToSN(const SequenceNumber64& maxDsn, const SequenceNumber32& maxSsn);
 
 
   /**
@@ -284,11 +286,11 @@ class MpTcpMappingContainer
    * TODO it should look for DSN and SSN overlaps
    * \param
    */
-  bool FindOverlappingMapping(
-                    const MpTcpMapping& mapping,
-                    bool ignore_identical,
-                    MpTcpMapping& ret
-                    ) const;
+//  bool FindOverlappingMapping(
+//                    const MpTcpMapping& mapping,
+//                    bool ignore_identical,
+//                    MpTcpMapping& ret
+//                    ) const;
 //  FindOverlappingMapping(SequenceNumber32 headSSN, uint32_t len, MpTcpMapping& ret) const;
 
 
@@ -319,16 +321,23 @@ class MpTcpMappingContainer
   * \param m pass on the mapping you want to retrieve
   */
   bool
-  GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& m);
+  GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& m) const;
 
-  bool
-  GetMapped();
+  /**
+   * \param dsn
+   */
+  virtual bool GetMappingsStartingFromSSN(SequenceNumber32 ssn, std::set<MpTcpMapping>& mappings);
+
 protected:
 //    std::map<SequenceNumber64, uint32_t> m_unmapped;
 // TODO this may be more efficient to do the search
+
+    /**
+    //!< SSN/ mapping
+    */
 //    std::map<SequenceNumber32, MpTcpMapping> m_mappings;
 
-    MappingList m_mappings;     //!< it is a set
+    std::set<MpTcpMapping> m_mappings;     //!< it is a set ordered by SSN
 };
 
 /**

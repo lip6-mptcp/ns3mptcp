@@ -82,6 +82,57 @@ MpTcpSchedulerRoundRobin::GetSubflowToUseForEmptyPacket()
 //std::vector< std::pair<uint8_t, MappingList>
 // std::pair< start,size , subflow>
 // ca génère les mappings ensuite
+bool
+MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length)
+{
+    NS_LOG_FUNCTION(this);
+
+    //!
+    int nbOfSubflows = m_metaSock->GetNActiveSubflows();
+    int attempt = 0;
+    uint32_t amountOfDataToSend = 0;
+
+    //! Tx data not sent to subflows yet
+    SequenceNumber32 metaNextTxSeq = m_metaSock->m_nextTxSequence;
+    amountOfDataToSend = m_metaSock->m_txBuffer->SizeFromSequence( metaNextTxSeq );
+
+    NS_LOG_DEBUG("Amount of data to send [" << amountOfDataToSend  << "]");
+
+    uint32_t metaWindow = m_metaSock->AvailableWindow();
+//    m_metaSock->
+
+    if(metaWindow <= 0)
+    {
+        NS_LOG_DEBUG("No meta window available (TODO should be in persist state ?)");
+        return -1; // TODO ?
+    }
+
+    while(attempt < nbOfSubflows)
+    {
+        attempt++;
+        m_lastUsedFlowId = (m_lastUsedFlowId + 1);
+        Ptr<MpTcpSubflow> subflow = m_metaSock->GetSubflow(m_lastUsedFlowId);
+        uint32_t subflowWindow = subflow->AvailableWindow();
+
+        NS_LOG_DEBUG("subflow AvailableWindow  [" << subflowWindow << "]");
+        uint32_t canSend = std::min( subflowWindow, metaWindow);
+
+        //! Can't send more than SegSize
+        //metaWindow en fait on s'en fout du SegSize ?
+        if(canSend > 0)
+        {
+
+            activeSubflowArrayId = m_lastUsedFlowId;
+            dsn = metaNextTxSeq;
+            length = canSend;
+            return true;
+        }
+    }
+    NS_LOG_DEBUG("");
+    return false;
+}
+
+#if 0
 int
 MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
 {
@@ -201,7 +252,7 @@ MpTcpSchedulerRoundRobin::GenerateMappings(MappingVector& mappings)
 
   return 0;
 }
-
+#endif
 
 
 

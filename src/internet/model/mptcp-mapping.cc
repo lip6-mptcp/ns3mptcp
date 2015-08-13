@@ -21,6 +21,7 @@
  */
 #include <iostream>
 #include <set>
+#include <iterator>
 #include "ns3/mptcp-mapping.h"
 #include "ns3/simulator.h"
 #include "ns3/log.h"
@@ -35,6 +36,7 @@ namespace ns3
 * \brief sorted on DSNs
 */
 typedef std::set<MpTcpMapping> MappingList;
+//typedef std::map<SequenceNumber32, MpTcpMapping> MappingList;
 
 
 MpTcpMapping::MpTcpMapping() :
@@ -165,7 +167,8 @@ bool
 MpTcpMapping::operator<(MpTcpMapping const& m) const
 {
 
-  return (HeadDSN() < m.HeadDSN());
+//  return (HeadDSN() < m.HeadDSN());
+  return (HeadSSN() < m.HeadSSN());
 }
 
 
@@ -247,7 +250,7 @@ MpTcpMappingContainer::Dump() const
 }
 
 
-
+#if 0
 // This is wrong
 bool
 //MpTcpMappingContainer::FindOverlappingMapping(SequenceNumber32 headSSN, uint32_t len,  MpTcpMapping& ret) const
@@ -279,29 +282,8 @@ MpTcpMappingContainer::FindOverlappingMapping(const MpTcpMapping& mapping, bool 
   return false;
 }
 
-#if 0
-//MpTcpMappingContainer::FindOverlappingMapping(SequenceNumber32 headSSN, uint32_t len,  MpTcpMapping& ret) const
-MpTcpMappingContainer::FindOverlappingMapping(const MpTcpMapping& mapping,  MpTcpMapping& ret) const
-{
-  SequenceNumber32 tailSSN = headSSN + SequenceNumber32(len);
-  NS_LOG_DEBUG("Looking for a mapping that overlaps with [" << headSSN << "- " << tailSSN << "]");
-  for( MappingList::const_iterator it = m_mappings.begin(); it != m_mappings.end(); it++ )
-  {
-    // Check if mappings overlap
-//    if(it->IsSSNInRange(mapping) && mapping != *it )
-  // Faux si le mapping est encore plus petit
-    if(it->IsSSNInRange(headSSN) || it->IsSSNInRange(tailSSN) )
-    {
 
-      // Intersect
-      NS_LOG_DEBUG("Mapping intersects with " << *it );
-      ret = *it;
-      return true;
-    }
 
-  }
-  return false;
-}
 #endif
 
 
@@ -316,20 +298,22 @@ MpTcpMappingContainer::AddMapping(const MpTcpMapping& mapping)
   NS_ASSERT(mapping.GetLength() != 0);
 //  NS_ASSERT(mapping.HeadSSN() >= );
 
-  MpTcpMapping temp;
+//  MpTcpMapping temp;
 
 
-  if(FindOverlappingMapping(mapping, true, temp))
-  {
-    NS_LOG_WARN("Mapping " << mapping << " conflicts with existing " << temp);
-    Dump();
-    return false;
-  }
+//  if(FindOverlappingMapping(mapping, true, temp))
+//  {
+//    NS_LOG_WARN("Mapping " << mapping << " conflicts with existing " << temp);
+//    Dump();
+//    return false;
+//  }
 
 
-//  std::pair<iterator,bool> =
-  m_mappings.insert(mapping);
-  return true;
+//
+//  std::pair<MappingList::iterator,bool> res = m_mappings.insert( std::make_pair(mapping.HeadSSN(), mapping));
+  std::pair<MappingList::iterator,bool> res = m_mappings.insert( mapping);
+
+  return res.second;
 }
 
 bool
@@ -341,7 +325,7 @@ MpTcpMappingContainer::FirstUnmappedSSN(SequenceNumber32& ssn) const
   {
       return false;
   }
-  ssn = m_mappings.rbegin()->TailSSN() + 1
+  ssn = m_mappings.rbegin()->TailSSN() + 1;
   return true;
 }
 
@@ -353,9 +337,11 @@ MpTcpMappingContainer::DiscardMapping(const MpTcpMapping& mapping)
 //  MappingList::iterator it = l.begin(); it != l.end(); it++)
 //  std::size_type count = m_mappings.erase(mapping);
 //  return count != 0;
+//  return m_mappings.erase(HeadSSN());
   return m_mappings.erase(mapping);
 }
 
+#if 0
 int
 MpTcpMappingContainer::DiscardMappingsUpToSN(const SequenceNumber64& dsn,const SequenceNumber32& ssn)
 {
@@ -377,29 +363,57 @@ MpTcpMappingContainer::DiscardMappingsUpToSN(const SequenceNumber64& dsn,const S
 
   return erasedMappingCount;
 }
-
+#endif
 
 bool
-MpTcpMappingContainer::GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& mapping)
+MpTcpMappingContainer::GetMappingsStartingFromSSN(SequenceNumber32 ssn, std::set<MpTcpMapping>& missing)
+{
+    NS_LOG_FUNCTION(this << ssn );
+    missing.clear();
+    //  std::copy(it,m_mappings.end(),);
+//    http://www.cplusplus.com/reference/algorithm/equal_range/
+    MpTcpMapping temp;
+    temp.MapToSSN(ssn);
+    MappingList::const_iterator it = std::lower_bound( m_mappings.begin(), m_mappings.end(), temp);
+//
+    std::copy(it, m_mappings.end(), std::inserter(missing, missing.begin()));
+    return false;
+}
+
+bool
+MpTcpMappingContainer::GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& mapping) const
 {
   NS_LOG_FUNCTION(ssn);
 
-  MappingList& l = m_mappings;
-  for( MappingList::const_iterator it = l.begin(); it != l.end(); it++ )
+  MpTcpMapping temp;
+  temp.MapToSSN(ssn);
+  MappingList::const_iterator it = std::lower_bound( m_mappings.begin(), m_mappings.end(), temp);
+  if(it == m_mappings.end())
   {
-    // check seq nb is within the DSN range
-    if (
-      it->IsSSNInRange( ssn )
-//    (subflowSeqNb >= it->HeadSSN() ) &&
-//      (subflowSeqNb < it->HeadSSN() + it->GetLength())
-    )
-    {
-      mapping = *it;
-      return true;
-    }
+    return false;
   }
 
-  return false;
+
+  mapping = *it;
+  NS_LOG_DEBUG("Found " << mapping << " when asking for ssn=" << ssn);
+  return mapping.IsSSNInRange( ssn );
+
+
+//  if(Mapp)
+//  MappingList& l = m_mappings;
+//  for( MappingList::const_iterator it = l.begin(); it != l.end(); it++ )
+//  {
+//    // check seq nb is within the DSN range
+//    if (
+//      it->IsSSNInRange( ssn )
+//    )
+//    {
+//      mapping = *it;
+//      return true;
+//    }
+//  }
+
+//  return false;
 }
 
 
