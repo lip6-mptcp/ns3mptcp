@@ -31,6 +31,12 @@ NS_LOG_COMPONENT_DEFINE("MpTcpMapping");
 namespace ns3
 {
 
+/**
+* \brief sorted on DSNs
+*/
+typedef std::set<MpTcpMapping> MappingList;
+
+
 MpTcpMapping::MpTcpMapping() :
   m_dataSequenceNumber(0),
   m_subflowSequenceNumber(0),
@@ -240,31 +246,6 @@ MpTcpMappingContainer::Dump() const
   NS_LOG_UNCOND("==== End of dump ====\n");
 }
 
-//void
-//MpTcpMappingContainer::DiscardMappingsUpToSSN(const SequenceNumber32& ssn)
-//{
-//  //!
-//  for( MappingList::iterator it = m_mappings.begin(); it != m_mappings.end(); it++ )
-//  {
-//
-//    NS_LOG_UNCOND( *it );
-//
-//  }
-//
-//}
-
-//bool
-//MpTcpMappingContainer::CheckIfMappingCovered(std::vector<MpTcpMapping>& mappings) {
-//
-//
-//}
-
-
-//bool
-//MpTcpMappingContainer::FindOverlappingMapping(SequenceNumber32 start, uint32_t len,  MpTcpMapping& ret)
-//{
-//
-//}
 
 
 // This is wrong
@@ -331,19 +312,15 @@ MpTcpMappingContainer::AddMapping(const MpTcpMapping& mapping)
 //MpTcpMappingContainer::AddMappingEnforceSSN(const MpTcpMapping& mapping)
 {
   NS_LOG_LOGIC("Adding mapping " << mapping);
+
+  NS_ASSERT(mapping.GetLength() != 0);
+//  NS_ASSERT(mapping.HeadSSN() >= );
+
   MpTcpMapping temp;
 
-  // pr l'instant ca le fait sur le
-//  if(FindOverlappingMapping(mapping.HeadSSN(), mapping.GetLength(), temp) && (temp != mapping) )
+
   if(FindOverlappingMapping(mapping, true, temp))
   {
-
-    // the mappings may be similar
-//    if(temp == mapping)
-//    {
-//      NS_LOG_WARN("Trying to add twice the same mapping " << mapping << " (=" << temp);
-//      return true;
-//    }
     NS_LOG_WARN("Mapping " << mapping << " conflicts with existing " << temp);
     Dump();
     return false;
@@ -355,59 +332,19 @@ MpTcpMappingContainer::AddMapping(const MpTcpMapping& mapping)
   return true;
 }
 
-/*
-TODO remove
-*/
-//int
-//MpTcpMappingContainer::AddMappingLooseSSN(MpTcpMapping& mapping)
-//{
-//  NS_ASSERT_MSG(m_txBuffer,"m_txBuffer not set");
-//  // TODO look for duplicatas
-//  mapping.MapToSSN( FirstUnmappedSSN() );
-//
-//  return AddMappingEnforceSSN(mapping);
-//
-//}
-
-//SequenceNumber32
-//MpTcpMappingContainer::FirstMappedSSN(void) const
-//{
-//  //!
-//}
-
-//SequenceNumber32
-//MpTcpMappingContainer::FirstUnmappedSSN(void) const
-//{
+bool
+MpTcpMappingContainer::FirstUnmappedSSN(SequenceNumber32& ssn) const
+{
 //  NS_ASSERT(m_txBuffer);
-//  if(m_mappings.empty())
-//  {
-////    if(m_rxBuffer){
-////      return m_rxBuffer->TailSequence();
-////    }
-////    else {
-////      NS_ASSERT
-//      // associate to first byte in buffer. This should never happen ?
-//      return m_txBuffer->HeadSequence();
-////    }
-//  }
-//    // they are sorted
-////  NS_LOG_INFO("\n\n====================\n\n");
-//  return m_mappings.rbegin()->TailSSN() + 1;
-//}
+  NS_LOG_FUNCTION_NOARGS();
+  if(m_mappings.empty())
+  {
+      return false;
+  }
+  ssn = m_mappings.rbegin()->TailSSN() + 1
+  return true;
+}
 
-//bool
-//MpTcpMappingContainer::TranslateSSNtoDSN(const SequenceNumber32& ssn, SequenceNumber32 &dsn)
-//{
-//  // first find if a mapping exists
-//  MpTcpMapping mapping;
-//  if(!GetMappingForSSN(ssn, mapping) )
-//  {
-//    //!
-//    return false;
-//  }
-//
-//  return mapping.TranslateSSNToDSN(ssn,dsn);
-//}
 
 bool
 MpTcpMappingContainer::DiscardMapping(const MpTcpMapping& mapping)
@@ -430,52 +367,17 @@ MpTcpMappingContainer::DiscardMappingsUpToSN(const SequenceNumber64& dsn,const S
   for(MappingList::iterator it = l.begin(); it != l.end(); it++)
   {
     // check that meta socket
-//    if( it->TailDSN() < dsn && it->TailSSN() < m_rxBuffer->NextRxSequence() )
     if( it->TailDSN() < dsn && it->TailSSN() < ssn)
     {
-      //it =
-//      NS_ASSERT( );
-      // TODO check mapping transfer was completed on this subflow
-//      if( m_txBuffer.HeadSequence() <  )
-//      {
-//
-//      }
       erasedMappingCount++;
       l.erase(it);
 
-      // TODO that should work
-//      l.erase(m_mappings.begin(), it);
-//      break;
     }
   }
 
   return erasedMappingCount;
 }
 
-#if 0
-void
-MpTcpMappingContainer::DiscardMappingsUpToDSN(const SequenceNumber32& dsn)
-{
-  NS_LOG_INFO("Discarding mappings up to " << dsn);
-  MappingList& l = m_mappings;
-  for( MappingList::iterator it = l.begin(); it != l.end(); it++ )
-  {
-    //HeadDSN
-    if( it->TailDSN() < dsn )
-    {
-      //it =
-//      NS_ASSERT( );
-      // TODO check mapping transfer was completed on this subflow
-//      if( m_txBuffer.HeadSequence() <  )
-//      {
-//
-//      }
-      l.erase(it);
-    }
-  }
-}
-
-#endif
 
 bool
 MpTcpMappingContainer::GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& mapping)

@@ -331,13 +331,30 @@ MpTcpSubflow::CloseAndNotify(void)
 
 
 /**
-Maybe we could allow this providing a mapping already exists ?
+Mapping should already exist when sending the packet
 **/
 int
 MpTcpSubflow::Send(Ptr<Packet> p, uint32_t flags)
 {
-  NS_FATAL_ERROR("Use SendMapping instead");
-  return 0;
+  // TODO use TcpSocketBase
+//  NS_FATAL_ERROR("Use SendMapping instead");
+  NS_LOG_FUNCTION(this);
+
+  // TO
+  int ret = TcpSocketBase::Send(p, flags);
+
+
+//  if(ret > 0)
+//  {
+//      // Check that the packet is covered by mapping
+//      // compute ssnHead and tail
+//      SequenceNumber32 ssnTail = m_txBuffer->TailSequence();
+//      SequenceNumber32 ssnHead = m_txBuffer->TailSequence() - p->Size();
+//      NS_ASSERT(CheckRangeIsCoveredByMapping(ssnHead, ssnTail));
+//      return ret;
+//  }
+
+  return ret;
 }
 
 //, uint32_t maxSize
@@ -360,6 +377,29 @@ MpTcpSubflow::SendEmptyPacket(TcpHeader& header)
   TcpSocketBase::SendEmptyPacket(header);
 }
 
+bool
+MpTcpSubflow::HasMappingForDSNRange(SequenceNumber64 dsn, uint16_t len)
+{
+    NS_LOG_FUNCTION(dsn << len);
+
+}
+
+
+// Return the dsn range
+uint32_t
+MpTcpSubflow::AddMapping(SequenceNumber32 dsn, uint16_t len)
+{
+    NS_LOG_LOGIC("Register mapping");
+    MpTcpMapping mapping;
+    mapping.SetHeadDSN();
+    mapping.SetMappingSize();
+    mapping.MapToSSN( m_txBuffer->TailSequence() );
+    NS_LOG_DEBUG("Generated mapping=" << mapping );
+
+    bool ok = m_TxMappings.AddMapping( mapping  );
+    NS_ASSERT_MSG( ok, "Can't add mapping: 2 mappings overlap");
+}
+
 /**
 //! GetLength()
 this fct asserts when the mapping length is 0 but in fact it can be possible
@@ -367,6 +407,7 @@ when there is an infinite mapping
 
 Probleme ici c si j'essaye
 **/
+#if 0
 int
 MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
 {
@@ -429,31 +470,8 @@ MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
     }
 
     return 0;
-  // In fact this must be mapped to the last unmapped value
-  // NS_LOG_UNCOND("before mapping to ssn m_nextTxSequence [" << m_nextTxSequence << "]");
-
-// First UnmappedSSN
-//  m_mappings.rbegin()->TailSSN() + 1
-// TODO map just in time ? how does the kernel ?
-
-
-  // TODO je viens de le changer, on doit assigner le SSN ici
-//  NS_ASSERT_MSG(m_TxMappings.AddMappingLooseSSN( mapping  ) >= 0, "2 mappings overlap");
-//  NS_ASSERT_MSG(m_TxMappings.AddMapping( mapping  ) >= 0, "2 mappings overlap");
-//
-//  //}
-//  NS_LOG_DEBUG("mapped updated: " << mapping);
-//
-//  int res = TcpSocketBase::Send(p,0);
-//
-//  NS_ASSERT(ret >= 0);
-
-//  return res;
 }
-
-
-
-
+#endif
 
 //uint32_t
 //MpTcpSubflow::SendDataPacket(TcpHeader& header, const SequenceNumber32& ssn, uint32_t maxSize)
@@ -461,23 +479,56 @@ MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
 //
 //}
 
-
-  /* We don't automatically embed mappings since we want the possibility to create mapping spanning over several segments
-
-
-//   here, it should already have been put in the packet, we just check
-//  that the
-
-*/
-
-// pass as const ref
-void
-MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
+bool
+MpTcpSubflow::AddLooseMapping(SequenceNumber64 dsnHead; uint16_t length)
 {
-  MpTcpMapping mapping;
+    MpTcpMapping mapping;
 
-  SequenceNumber32 ssnHead = header.GetSequenceNumber();
-  SequenceNumber32 ssnTail = ssnHead + SequenceNumber32(p->GetSize());
+    mapping.MapToSSN(FirstUnmappedSSN());
+    mapping.SetMappingSize(length);
+    mapping.SetHeadDSN(dsnHead);
+
+    m_TxMappings.AddMapping(mapping);
+}
+
+SequenceNumber32
+MpTcpSubflow::FirstUnmappedSSN()
+{
+    NS_LOG_FUNCTION(this);
+    SequenceNumber32 ssn;
+    if(!m_TxMappings.FirstUnmappedSSN(ssn))
+    {
+        ssn = m_txBuffer->TailSequence() + 1;
+    }
+    return ssn;
+}
+
+// Fills the vector with all the pieces of data it can accept
+// but not in TxBuffer
+void
+MpTcpSubflow::GetMappedButMissingData(
+//                SequenceNumber64 headDsn,
+//                std::vector< std::pair<SequenceNumber64, uint16_t> >& missing
+                std::vector< MpTcpMapping >& missing
+                )
+{
+    //!
+    NS_LOG_FUNCTION(this);
+    missing.clear();
+
+    m_TxMappings->Select();
+    m_txBuffer->TailSequence();
+}
+
+bool
+MpTcpSubflow::CheckRangeIsCoveredByMapping(SequenceNumber32 ssnHead, SequenceNumber32 ssnTail)
+{
+  NS_LOG_FUNCTION(this << ssnHead << ssnTail);
+  if(IsInfiniteMappingEnabled())
+    {
+        NS_LOG_DEBUG("Infinite mapping");
+        return true;
+    }
 
   /**
   In this loop, we make sure we don't send data for which there is no
@@ -498,38 +549,80 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
     NS_LOG_DEBUG("mapping " << mapping << " covers it");
 
   }
+}
+
+  /* We don't automatically embed mappings since we want the possibility to create mapping spanning over several segments
+//   here, it should already have been put in the packet, we just check
+//  that the
+
+*/
+
+// pass as const ref
+void
+MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
+{
+  MpTcpMapping mapping;
+
+  SequenceNumber32 ssnHead = header.GetSequenceNumber();
+  SequenceNumber32 ssnTail = ssnHead + SequenceNumber32(p->GetSize());
+
+  // TODO here we should decide if we call AppendMapping or not and with which value
+
+
+  //! if we send data...
+  if(p->GetSize() && !IsInfiniteMappingEnabled())
+  {
+    //... we must decide to send a mapping or not
+    // For now we always append the mapping but we could have mappings spanning over several packets.
+    // and thus not add the mapping for several packets
+    /// TODO : just moved from SendDataPacket.
+    ///============================
+      MpTcpMapping mapping;
+      // TODO
+      bool result = m_TxMappings.GetMappingForSSN(ssnHead, mapping);
+      if(!result)
+      {
+        m_TxMappings.Dump();
+        NS_FATAL_ERROR("Could not find mapping associated to ssn");
+      }
+      NS_ASSERT(mapping.TailSSN() >= ssnHead +p->GetSize(), "mapping should cover the whole packet" );
+
+      AppendDSSMapping(mapping);
+    ///============================
+
+  }
+
+
+
   // we append hte ack everytime
 //  AppendDSSAck();
-  TcpSocketBase::SendPacket(header,p);
+  TcpSocketBase::SendPacket(header, p);
 
   m_dssFlags = 0; // reset for next packet
 }
 
 /**
-**/
+ *
+ */
 uint32_t
 MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32_t length)
 {
   NS_LOG_FUNCTION(this << "Sending packet starting at SSN [" << ssnHead.GetValue() << "] with len=" << length);
 
-  #error TODO copy some commands from TcpSocketBase
+//  #error TODO copy some commands from TcpSocketBase
 
-  MpTcpMapping mapping;
 
-  bool result = m_TxMappings.GetMappingForSSN(ssnHead, mapping);
-  if(!result)
-  {
-    m_TxMappings.Dump();
-    NS_FATAL_ERROR("Could not find mapping associated to ssn");
-  }
-
-  // For now we always append the mapping but we could have mappings spanning over several packets.
-  AppendDSSMapping(mapping);
 
   // Here we set the maxsize to the size of the mapping
   return TcpSocketBase::SendDataPacket(header, ssnHead, mapping.GetLength());
 }
 
+
+bool
+MpTcpSubflow::IsInfiniteMappingEnabled() const
+{
+    return GetMeta()->IsInfiniteMappingEnabled();
+}
 
 /*
 behavior should be the same as in TcpSocketBase
@@ -830,7 +923,6 @@ MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
     if(m_dssFlags)
     {
         AddMpTcpOptionDSS(header);
-
     }
 
 }
@@ -1660,47 +1752,10 @@ MpTcpSubflow::AdvertiseAddress(Ipv4Address addr, uint16_t port)
   NS_LOG_FUNCTION("Started advertising address");
 //  NS_ASSERT( );
 #if 0
-  // TODO check subflow is established !!
-  uint8_t addrId = m_metaSocket->AddLocalAddr(addr);
-
-
-  // Change the MPTCP send state to MP_ADDADDR
-//      MpTcpAddressInfo * addrInfo;
-  Ptr<Packet> pkt = Create<Packet>();
-
-  TcpHeader header;
-  GenerateEmptyPacketHeader(header);
-//  header.SetFlags(TcpHeader::ACK);
-//  //SequenceNumber32(m_txNextSequence)
-//  header.SetSequenceNumber( m_nextTxSequence);
-//  header.SetAckNumber( m_rxBuffer->NextRxSequence() );
-//  header.SetSourcePort( m_endPoint->GetLocalPort() ); // m_endPoint->GetLocalPort()
-//  header.SetDestinationPort( m_endPoint->GetPeerPort() );
-//  header.SetWindowSize(AdvertisedWindowSize());
-//  uint8_t hlen = 0;
-//  uint8_t olen = 0;
-
-
 //      IPv4Address;;ConvertFrom ( addr );
   Ptr<TcpOptionMpTcpAddAddress> addAddrOption = CreateObject<TcpOptionMpTcpAddAddress>();
   addAddrOption->SetAddress( InetSocketAddress( m_endPoint->GetLocalAddress(),0), addrId );
-//  addAddrOption->SetAddress( m_endPoint->GetLocalAddress() );
 
-  header.AppendOption( addAddrOption );
-//  header.AddOptADDR(OPT_ADDR, addrId, Ipv4Address::ConvertFrom ( addr ) );
-//  olen += 6;
-
-//  uint8_t plen = (4 - (olen % 4)) % 4;
-
-//  olen = (olen + plen) / 4;
-//  hlen = 5 + olen;
-//  header.SetLength(hlen);
-//  header.SetOptionsLength(olen);
-//  header.SetPaddingLength(plen);
-
-
-  m_tcp->SendPacket(pkt, header, m_endPoint->GetLocalAddress(), m_endPoint->GetPeerAddress());
-  // we 've got to rely on
 
 //      this->SendPacket(pkt, header, m_localAddress, m_remoteAddress, FindOutputNetDevice(m_localAddress) );
   NS_LOG_INFO("Advertise  Addresses-> "<< header);
@@ -1711,58 +1766,8 @@ MpTcpSubflow::AdvertiseAddress(Ipv4Address addr, uint16_t port)
 bool
 MpTcpSubflow::StopAdvertisingAddress(Ipv4Address address)
 {
-  // TODO factor some code with AdvertiseAddress ?
-  // TODO check subflow is established !!
-  #if 0
-  uint8_t addrId = 0;
-
-//  addrId  = m_metaSocket->RemLocalAddr(addr);
-//FindLocalAddrId
-  if( !m_metaSocket->RemLocalAddr(address,addrId) )
-  {
-    //
-    return false;
-  }
-
-  // Change the MPTCP send state to MP_ADDADDR
-//      MpTcpAddressInfo * addrInfo;
-  Ptr<Packet> pkt = Create<Packet>();
-
-  TcpHeader header;
-  GenerateEmptyPacketHeader(header,TcpHeader::ACK);
-//  header.SetFlags(TcpHeader::ACK);
-//  header.SetSequenceNumber( m_nextTxSequence );    // SequenceNumber32(TxSeqNumber)
-//  header.SetAckNumber( m_rxBuffer->NextRxSequence() );
-//  header.SetSourcePort( m_endPoint->GetLocalPort() ); // m_endPoint->GetLocalPort()
-//  header.SetDestinationPort ( m_endPoint->GetPeerPort() );
-//  header.SetWindowSize(AdvertisedWindowSize());
-
-
-//      IPv4Address;;ConvertFrom ( addr );
-  Ptr<TcpOptionMpTcpRemoveAddress> remOpt = CreateObject<TcpOptionMpTcpRemoveAddress>();
-  remOpt->AddAddressId( addrId );
-  header.AppendOption( remOpt );
-
-
-
-  m_tcp->SendPacket(pkt, header, m_endPoint->GetLocalAddress(), m_endPoint->GetPeerAddress());
-  // we 've got to rely on
-
-//      this->SendPacket(pkt, header, m_localAddress, m_remoteAddress, FindOutputNetDevice(m_localAddress) );
-  NS_LOG_INFO("Advertise  Addresses-> "<< header);
-  #endif
   return true;
 }
-
-
-
-
-//void
-//MpTcpSubflow::StartTracing( std::string traced)
-//{
-//  //NS_LOG_UNCOND("("<< m_routeId << ") MpTcpSubflow -> starting tracing of: "<< traced);
-//  TraceConnectWithoutContext(traced, MakeCallback(&MpTcpSubflow::CwndTracer, this)); //"CongestionWindow"
-//}
 
 
 void
@@ -1771,8 +1776,6 @@ MpTcpSubflow::ReTxTimeout()
   NS_LOG_LOGIC("MpTcpSubflow ReTxTimeout expired !");
   TcpSocketBase::ReTxTimeout();
 }
-
-
 
 /*
    The sender MUST keep data in its send buffer as long as the data has
@@ -2076,6 +2079,8 @@ MpTcpSubflow::Recv(void)
 //
 //  return mapping.TranslateSSNToDSN(ssn,dsn);
 //}
+
+
 
 /**
 this is private
@@ -2752,9 +2757,11 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
   if( (dss->GetFlags() & TcpOptionMpTcpDSS::DSNMappingPresent) && !dss->DataFinMappingOnly() )
   {
       MpTcpMapping m;
+      // TODO Get mapping n'est utilisé qu'une fois, copier le code ici
       m = GetMapping(dss);
-//      dss->GetMapping()
-      AddPeerMapping(m);
+//      AddPeerMapping(m);
+      // Add peer mapping
+      NS_ASSERT(m_RxMappings.AddMapping( mapping ));
   }
 
 //  #if 0
@@ -2803,12 +2810,12 @@ MpTcpSubflow::ReceivedAck(Ptr<Packet> p, const TcpHeader& header)
 }
 
 // TODO remove
-bool
-MpTcpSubflow::AddPeerMapping(const MpTcpMapping& mapping)
-{
-  NS_LOG_FUNCTION(this << mapping);
-  NS_ASSERT(m_RxMappings.AddMapping( mapping ));
-  return true;
-}
+//bool
+//MpTcpSubflow::AddPeerMapping(const MpTcpMapping& mapping)
+//{
+//  NS_LOG_FUNCTION(this << mapping);
+//
+//  return true;
+//}
 
 } // end of ns3

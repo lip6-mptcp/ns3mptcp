@@ -3,9 +3,9 @@
 #define MPTCP_SCHEDULER_ROUND_ROBIN_H
 
 
-//#include "ns3/mp-tcp-scheduler.h"
+#include "ns3/mptcp-scheduler.h"
 //#include "ns3/mp-tcp-socket-base.h"
-#include "ns3/mptcp-mapping.h"
+//#include "ns3/mptcp-mapping.h"
 #include "ns3/object.h"
 #include "ns3/ptr.h"
 #include "ns3/mptcp-scheduler-round-robin.h"
@@ -32,8 +32,8 @@ typedef std::vector< std::pair<uint8_t, MpTcpMapping > > MappingVector;
 
 
 class MpTcpSchedulerRoundRobin
-: public Object
-//: public MpTcpScheduler
+//: public Object
+: public MpTcpScheduler
 {
 
 public:
@@ -65,9 +65,9 @@ public:
    *
    * TODO should take into account backup priorities of subflows
   */
-  virtual int
-  GenerateMappings(MappingVector& );
-
+//  virtual int GenerateMappings(MappingVector& );
+//  virtual int GenerateMappings(MappingVector& );
+  virtual bool GenerateMapping(int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length) = 0;
   /**
   */
   // TODO

@@ -122,9 +122,6 @@ MpTcpSocketBase::GetTypeId(void)
 //          ObjectVectorValue(),
 //          MakeObjectVectorAccessor(&MpTcpSocketBase::m_subflows),
 //          MakeObjectVectorChecker<MpTcpSocketBase>())
-//        .AddTraceSource("CongestionWindow",
-//          "Congestion window at mptcp level",
-//          MakeTraceSourceAccessor(&MpTcpSocketBase::m_cWnd)
 //        )
 
 
@@ -394,6 +391,7 @@ MpTcpSocketBase::CompleteFork(
 )
 {
   NS_LOG_FUNCTION(this);
+  NS_FATAL_ERROR("Disabled");
   #if 0
   // Get port and address from peer (connecting host)
 
@@ -1304,7 +1302,8 @@ MpTcpSocketBase::PeerClose( SequenceNumber32 dsn, Ptr<MpTcpSubflow> sf)
 
 //  SequenceNumber32 dsn = SequenceNumber32 (dss->GetDataFinDSN() );
   // TODO the range check should be generalized somewhere else
-  if( dsn < m_rxBuffer->NextRxSequence() || m_rxBuffer->MaxRxSequence() < dsn) {
+  if( dsn < m_rxBuffer->NextRxSequence() || m_rxBuffer->MaxRxSequence() < dsn)
+  {
 
     NS_LOG_INFO("dsn " << dsn << " out of expected range [ " << m_rxBuffer->NextRxSequence()  << " - " << m_rxBuffer->MaxRxSequence() << " ]" );
     return ;
@@ -1412,6 +1411,7 @@ MpTcpSocketBase::SyncTxBuffers()
   ComputeTotalCWND();
 
 
+  // TODO remove it maybe (check) ?
   // TODO I should go through all
   // TODO that should be triggered !!! it should ask the meta for data rather !
   if (GetTxAvailable() > 0)
@@ -1533,10 +1533,7 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
   NS_LOG_FUNCTION(this << " new dataack=[" <<  dsn << "]");
 
   TcpSocketBase::NewAck(dsn);
-  // TODO
-//  switch(m_state) {
-//
-//  };
+
   #if 0
 
   // update tx buffer
@@ -1609,6 +1606,12 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
   #endif
 }
 
+bool
+MpTcpSocketBase::IsInfiniteMappingEnabled() const
+{
+    return false;
+}
+
 // Send 1-byte data to probe for the window size at the receiver when
 // the local knowledge tells that the receiver has zero window size
 // C.f.: RFC793 p.42, RFC1112 sec.4.2.2.17
@@ -1622,7 +1625,154 @@ MpTcpSocketBase::PersistTimeout()
 /**
  * Sending data via subflows with available window size.
  * Todo somehow rename to dispatch
+ * we should not care about IsInfiniteMapping()
  */
+
+bool
+MpTcpSocketBase::SendPendingData(bool withAck)
+{
+  NS_LOG_FUNCTION(this << "Sending data" << TcpStateName[m_state]);
+
+//  MappingList mappings;
+  if (m_txBuffer->Size () == 0)
+    {
+      NS_LOG_DEBUG("Nothing to send");
+      return false;                           // Nothing to send
+    }
+  //start/size
+  int nbMappingsDispatched = 0; // mimic nbPackets in TcpSocketBase::SendPendingData
+
+  MappingVector mappings;
+  SequenceNumber32 dsnHead;
+  SequenceNumber32 ssn;
+  int subflowArrayId;
+  uint16_t length;
+
+  //mappings.reserve( GetNActiveSubflows() );
+  // the MapToSsn will be done,
+  // dsn, size, and path instead of a unmapped mapping
+  // GenerateMapping( sf, );
+
+  while(m_scheduler->GenerateMapping(subflowArrayId, dsnHead, length))
+  {
+      bool ok = GetSubflow(subflowArrayId)->AddLooseMapping(dsnHead, length);
+      NS_ASSERT(ok);
+  }
+
+
+
+
+  // Then we loop through subflows to see if the dsn was mapped to the subflow
+  // this allows to send the same data over different subflows
+    for(int i = 0; i < (int)GetNActiveSubflows() ; i++ )
+    {
+        Ptr<MpTcpSubflow> sf = GetSubflow(i);
+
+        std::vector<> temp;
+        sf->GetMappedButMissingData(temp);
+
+        // go through the unsent meta Tx buffer
+        // and check if any part of it is mapped in a subflow
+        for(it = temp.begin(); it != temp.end(); ++it)
+//        while(sf->CanMapDSN2SSN(dsnHead, len))
+        {
+            // Extract the mapped part
+            // temp
+            Ptr<Packet> p = m_txBuffer->CopyFromSequence(mapping.GetLength(), SEQ64TO32(mapping.HeadDSN()));
+            sf->Send(p, 0);
+
+            //TODO update m_nextTx / txmark
+        }
+    }
+
+
+  // Just dump the generated mappings
+//  NS_LOG_UNCOND("=================\nGenerated " << mappings.size() << " mappings for node=" << (int)GetNode()->GetId());
+//  for(MappingVector::iterator it(mappings.begin()); it  != mappings.end(); it++ )
+//  {
+//    MpTcpMapping& mapping = it->second;
+//    NS_LOG_UNCOND("Send " << it->second << " on sf id=" << (int)it->first);
+//  }
+//  NS_LOG_UNCOND("=================");
+//
+////  NS_ASSERT_MSG( mappings.size() == GetNActiveSubflows(), "The number of mappings should be equal to the nb of already established subflows" );
+//
+//  NS_LOG_DEBUG("generated [" << mappings.size() << "] mappings");
+//  // TODO dump mappings ?
+//  // Loop through mappings and send Data
+////  for(int i = 0; i < (int)GetNActiveSubflows() ; i++ )
+//  for(MappingVector::iterator it(mappings.begin()); it  != mappings.end(); it++ )
+//  {
+//
+//
+//    Ptr<MpTcpSubflow> sf = GetSubflow(it->first);
+//    MpTcpMapping& mapping = it->second;
+////    Retrieve data  Rename SendMappedData
+//    //SequenceNumber32 dataSeq = mappings[i].first;
+//    //uint16_t mappingSize = mappings[i].second;
+//
+//    NS_LOG_DEBUG("Sending mapping "<< mapping << " on subflow #" << (int)it->first);
+//
+//    //sf->AddMapping();
+//    Ptr<Packet> p = m_txBuffer->CopyFromSequence(mapping.GetLength(), SEQ64TO32(mapping.HeadDSN()));
+//    NS_ASSERT(p->GetSize() == mapping.GetLength());
+//
+//    /// Recently replaced by the following
+////    int ret = sf->SendMapping(p, mapping);
+//    /// here the mapping should be already mapped set
+//    int ret = sf->AddMapping(mapping);
+//
+//
+//    if( ret < 0)
+//    {
+//      // TODO dump the mappings ?
+//      NS_FATAL_ERROR("Could not send mapping. The generated mappings");
+//    }
+//
+//
+//
+//
+//
+//    // if successfully sent,
+//    nbMappingsDispatched++;
+//
+////    bool sentPacket =
+//    sf->SendPendingData();
+////    NS_LOG_DEBUG("Packet sent ? boolean=s" << sentPacket );
+//
+//  // TODO here update the m_nextTxSequence only if it is in order
+//      // Maybe the max is unneeded; I put it here
+//    if( SEQ64TO32(mapping.HeadDSN()) <= m_nextTxSequence && SEQ64TO32(mapping.TailDSN()) >= m_nextTxSequence)
+//    {
+//      m_nextTxSequence = SEQ64TO32(mapping.TailDSN()) + 1;
+//    }
+//
+//    m_highTxMark = std::max( m_highTxMark.Get(), SEQ64TO32(mapping.TailDSN()));
+////      m_nextTxSequence = std::max(m_nextTxSequence.Get(), mapping.TailDSN() + 1);
+//    NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
+//  }
+
+
+
+  // TODO here send for all
+
+
+
+  uint32_t remainingData = m_txBuffer->SizeFromSequence(m_nextTxSequence );
+
+  if (m_closeOnEmpty && (remainingData == 0))
+    {
+      TcpHeader header;
+
+      ClosingOnEmpty(header);
+
+    }
+
+//  NS_LOG_LOGIC ("Dispatched " << nPacketsSent << " mappings");
+  return nbMappingsDispatched > 0;
+}
+
+#if 0
 bool
 MpTcpSocketBase::SendPendingData(bool withAck)
 {
@@ -1639,6 +1789,9 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 
   MappingVector mappings;
   //mappings.reserve( GetNActiveSubflows() );
+  // the MapToSsn will be done,
+  // dsn, size, and path instead of a unmapped mapping
+  // GenerateMapping( sf, );
   m_scheduler->GenerateMappings(mappings);
 
 
@@ -1673,7 +1826,10 @@ MpTcpSocketBase::SendPendingData(bool withAck)
     Ptr<Packet> p = m_txBuffer->CopyFromSequence(mapping.GetLength(), SEQ64TO32(mapping.HeadDSN()));
     NS_ASSERT(p->GetSize() == mapping.GetLength());
 
-    int ret = sf->SendMapping(p, mapping);
+    /// Recently replaced by the following
+//    int ret = sf->SendMapping(p, mapping);
+    /// here the mapping should be already mapped set
+    int ret = sf->AddMapping(mapping);
 
 
     if( ret < 0)
@@ -1681,6 +1837,10 @@ MpTcpSocketBase::SendPendingData(bool withAck)
       // TODO dump the mappings ?
       NS_FATAL_ERROR("Could not send mapping. The generated mappings");
     }
+
+
+
+
 
     // if successfully sent,
     nbMappingsDispatched++;
@@ -1691,7 +1851,8 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 
   // TODO here update the m_nextTxSequence only if it is in order
       // Maybe the max is unneeded; I put it here
-    if( SEQ64TO32(mapping.HeadDSN()) <= m_nextTxSequence && SEQ64TO32(mapping.TailDSN()) >= m_nextTxSequence) {
+    if( SEQ64TO32(mapping.HeadDSN()) <= m_nextTxSequence && SEQ64TO32(mapping.TailDSN()) >= m_nextTxSequence)
+    {
       m_nextTxSequence = SEQ64TO32(mapping.TailDSN()) + 1;
     }
 
@@ -1700,7 +1861,11 @@ MpTcpSocketBase::SendPendingData(bool withAck)
     NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
   }
 
-//  m_closeOnEmpty
+
+
+  // TODO here send for all
+
+
 
   uint32_t remainingData = m_txBuffer->SizeFromSequence(m_nextTxSequence );
 
@@ -1715,12 +1880,14 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 //  NS_LOG_LOGIC ("Dispatched " << nPacketsSent << " mappings");
   return nbMappingsDispatched > 0;
 }
+#endif
 
 int
 MpTcpSocketBase::Listen(void)
 {
   NS_LOG_FUNCTION (this);
-  return TcpSocketBase::Listen();
+  NS_FATAL_ERROR("Disabled");
+  return 0;
 
 }
 
@@ -1916,18 +2083,6 @@ MpTcpSocketBase::ReTxTimeout()
   NS_LOG_FUNCTION(this);
   return TcpSocketBase::ReTxTimeout();
 }
-//void
-//MpTcpSocketBase::SetReTxTimeout(uint8_t sFlowIdx)
-//{
-//  Ptr<MpTcpSubflow> sFlow = m_subflows[sFlowIdx];
-//  if (sFlow->m_retxEvent.IsExpired())
-//    {
-//      Time rto = sFlow->rtt->RetransmitTimeout();
-//      sFlow->m_retxEvent = Simulator::Schedule(rto, &MpTcpSocketBase::ReTxTimeout, this, sFlowIdx);
-//    }
-//}
-
-
 
 
 // I moved it to mptcp-crypto.h

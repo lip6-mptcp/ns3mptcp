@@ -420,18 +420,47 @@ public:
    */
   Ptr<MpTcpSocketBase> GetMeta() const;
 
+  /**
+   * Not implemented
+   * \return false
+   */
+  bool IsInfiniteMappingEnabled() const;
+
 protected:
 
+  /////////////////////////////////////////////
+  //// DSS Mapping handling
+  /////////////////////////////////////////////
+
+  /**
+   * Mapping is said "loose" because it is not tied to an SSN yet, this is the job
+   * of this function: it will look for the FirstUnmappedSSN() and map the DSN to it.
+   *
+   * Thus you should call it with increased dsn.
+   *
+   * \param
+   */
+  bool AddLooseMapping(SequenceNumber64 dsnHead; uint16_t length);
+
+  /**
+   * If no mappings set yet, then it returns the tail ssn of the Tx buffer.
+   * Otherwise it returns the last registered mapping TailSequence
+   */
+  SequenceNumber32 FirstUnmappedSSN();
 
   /**
    * \brief Creates a DSS option if does not exist and configures it to have a dataack
    * TODO what happens if existing datack already set ?
    */
   virtual void AppendDSSAck();
+
+  /**
+   * Corresponds to mptcp_write_dss_mapping and mptcp_write_dss_ack
+   */
   virtual void AddMpTcpOptionDSS(TcpHeader& header);
 
   /**
-   *
+   * rename to addDSSFin
    */
   virtual void AppendDSSFin();
   virtual void AppendDSSMapping(const MpTcpMapping& mapping);
@@ -473,6 +502,10 @@ protected:
   virtual void
   SendEmptyPacket(TcpHeader& header);
 
+  /**
+   * Overrides the TcpSocketBase that just handles the MP_CAPABLE option.
+   *
+   */
   virtual void AddMpTcpOptions (TcpHeader& header);
 //  virtual Ptr<TcpSocketBase>
 //  Fork(void); // Call CopyObject<> to clone me
@@ -487,37 +520,9 @@ protected:
   virtual void
   CancelAllTimers(void); // Cancel all timer when endpoint is deleted
 
-//  virtual void AddDSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack, Ptr<Packet> pkt);
-//  virtual void StartTracing(string traced);
-//  virtual void CwndTracer(uint32_t oldval, uint32_t newval);
-
-//  virtual void SetFinSequence(const SequenceNumber32& s);
-//  virtual bool Finished();
-//  DSNMapping *GetunAckPkt();
-
-//  void InitializeCwnd (void);
 
   uint16_t m_routeId;   //!< Subflow's ID (TODO rename into subflowId ). Position of this subflow in MetaSock's subflows std::vector
 
-
-//  EventId m_retxEvent;          // Retransmission timer
-//  EventId m_lastAckEvent;     // Timer for last ACK
-//  EventId m_timewaitEvent;    // Timer for closing connection at sender side
-
-
-  // TODO replace by parent's m_ m_cWnd
-//  TracedValue<uint32_t> m_cWnd; // Congestion window (in bytes)
-
-
-//  TracedValue<uint32_t> m_ssThresh;          //!< Slow start threshold
-//  uint32_t maxSeqNb;          // Highest sequence number of a sent byte. Equal to (TxSeqNumber - 1) until a retransmission occurs
-//  uint32_t highestAck;        // Highest received ACK for the subflow level sequence number
-//  uint32_t m_initialCWnd;     //!< Initial cWnd value
-//  SequenceNumber32 m_recover; //!< Previous highest Tx seqNb for fast recovery
-//  uint32_t m_retxThresh;      //!< Fast Retransmit threshold
-//  bool m_inFastRec;           // Currently in fast recovery
-//  bool m_limitedTx;           // perform limited transmit
-//  uint32_t m_dupAckCount;     // DupACK counter TO REMOVE exist in parent
 
   // Use Ptr here so that we don't have to unallocate memory manually ?
 //  typedef std::list<MpTcpMapping> MappingList
@@ -529,17 +534,15 @@ protected:
 
 protected:
   Ptr<MpTcpSocketBase> m_metaSocket;    //!< Meta
-
+  virtual void SendPacket(TcpHeader header, Ptr<Packet> p);
 
 //private:
 
 private:
   // Delayed values to
-  uint8_t m_dssFlags;   //!< used to know if AddMpTcpOptions should send a flag
-  MpTcpMapping m_dssMapping;
+  uint8_t m_dssFlags;           //!< used to know if AddMpTcpOptions should send a flag
+  MpTcpMapping m_dssMapping;    //!< Pending ds configuration to be sent in next packet
 
-  //!
-  virtual void SendPacket(TcpHeader header, Ptr<Packet> p);
 
   bool m_backupSubflow; //!< Priority
   bool m_masterSocket;  //!< True if this is the first subflow established (with MP_CAPABLE)

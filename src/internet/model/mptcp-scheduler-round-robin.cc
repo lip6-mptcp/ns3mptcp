@@ -33,7 +33,7 @@ TypeId
 MpTcpSchedulerRoundRobin::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::MpTcpSchedulerRoundRobin")
-    .SetParent<Object> ()
+    .SetParent<MpTcpScheduler> ()
     //
     .AddConstructor<MpTcpSchedulerRoundRobin> ()
   ;
@@ -44,6 +44,7 @@ MpTcpSchedulerRoundRobin::GetTypeId (void)
 
 //Ptr<MpTcpSocketBase> metaSock
 MpTcpSchedulerRoundRobin::MpTcpSchedulerRoundRobin() :
+  MpTcpScheduler(),
   m_lastUsedFlowId(0),
   m_metaSock(0)
 {
@@ -75,6 +76,8 @@ MpTcpSchedulerRoundRobin::GetSubflowToUseForEmptyPacket()
 //  return m_metaSock->GetSubFlow(m_lastUsedFlowId);
 }
 
+
+// TODO this will be solved
 // We assume scheduler can't send data on subflows, so it can just generate mappings
 //std::vector< std::pair<uint8_t, MappingList>
 // std::pair< start,size , subflow>

@@ -54,14 +54,14 @@ class OutputStreamWrapper;
 TODO move all the supplementary stuff to MpTcpSocketState
 
 */
-class MpTcpSocketState : TcpSocketState
-{
-
-public:
-    MpTcpSocketState();
-    ~MpTcpSocketState();
-
-};
+//class MpTcpSocketState : TcpSocketState
+//{
+//
+//public:
+//    MpTcpSocketState();
+//    ~MpTcpSocketState();
+//
+//};
 
 /**
  * \class MpTcpSocketBase
@@ -99,14 +99,7 @@ TODO:
 -rename in MetaSocket ?
 -Ideally it could & should inherit from TcpSocket rather TcpSocketBase
 -should use 64 bits based buffer / sq nb
--the children should parse MPTCP option and relay them to the father
-//  ProcessJoin(Ptr<TcpOptionMpTcpJoin>, Ptr<MpTcpSubflow> sf);
-//  ProcessCapable(Ptr<TcpOptionMpTcpJoin>, Ptr<MpTcpSubflow> sf);
-//  ProcessAddAddr(Ptr<TcpOptionMpTcpJoin>, Ptr<MpTcpSubflow> sf);
-//  ProcessRemAddr(Ptr<TcpOptionMpTcpJoin>, Ptr<MpTcpSubflow> sf);
-//  ProcessDSS(Ptr<TcpOptionMpTcpJoin>, Ptr<MpTcpSubflow> sf);
 
-// TODO inherit MpTcpSocket or TcpSocket but  would need to recreate 64bits buffer
 **/
 class MpTcpSocketBase :
     public TcpSocketBase
@@ -119,14 +112,6 @@ public:
   **/
   typedef std::vector< Ptr<MpTcpSubflow> > SubflowList;
 
-
-  // TODO move it to protected. I've put it here for the sake of debugging/tracing
-  // This was moved to TcpSocketState
-//  TracedValue<uint32_t>  m_cWnd;         //< Congestion window
-
-
-
-
   static TypeId GetTypeId(void);
 
   virtual TypeId GetInstanceTypeId (void) const;
@@ -134,7 +119,7 @@ public:
   MpTcpSocketBase();
   MpTcpSocketBase(const MpTcpSocketBase&);
   MpTcpSocketBase(const TcpSocketBase&);
-//  MpTcpSocketBase(Ptr<Node> node);
+
   virtual ~MpTcpSocketBase();
 
   /**
@@ -195,6 +180,9 @@ public:
 //  virtual void
 //  OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
 
+  /**
+   * Initiates a new subflow with MP_JOIN
+   */
   virtual int
   ConnectNewSubflow(const Address &local, const Address &remote);
 
@@ -308,6 +296,7 @@ public:
   // TODO to remove there is no equivalent in parent's class
 //  virtual int Connect(Ipv4Address servAddr, uint16_t servPort);
 
+  //! Disabled
   virtual int Listen(void);
 
   /**
@@ -351,16 +340,11 @@ public:
   virtual void
   DoPeerClose(void); // FIN is in sequence, notify app and respond with a FIN
 
-//  virtual void
-//  ClosingOnEmpty(TcpHeader& header);
-
-  virtual int
-  DoClose(void); // Close a socket by sending RST, FIN, or FIN+ACK, depend on the current state
+  virtual int DoClose(void);
 //  virtual void
 //  CloseAndNotify(void); // To CLOSED state, notify upper layer, and deallocate end point
 
-//  virtual int Close(uint8_t sFlowIdx);        // Closing subflow...
-  virtual uint32_t GetTxAvailable() const;                  // Return available space in sending buffer to application
+  virtual uint32_t GetTxAvailable() const;
   virtual uint32_t GetRxAvailable(void) const;
 
   // TODO maybe this could be removed ?
@@ -400,7 +384,7 @@ public:
   Ptr<MpTcpSubflow> CreateSubflow(bool masterSocket);
 
   /**
-   *
+   * Initiate
    */
   virtual void AddSubflow(Ptr<MpTcpSubflow> sf);
 
@@ -441,9 +425,9 @@ public: // public variables
   typedef enum {
     Established = 0, /* contains ESTABLISHED/CLOSE_WAIT */
     // TODO rename to restart
-    Others = 1,  /* Composed of SYN_RCVD, SYN_SENT*/
-    Closing, /* CLOSE_WAIT, FIN_WAIT */
-    Maximum  /* keep it last, used to decalre array */
+    Others = 1,     /**< Composed of SYN_RCVD, SYN_SENT*/
+    Closing,        /**< CLOSE_WAIT, FIN_WAIT */
+    Maximum         /**< keep it last, used to decalre array */
   } mptcp_container_t;
   // TODO move back to protected/private later on
 
@@ -464,21 +448,16 @@ protected: // protected methods
   friend class Tcp;
   friend class MpTcpSubflow;
 
-
-
+  /**
+    *
+    */
   virtual void CloseAllSubflows();
-
-//  virtual int SetLocalToken(uint32_t token) const;
 
   // MPTCP connection and subflow set up
 
   virtual int SetupCallback(void);  // Setup SetRxCallback & SetRxCallback call back for a host
   // Same as parent's
 //  virtual int  SetupEndpoint (void); // Configure local address for given remote address in a host - it query a routing protocol to find a source
-
-
-  // TODO remove should be done by helper instead
-//  bool InitiateSubflows();            // Initiate new subflows
 
   /*
   Remove subflow from containers
@@ -561,28 +540,24 @@ protected: // protected methods
   virtual void
   ConnectionSucceeded(void); // Schedule-friendly wrapper for Socket::NotifyConnectionSucceeded()
 
-//  virtual void ProcessOptionMpTcp(const Ptr<const TcpOption> );
-
-//  virtual int ProcessTcpOptionsClosing(const TcpHeader& header);
-//  virtual int ProcessTcpOptionsLastAck(const TcpHeader& header);
 
   //! disabled
-  virtual int
-  DoConnect(void);
+  virtual int DoConnect(void);
 
   // Transfer operations
 //  void ForwardUp(Ptr<Packet> p, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> interface);
 
   /** Inherit from Socket class: Return data to upper-layer application. Parameter flags
    is not used. Data is returned as a packet of size no larger than maxSize */
-  Ptr<Packet>
-  Recv(uint32_t maxSize, uint32_t flags);
-  int
-  Send(Ptr<Packet> p, uint32_t flags);
+  virtual Ptr<Packet> Recv(uint32_t maxSize, uint32_t flags);
+  virtual int Send(Ptr<Packet> p, uint32_t flags);
 
   /**
    * Sending data via subflows with available window size. It sends data only to ESTABLISHED subflows.
    * It sends data by calling SendDataPacket() function.
+   * This one is really different from parent class
+
+   *
    * Called by functions: ReceveidAck, NewAck
    * send as  much as possible
    * \return true if it send mappings
@@ -590,33 +565,19 @@ protected: // protected methods
   virtual bool SendPendingData(bool withAck = false);
 
 
-
-  // TODO remove, move to subflow
-//  void SendRST(uint8_t sFlowIdx);
-
   /** disabled
   */
   virtual uint32_t
   SendDataPacket(SequenceNumber32 seq, uint32_t maxSize, bool withAck);
 
-  // Connection closing operations
-//  virtual int DoClose(uint8_t sFlowIdx);
-
-
-
+  //! Disabled
   virtual void ProcessListen  (Ptr<Packet>, const TcpHeader&, const Address&, const Address&);
 
   // Manage data Tx/Rx
 //  virtual Ptr<TcpSocketBase> Fork(void);
 
 
-  virtual void
-  ReTxTimeout();
-
-  /**
-  */
-//  virtual Ptr<MpTcpSocketBase> ForkAsMeta(void) = 0;
-
+  virtual void ReTxTimeout();
 
 
   virtual void Retransmit();
@@ -644,36 +605,14 @@ protected: // protected methods
   /** Does nothing */
 //  virtual void EstimateRtt (const TcpHeader&);
 
-//  virtual bool ReadOptions (uint8_t sFlowIdx, Ptr<Packet> pkt, const TcpHeader&); // Read option from incoming packets
-//  virtual bool ReadOptions (Ptr<Packet> pkt, const TcpHeader&); // Read option from incoming packets (Listening Socket only)
 
-   //! Does not exist anymore
-  //! Disabled
-//  void DupAck(const TcpHeader& t, uint32_t count);
-
-//  virtual void
-//  DupAck( SequenceNumber32 ack, Ptr<MpTcpSubflow> , uint32_t count);
-//  void DupAck(uint8_t sFlowIdx, DSNMapping * ptrDSN);       // Congestion control algorithms -> loss recovery
-//  void NewACK(uint8_t sFlowIdx, const TcpHeader&, TcpOptions* opt);
-//  void NewAckNewReno(uint8_t sFlowIdx, const TcpHeader&, TcpOptions* opt);
-//  void DoRetransmit (uint8_t sFlowIdx);
-//  void DoRetransmit (uint8_t sFlowIdx, DSNMapping* ptrDSN);
-//  void SetReTxTimeout(uint8_t sFlowIdx);
-
-  /**
-  * @return
-  */
-
-  /**
-  */
-// virtual  GenerateMappings = 0
-
-  /**
-  * @brief
-  * @return
-  */
 //  Time ComputeReTxTimeoutForSubflow( Ptr<MpTcpSubflow> );
 
+  /**
+   * Part of the logic was implemented but this is non-working.
+   * \return Always false
+   */
+  virtual bool IsInfiniteMappingEnabled() const;
   virtual bool DoChecksum() const;
 
   //////////////////////////////////////////////////////////////////
@@ -790,6 +729,7 @@ protected:
 
   /***
   TODO the scheduler is so closely
+  Rename into MpTcpScheduler
   ***/
   Ptr<MpTcpSchedulerRoundRobin> m_scheduler;  //!<
 

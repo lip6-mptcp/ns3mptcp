@@ -807,6 +807,7 @@ TcpSocketBase::Send (Ptr<Packet> p, uint32_t flags)
               m_sendPendingDataEvent = Simulator::Schedule ( TimeStep (1), &TcpSocketBase::SendPendingData, this, m_connected);
             }
         }
+      // This does not match the return type uint32_t != int
       return p->GetSize ();
     }
   else
@@ -2368,7 +2369,6 @@ TcpSocketBase::SendPacket(TcpHeader header, Ptr<Packet> p)
       p->AddPacketTag (ipHopLimitTag);
     }
 
-  // TODO addOptions
   AddOptions (header);
 
   if (m_endPoint != 0)

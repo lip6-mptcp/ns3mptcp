@@ -791,6 +791,9 @@ protected:
    * Test each option, and if it is enabled on our side, add it
    * to the header
    *
+   * In linux, options are first enabled ,
+   * then they are generated in tcp_options_write.
+   *
    * \param tcpHeader TcpHeader to add options to
    */
   virtual void AddOptions (TcpHeader& tcpHeader);
