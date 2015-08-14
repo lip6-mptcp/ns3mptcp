@@ -807,6 +807,7 @@ TcpSocketBase::Send (Ptr<Packet> p, uint32_t flags)
               m_sendPendingDataEvent = Simulator::Schedule ( TimeStep (1), &TcpSocketBase::SendPendingData, this, m_connected);
             }
         }
+      // This does not match the return type uint32_t != int
       return p->GetSize ();
     }
   else
@@ -1253,7 +1254,7 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
   // Different flags are different events
   if (tcpflags == TcpHeader::ACK)
     {
-      ProcessTcpOptionsEstablished(tcpHeader);
+      ProcessTcpOptions(tcpHeader);
       if (tcpHeader.GetAckNumber () < FirstUnackedSeq())
         {
           // Case 1:  If the ACK is a duplicate (SEG.ACK < SND.UNA), it can be ignored.
@@ -1292,7 +1293,7 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
     }
   else if (tcpflags == 0)
     { // No flags means there is only data
-      ProcessTcpOptionsEstablished(tcpHeader);
+      ProcessTcpOptions(tcpHeader);
       ReceivedData (packet, tcpHeader);
       if (m_rxBuffer->Finished ())
         {
@@ -1310,17 +1311,33 @@ TcpSocketBase::ProcessEstablished (Ptr<Packet> packet, const TcpHeader& tcpHeade
     }
 }
 
-/* Process the newly received ACK */
+
+// TODO this function should be removed
 void
-TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
+TcpSocketBase::ReceivedAck (Ptr<Packet> packet,
+                            const TcpHeader& tcpHeader
+                            )
 {
-  NS_LOG_FUNCTION (this << tcpHeader);
+  // If there is any data piggybacked, store it into m_rxBuffer
 
   NS_ASSERT (0 != (tcpHeader.GetFlags () & TcpHeader::ACK));
-  NS_ASSERT (m_tcb->m_segmentSize > 0);
-  SequenceNumber32 ack = tcpHeader.GetAckNumber ();
+  ReceivedAck(tcpHeader.GetAckNumber());
+  if (packet->GetSize () > 0)
+    {
+      ReceivedData (packet, tcpHeader);
+    }
+}
 
-  uint32_t bytesAcked = tcpHeader.GetAckNumber () - FirstUnackedSeq();
+/* Process the newly received ACK */
+void
+TcpSocketBase::ReceivedAck (SequenceNumber32 ack)
+{
+  NS_LOG_FUNCTION (this << ack);
+
+  NS_ASSERT (m_tcb->m_segmentSize > 0);
+//  SequenceNumber32 ack = tcpHeader.GetAckNumber ();
+
+  uint32_t bytesAcked = ack - FirstUnackedSeq();
   uint32_t segsAcked  = bytesAcked / m_tcb->m_segmentSize;
   m_bytesAckedNotProcessed += bytesAcked % m_tcb->m_segmentSize;
 
@@ -1451,12 +1468,6 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       NewAck (ack);
       m_dupAckCount = 0;
     }
-
-  // If there is any data piggybacked, store it into m_rxBuffer
-  if (packet->GetSize () > 0)
-    {
-      ReceivedData (packet, tcpHeader);
-    }
 }
 
 /* Received a packet upon LISTEN state. */
@@ -1484,7 +1495,7 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
     }
 
    Ptr<TcpSocketBase> newSock = Fork();
-    if(ProcessTcpOptionsListen(tcpHeader) == 1)
+    if(ProcessTcpOptions(tcpHeader) == 1)
     {
       NS_LOG_LOGIC("Fork & Upgrade to meta " << this);
       // The pb was that the
@@ -1570,33 +1581,46 @@ TcpSocketBase::UpgradeToMeta()
 }
 
 
+//int
+//TcpSocketBase::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
+//{
+//  NS_LOG_DEBUG(option);
+//  Ptr<const TcpOptionMpTcpCapable> mpc = DynamicCast<const TcpOptionMpTcpCapable>(option);
+//
+//  if(mpc)
+//  {
+//    NS_LOG_UNCOND("found MP_CAPABLE");
+//    return 1;
+//  }
+//  return 0;
+//}
+
+//int
+//TcpSocketBase::ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option)
+//{
+//    NS_LOG_FUNCTION(this << "Does nothing");
+//}
+
+
+
+//int
+//TcpSocketBase::ProcessTcpOptionsLastAck(const TcpHeader& header)
+//{
+//  NS_LOG_FUNCTION (this << header);
+//}
+//
+//int
+//TcpSocketBase::ProcessTcpOptionsClosing(const TcpHeader& header)
+//{
+//  NS_LOG_FUNCTION (this << header);
+//
+//  return 0;
+//}
+//
+
+
 int
-TcpSocketBase::ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option)
-{
-  NS_LOG_DEBUG(option);
-  Ptr<const TcpOptionMpTcpCapable> mpc = DynamicCast<const TcpOptionMpTcpCapable>(option);
-
-  if(mpc)
-  {
-    NS_LOG_UNCOND("found MP_CAPABLE");
-    return 1;
-  }
-  return 0;
-}
-
-int
-TcpSocketBase::ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option)
-{
-    NS_LOG_FUNCTION(this << "Does nothing");
-}
-
-
-
-
-
-
-int
-TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
+TcpSocketBase::ProcessTcpOptions(const TcpHeader& header)
 {
   NS_LOG_FUNCTION (this << header);
 
@@ -1619,8 +1643,9 @@ TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
         case TcpOption::MPTCP:
             //! this will interrupt option processing but this function will be scheduled again
             //! thus some options may be processed twice, it should not trigger errors
-            if(ProcessOptionMpTcpSynSent(option) ) {
-                return 1;
+            if(ProcessOptionMpTcp(option) != 0)
+            {
+                return 1;   //Means
             }
             break;
         case TcpOption::TS:
@@ -1640,9 +1665,9 @@ TcpSocketBase::ProcessTcpOptionsSynSent(const TcpHeader& header)
   }
   return 0;
 }
-
+#if 0
 int
-TcpSocketBase::ProcessTcpOptionsEstablished(const TcpHeader& header)
+TcpSocketBase::ProcessTcpOptions(const TcpHeader& header)
 {
   NS_LOG_FUNCTION (this << header);
 
@@ -1687,7 +1712,7 @@ TcpSocketBase::ProcessTcpOptionsEstablished(const TcpHeader& header)
   }
   return 0;
 }
-
+//#endif
 int
 TcpSocketBase::ProcessTcpOptionsListen(const TcpHeader& header)
 {
@@ -1743,12 +1768,13 @@ TcpSocketBase::ProcessTcpOptionsListen(const TcpHeader& header)
 
   return 0;
 }
+#endif
 
-int
-TcpSocketBase::ProcessTcpOptionsSynRcvd(const TcpHeader& header)
-{
-    return 1;
-}
+//int
+//TcpSocketBase::ProcessTcpOptionsSynRcvd(const TcpHeader& header)
+//{
+//    return 1;
+//}
 
 
 /* Received a packet upon SYN_SENT */
@@ -1786,7 +1812,7 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
     { // Handshake completed
 
       // TODO separate between
-      if(ProcessTcpOptionsSynSent(tcpHeader) == 1)
+      if(ProcessTcpOptions(tcpHeader) == 1)
       {
         // SendRst?
         // TODO save endpoint
@@ -1861,11 +1887,11 @@ TcpSocketBase::ProcessSynSent (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 //      master->ProcessSynRcvd();
 //}
 
-void
-TcpSocketBase::ProcessSynRcvdOptions(const TcpHeader& tcpHeader)
-{
-  NS_LOG_FUNCTION(tcpHeader);
-}
+//void
+//TcpSocketBase::ProcessSynRcvdOptions(const TcpHeader& tcpHeader)
+//{
+//  NS_LOG_FUNCTION(tcpHeader);
+//}
 
 //void
 //TcpSocketBase::ProcessListenOptions(const TcpHeader& tcpHeader)
@@ -1931,7 +1957,7 @@ TcpSocketBase::ProcessSynRcvd (Ptr<Packet> packet, const TcpHeader& tcpHeader,
       // Remove to get the behaviour of old NS-3 code.
       m_delAckCount = m_delAckMaxCount;
 
-      ProcessSynRcvdOptions(tcpHeader);
+      ProcessTcpOptions(tcpHeader);
 //      if(){
 //        return;
 //      }
@@ -2086,6 +2112,7 @@ TcpSocketBase::ProcessClosing (Ptr<Packet> packet, const TcpHeader& tcpHeader)
     {
       if (tcpHeader.GetSequenceNumber () == m_rxBuffer->NextRxSequence ())
         { // This ACK corresponds to the FIN sent
+          ProcessTcpOptions(tcpHeader);
           TimeWait ();
         }
     }
@@ -2094,6 +2121,7 @@ TcpSocketBase::ProcessClosing (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       // anyone. If anything other than ACK is received, respond with a reset.
       if (tcpflags == TcpHeader::FIN || tcpflags == (TcpHeader::FIN | TcpHeader::ACK))
         { // FIN from the peer as well. We can close immediately.
+          ProcessTcpOptions(tcpHeader);
           SendEmptyPacket (TcpHeader::ACK);
         }
       else if (tcpflags != TcpHeader::RST)
@@ -2116,21 +2144,25 @@ TcpSocketBase::ProcessLastAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 
   if (tcpflags == 0)
     {
+      ProcessTcpOptions(tcpHeader);
       ReceivedData (packet, tcpHeader);
     }
   else if (tcpflags == TcpHeader::ACK)
     {
       if (tcpHeader.GetSequenceNumber () == m_rxBuffer->NextRxSequence ())
         { // This ACK corresponds to the FIN sent. This socket closed peacefully.
+          ProcessTcpOptions(tcpHeader);
           CloseAndNotify ();
         }
     }
   else if (tcpflags == TcpHeader::FIN)
     { // Received FIN again, the peer probably lost the FIN+ACK
+      ProcessTcpOptions(tcpHeader);
       SendEmptyPacket (TcpHeader::FIN | TcpHeader::ACK);
     }
   else if (tcpflags == (TcpHeader::FIN | TcpHeader::ACK) || tcpflags == TcpHeader::RST)
     {
+      ProcessTcpOptions(tcpHeader);
       CloseAndNotify ();
     }
   else
@@ -2337,7 +2369,6 @@ TcpSocketBase::SendPacket(TcpHeader header, Ptr<Packet> p)
       p->AddPacketTag (ipHopLimitTag);
     }
 
-  // TODO addOptions
   AddOptions (header);
 
   if (m_endPoint != 0)
@@ -2662,9 +2693,10 @@ TcpSocketBase::SendDataPacket (TcpHeader& header, SequenceNumber32 seq, uint32_t
 bool
 TcpSocketBase::SendPendingData (bool withAck)
 {
-  NS_LOG_FUNCTION (this << withAck);
+  NS_LOG_FUNCTION (this << withAck << " in state " << TcpStateName[m_state]);
   if (m_txBuffer->Size () == 0)
     {
+      NS_LOG_DEBUG("Nothing to send");
       return false;                           // Nothing to send
     }
   if (m_endPoint == 0 && m_endPoint6 == 0)
@@ -2694,10 +2726,11 @@ TcpSocketBase::SendPendingData (bool withAck)
                     " w " << w <<
                     " rxwin " << m_rWnd <<
                     " segsize " << m_tcb->m_segmentSize <<
-                    " nextTxSeq " << m_nextTxSequence <<
+//                    " nextTxSeq " <<  <<
                     " highestRxAck " << FirstUnackedSeq() <<
-                    " pd->Size " << m_txBuffer->Size () <<
-                    " pd->SFS " << m_txBuffer->SizeFromSequence (m_nextTxSequence));
+                    " TxBufferSize=" << m_txBuffer->Size () <<
+                    " pd->SizeFromSequence( " << m_nextTxSequence << ")="
+                    << m_txBuffer->SizeFromSequence (m_nextTxSequence));
       uint32_t s = std::min (w, m_tcb->m_segmentSize);  // Send no more than window
       uint32_t sz = SendDataPacket (m_nextTxSequence, s, withAck);
       nPacketsSent++;                             // Count sent this loop
@@ -2809,7 +2842,7 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
 
   // Put into Rx buffer
   SequenceNumber32 expectedSeq = m_rxBuffer->NextRxSequence ();
-  if (!m_rxBuffer->Add (p, tcpHeader))
+  if (!m_rxBuffer->Add (p, tcpHeader.GetSequenceNumber ()))
     { // Insert failed: No data or RX buffer full
       SendEmptyPacket (TcpHeader::ACK);
       return;
@@ -3437,12 +3470,31 @@ TcpSocketBase::AddOptions (TcpHeader& header)
     }
 }
 
-//void
-//TcpSocketBase::ProcessOptionMpTcp (const Ptr<const TcpOption> option)
-//{
-//    //!
+int
+TcpSocketBase::ProcessOptionMpTcp ( const Ptr<const TcpOption> option)
+{
+    //!
 //    NS_LOG_DEBUG("Does nothing");
-//}
+  Ptr<const TcpOptionMpTcpCapable> mpc = DynamicCast<const TcpOptionMpTcpCapable>(option);
+
+//  if(!GetTcpOption(header, mpc))
+  if (!mpc)
+  {
+      NS_LOG_WARN("Invalid option " << option);
+      return 0;
+  }
+
+  return 1;
+
+//    NS_LOG_UNCOND("found MP_CAPABLE");
+//    return 1;
+//  }
+//  else
+//  {
+//    NS_LOG_UNCOND("MP_CAPABLE not found");
+//  }
+
+}
 
 void
 TcpSocketBase::ProcessOptionWScale (const Ptr<const TcpOption> option)

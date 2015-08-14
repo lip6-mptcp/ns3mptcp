@@ -81,7 +81,7 @@ for bad plots.
 void
 TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix)
 {
-  NS_LOG_UNCOND("SetupSocketTracing called with sock " << sock << " and prefix [" << prefix << "]");
+  NS_LOG_INFO("sock " << sock << " and prefix [" << prefix << "]");
   std::ios::openmode mode = std::ofstream::out | std::ofstream::trunc;
 
   AsciiTraceHelper asciiTraceHelper;
@@ -99,21 +99,21 @@ TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string pr
   Time now = Simulator::Now();
   // TODO use GetInitialCwnd, GetValue  etc...
   *streamTxNext->GetStream() << "Time,oldNextTxSequence,newNextTxSequence" << std::endl
-//                             << now << ",," << sock->m_nextTxSequence << std::endl
+                             << now << ",0," << sock->m_nextTxSequence << std::endl
                                 ;
 
   *streamTxHighest->GetStream() << "Time,oldHighestSequence,newHighestSequence" << std::endl
-//                              << now << ",," << sock->m_highTxMark << std::endl
+                              << now << ",0," << sock->m_highTxMark << std::endl
                                 ;
 
   // In fact it might be acked but as it neds to be moved on a per-mapping basis
   //
   *streamTxUnack->GetStream() << "Time,oldUnackSequence,newUnackSequence" << std::endl
-                                  << now << ",," << sock->FirstUnackedSeq() << std::endl
+                                  << now << ",0," << sock->FirstUnackedSeq() << std::endl
                                   ;
 
   *streamRxNext->GetStream() << "Time,oldRxNext,newRxNext" << std::endl
-//                             << now << ",," << sock->m_rxBuffer->NextRxSequence() << std::endl
+                             << now << ",0," << sock->m_rxBuffer->NextRxSequence() << std::endl
                              ;
 
   *streamRxAvailable->GetStream() << "Time,oldRxAvailable,newRxAvailable" << std::endl
@@ -121,23 +121,24 @@ TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string pr
                                   ;
 
   *streamRxTotal->GetStream() << "Time,oldRxTotal,newRxTotal" << std::endl
-//                                  << now << ",," << sock->m_rxBuffer->Size() << std::endl
+                                  << now << ",," << sock->GetRcvBufSize() << std::endl
                                   ;
 
   // TODO
-  *streamCwnd->GetStream() << "Time,oldCwnd,newCwnd" << std::endl;
-//                          << now << ",," << sock->m_cWnd.Get() << std::endl
+  *streamCwnd->GetStream() << "Time,oldCwnd,newCwnd" << std::endl
+
+                          << now << ",0," << sock->GetInitialCwnd() << std::endl
 ;
 
-//  *streamRwnd->GetStream() << "Time,oldRwnd,newRwnd" << std::endl
-//                           << now << ",," << sock->RemoteWindow() << std::endl
-//                           ;
+  *streamRwnd->GetStream() << "Time,oldRwnd,newRwnd" << std::endl
+                           << now << ",0," << sock->Window() << std::endl
+                           ;
 
   // We don't plot it, just looking at it so we don't care of the initial state
-  *streamStates->GetStream() << "Time,oldState,newState" << std::endl;
+  *streamStates->GetStream() << "Time,oldState,newState" << std::endl
+                           << now << ",," << TcpSocket::TcpStateName[sock->GetState()] << std::endl
+            ;
 
-
-//  , HighestSequence, RWND\n";
 
 //  NS_ASSERT(f.is_open());
 
@@ -148,27 +149,21 @@ TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string pr
 //  NS_ASSERT(sock->TraceConnect ("SndBufSize", "SndBufSize", MakeBoundCallback(&dumpSequence32, streamTxNext)));
   NS_ASSERT(sock->TraceConnect ("NextTxSequence", "NextTxSequence", MakeBoundCallback(&dumpSequence32, streamTxNext)));
   NS_ASSERT(sock->TraceConnect ("HighestSequence", "HighestSequence", MakeBoundCallback(&dumpSequence32, streamTxHighest)));
-//  NS_ASSERT(sock->m_txBuffer->TraceConnect ("UnackSequence", "UnackSequence", MakeBoundCallback(&dumpSequence32, streamTxUnack)));
   NS_ASSERT(sock->TraceConnect ("UnackSequence", "UnackSequence", MakeBoundCallback(&dumpSequence32, streamTxUnack)));
 
   NS_ASSERT(sock->TraceConnect ("CongestionWindow", "CongestionWindow", MakeBoundCallback(&dumpUint32, streamCwnd)));
   NS_ASSERT(sock->TraceConnect ("State", "State", MakeBoundCallback(&dumpTcpState, streamStates) ));
-
 //  Ptr<MpTcpSocketBase> sock2 = DynamicCast<MpTcpSocketBase>(sock);
-
 //  Ptr<TcpTxBuffer> txBuffer( &sock->m_txBuffer);
-//  NS_ASSERT(txBuffer->TraceConnect ("UnackSequence", "UnackSequence", MakeBoundCallback(&dumpSequence32, streamTx)));
-
-//  NS_LOG_UNCOND("Starting research !!");
-
-
-//  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("NextRxSequence", "NextRxSequence", MakeBoundCallback(&dumpSequence32, streamRxNext) ));
-//  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxTotal", "RxTotal", MakeBoundCallback(&dumpUint32, streamRxTotal) ));
-//  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxAvailable", "RxAvailable", MakeBoundCallback(&dumpUint32, streamRxAvailable) ));
+  NS_ASSERT(sock->TraceConnect ("HighestRxAck", "HighestRxAck", MakeBoundCallback(&dumpSequence32, streamRxNext) ));
+//  HighestRxSequence
+  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxTotal", "RxTotal", MakeBoundCallback(&dumpUint32, streamRxTotal) ));
+  NS_ASSERT(sock->m_rxBuffer->TraceConnect ("RxAvailable", "RxAvailable", MakeBoundCallback(&dumpUint32, streamRxAvailable) ));
 
   NS_ASSERT(sock->TraceConnect ("RWND", "Remote WND", MakeBoundCallback(&dumpUint32, streamRwnd)));
   NS_ASSERT(sock->TraceConnect ("SlowStartThreshold", "SlowStartThreshold", MakeBoundCallback(&dumpUint32, streamSSThreshold)));
 
+#if 0
   /*
   This part is kinda specific to what we want to do
   */
@@ -194,9 +189,11 @@ TcpTraceHelper::SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string pr
     *streamStates->GetStream() << now << ",," << TcpSocket::TcpStateName[meta->GetState()] << std::endl;
 
   }
-  else {
+  else
+  {
     NS_LOG_DEBUG("The passed sock is not related to MPTCP (which is not a problem in absolute terms)");
   }
+  #endif
 }
 
 //void

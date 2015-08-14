@@ -33,15 +33,15 @@ namespace ns3 {
 
 // TODO look in TCP example for similar code
 // TODO move those to a TCP helper
-void
-SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix);
-
-void
-dumpSequence32(Ptr<OutputStreamWrapper> stream, std::string context, SequenceNumber32 oldSeq, SequenceNumber32 newSeq);
-
-void
-dumpUint32(Ptr<OutputStreamWrapper> stream, std::string context, uint32_t oldVal, uint32_t newVal);
-
+//void
+//SetupSocketTracing(Ptr<TcpSocketBase> sock, const std::string prefix);
+//
+//void
+//dumpSequence32(Ptr<OutputStreamWrapper> stream, std::string context, SequenceNumber32 oldSeq, SequenceNumber32 newSeq);
+//
+//void
+//dumpUint32(Ptr<OutputStreamWrapper> stream, std::string context, uint32_t oldVal, uint32_t newVal);
+//
 //void
 //dumpTcpState(Ptr<OutputStreamWrapper> stream, std::string context, TcpStates_t oldVal, TcpStates_t newVal);
 

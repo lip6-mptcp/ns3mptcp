@@ -40,6 +40,12 @@ TcpRxBuffer::GetTypeId (void)
                      "Next sequence number expected (RCV.NXT)",
                      MakeTraceSourceAccessor (&TcpRxBuffer::m_nextRxSeq),
                      "ns3::SequenceNumber32TracedValueCallback")
+    .AddTraceSource ("RxTotal",
+                     "Size of all packets in receive buffer ",
+                     MakeTraceSourceAccessor (&TcpRxBuffer::m_size))
+    .AddTraceSource ("RxAvailable",
+                     "Size of all packets in receive buffer ",
+                     MakeTraceSourceAccessor (&TcpRxBuffer::m_availBytes))
   ;
   return tid;
 }
@@ -156,11 +162,11 @@ TcpRxBuffer::Finished (void)
   return (m_gotFin && m_finSeq < m_nextRxSeq);
 }
 
-bool
-TcpRxBuffer::Add (Ptr<Packet> p, TcpHeader const& tcph)
-{
-    return Add (p, tcph.GetSequenceNumber());
-}
+//bool
+//TcpRxBuffer::Add (Ptr<Packet> p, TcpHeader const& tcph)
+//{
+//    return Add (p, tcph.GetSequenceNumber());
+//}
 
 bool
 TcpRxBuffer::Add (Ptr<Packet> p,  SequenceNumber32 const& _headSeq)
@@ -250,7 +256,7 @@ TcpRxBuffer::Extract (uint32_t maxSize)
 {
   NS_LOG_FUNCTION (this << maxSize);
 
-  uint32_t extractSize = std::min (maxSize, m_availBytes);
+  uint32_t extractSize = std::min (maxSize, m_availBytes.Get());
   NS_LOG_LOGIC ("Requested to extract " << extractSize << " bytes from TcpRxBuffer of size=" << m_size);
   if (extractSize == 0) return 0;  // No contiguous block to return
   NS_ASSERT (m_data.size ()); // At least we have something to extract

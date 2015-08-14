@@ -49,9 +49,9 @@ namespace ns3
 Only sha1 standardized for now
 TODO remove and use the MPTCP option one ?
 */
-typedef enum {
-MPTCP_SHA1
-} mptcp_crypto_t;
+//typedef enum {
+//MPTCP_SHA1
+//} mptcp_crypto_t;
 
 
 /**
@@ -158,8 +158,9 @@ public:
 
 
   /**
-  * Necessary for std::set to sort mappings
-  * Compares data seq nb
+  * Necessary for
+  * std::set to sort mappings
+  * Compares ssn
   * \brief Compares mapping based on their DSN number. It is required when inserting into a set
   */
   bool operator<(MpTcpMapping const& ) const;
@@ -204,10 +205,7 @@ protected:
 };
 
 
-/**
-* \brief sorted on DSNs
-*/
-typedef std::set<MpTcpMapping> MappingList;
+
 
 
 /**
@@ -218,6 +216,9 @@ Meanwhile we have a pointer towards the buffers.
 Once a mapping has been advertised on a subflow, it must be honored. If the remote host already received the data
 (because it was sent in parallel over another subflow), then the received data must be discarded.
 
+
+TODO: it might be best to use a
+std::lower_bound on map
 */
 class MpTcpMappingContainer
 {
@@ -243,17 +244,17 @@ class MpTcpMappingContainer
 
 
   \return Number of mappings discarded. >= 0
+  Never used apparently
   **/
-  int
-  DiscardMappingsUpToSN(const SequenceNumber64& maxDsn, const SequenceNumber32& maxSsn);
+//  int
+//  DiscardMappingsUpToSN(const SequenceNumber64& maxDsn, const SequenceNumber32& maxSsn);
 
 
   /**
   When Buffers work in non renegotiable mode,
   it should be possible to remove them one by one
   **/
-  bool
-  DiscardMapping(const MpTcpMapping& mapping);
+  bool DiscardMapping(const MpTcpMapping& mapping);
 
   /**
   return lowest SSN number
@@ -263,17 +264,16 @@ class MpTcpMappingContainer
 //  SequenceNumber32 FirstMappedSSN (void) const;
 
   /**
-  TODO this would be better out of the class since it
-  REturn last mapped SSN.
-  If Empty will take the one from the buff.
-  */
-//  SequenceNumber32 FirstUnmappedSSN(void) const;
+   * \param firstUnmappedSsn last mapped SSN.
+   * \return true if non empty
+   *
+   */
+  bool FirstUnmappedSSN(SequenceNumber32& firstUnmappedSsn) const;
 
   /**
   For debug purpose. Dump all registered mappings
   **/
-  void
-  Dump() const;
+  virtual void Dump() const;
 
   /*
 
@@ -286,8 +286,11 @@ class MpTcpMappingContainer
    * TODO it should look for DSN and SSN overlaps
    * \param
    */
-  bool
-  FindOverlappingMapping(const MpTcpMapping& mapping, bool ignore_identical, MpTcpMapping& ret) const;
+//  bool FindOverlappingMapping(
+//                    const MpTcpMapping& mapping,
+//                    bool ignore_identical,
+//                    MpTcpMapping& ret
+//                    ) const;
 //  FindOverlappingMapping(SequenceNumber32 headSSN, uint32_t len, MpTcpMapping& ret) const;
 
 
@@ -306,25 +309,35 @@ class MpTcpMappingContainer
   /**
    * \brief
    * Should do no check
+   * The mapping
    * \note Check for overlap.
    * \return False if the dsn range overlaps with a registered mapping, true otherwise
-   * TODO rename to Register/AddMapping
+   *
   **/
-  bool
-  AddMapping(const MpTcpMapping&);
+  bool AddMapping(const MpTcpMapping& mapping);
 
   /**
   * \param l list
   * \param m pass on the mapping you want to retrieve
   */
   bool
-  GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& m);
+  GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& m) const;
 
-//  TODO should be removed
-//    TcpTxBuffer* m_txBuffer;  //!< used to map DSN to SSN, should be removed
+  /**
+   * \param dsn
+   */
+  virtual bool GetMappingsStartingFromSSN(SequenceNumber32 ssn, std::set<MpTcpMapping>& mappings);
 
 protected:
-    MappingList m_mappings;     //!<
+//    std::map<SequenceNumber64, uint32_t> m_unmapped;
+// TODO this may be more efficient to do the search
+
+    /**
+    //!< SSN/ mapping
+    */
+//    std::map<SequenceNumber32, MpTcpMapping> m_mappings;
+
+    std::set<MpTcpMapping> m_mappings;     //!< it is a set ordered by SSN
 };
 
 /**

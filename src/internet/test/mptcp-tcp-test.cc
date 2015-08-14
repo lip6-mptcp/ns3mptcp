@@ -137,6 +137,7 @@ private:
   int m_numberOfSubflows;
   int m_numberOfTimesMetaConnectionCreatedCallbackGotCalled;
   int m_numberOfTimesMetaConnectionSucceedCallbackGotCalled;
+  int m_numberOfTimesSubflowCreationSucceedCallbackGotCalled;
   int m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled;
   int m_numberOfTimesSubflowConnectionFailureCallbackGotCalled;
   Ptr<MpTcpSocketBase> m_metaClient;
@@ -185,6 +186,7 @@ MpTcpTestCase::MpTcpTestCase (
     m_numberOfSubflows(numberOfSubflows),
     m_numberOfTimesMetaConnectionCreatedCallbackGotCalled(0),
     m_numberOfTimesMetaConnectionSucceedCallbackGotCalled(0),
+    m_numberOfTimesSubflowCreationSucceedCallbackGotCalled(0),
     m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled(0),
     m_numberOfTimesSubflowConnectionFailureCallbackGotCalled(0),
     m_metaClient(0),
@@ -204,6 +206,7 @@ MpTcpTestCase::SetupMpTcpSpecificCallbacks(Ptr<MpTcpSocketBase> meta)
                         MakeCallback(&MpTcpTestCase::OnSubflowConnectionSuccess, this),
                         MakeCallback(&MpTcpTestCase::OnSubflowConnectionFailure, this)
                                     );
+
     meta->SetSubflowAcceptCallback(
                         MakeNullCallback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > (),
 //                        MakeCallback(&MpTcpTestCase::OnSubflowNewRequest, this)
@@ -227,17 +230,21 @@ MpTcpTestCase::OnSubflowConnectionSuccess (Ptr<MpTcpSubflow> newSubflow)
     m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled++;
 
     TcpTraceHelper tcpHelper;
-    tcpHelper.SetupSocketTracing(newSubflow, "source/sf");
+    std::stringstream os;
+    os << "source/subflow" << m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled;
+    tcpHelper.SetupSocketTracing(newSubflow, os.str());
 }
 
 void
 MpTcpTestCase::OnSubflowCreationSuccess (Ptr<MpTcpSubflow> newSubflow)
 {
     NS_LOG_FUNCTION(this);
-    m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled++;
+    m_numberOfTimesSubflowCreationSucceedCallbackGotCalled++;
 
     TcpTraceHelper tcpHelper;
-    tcpHelper.SetupSocketTracing(newSubflow, "server/sf");
+    std::stringstream os;
+    os << "server/subflow" << m_numberOfTimesSubflowCreationSucceedCallbackGotCalled;
+    tcpHelper.SetupSocketTracing(newSubflow, os.str());
 }
 
 void
@@ -250,6 +257,9 @@ MpTcpTestCase::OnMetaConnectionSuccessful (Ptr<Socket> socket)
 
     m_metaClient = DynamicCast<MpTcpSocketBase>(socket);
     NS_ASSERT_MSG(m_metaClient, "The passed socket should be the MPTCP meta socket");
+
+    TcpTraceHelper TcpTraceHelper;
+    TcpTraceHelper.SetupSocketTracing(m_metaClient, "source/meta");
 
     // Setup join callbacks
     SetupMpTcpSpecificCallbacks ( m_metaClient );
@@ -328,7 +338,7 @@ MpTcpTestCase::ServerHandleConnectionCreated (Ptr<Socket> sock, const Address & 
   m_numberOfTimesMetaConnectionCreatedCallbackGotCalled++;
 
   TcpTraceHelper TcpTraceHelper;
-  TcpTraceHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(sock), "server/meta_");
+  TcpTraceHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(sock), "server/meta");
 
   sock->SetRecvCallback (MakeCallback (&MpTcpTestCase::ServerHandleRecv, this));
   sock->SetSendCallback (MakeCallback (&MpTcpTestCase::ServerHandleSend, this));
@@ -337,6 +347,7 @@ MpTcpTestCase::ServerHandleConnectionCreated (Ptr<Socket> sock, const Address & 
 
   Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(sock);
   NS_LOG_DEBUG("meta " << server_meta);
+  SetupMpTcpSpecificCallbacks(server_meta);
 //  server_meta->SetupMetaTracing("server");
 }
 
@@ -567,9 +578,6 @@ MpTcpTestCase::SetupDefaultSim (void)
 
 //  server_meta->SetupMetaTracing("server");
 //  source_meta->SetupMetaTracing("source");
-  TcpTraceHelper TcpTraceHelper;
-
-  TcpTraceHelper.SetupSocketTracing(DynamicCast<TcpSocketBase>(source), "source/meta_");
 
   uint16_t port = 50000;
   InetSocketAddress serverlocaladdr (Ipv4Address::GetAny (), port);
@@ -691,8 +699,8 @@ public:
         // 4) server write size, and 5) server read size
         // with units of bytes
 //        AddTestCase (new MpTcpTestCase ( i, 13, 200, 200, 200, 200, false), TestCase::QUICK);
-        AddTestCase (new MpTcpTestCase (i, 13, 1, 1, 1, 1, false), TestCase::QUICK);
-    //    AddTestCase (new MpTcpTestCase (i, 100000, 100, 50, 100, 20, false), TestCase::QUICK);
+//        AddTestCase (new MpTcpTestCase (i, 13, 1, 1, 1, 1, false), TestCase::QUICK);
+        AddTestCase (new MpTcpTestCase (i, 100000, 100, 50, 100, 20, false), TestCase::QUICK);
 
     // here it's a test where I lower streamsize to see where it starts failing.
     // 2100 is ok, 2200 fails

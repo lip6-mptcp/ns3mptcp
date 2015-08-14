@@ -122,9 +122,6 @@ MpTcpSocketBase::GetTypeId(void)
 //          ObjectVectorValue(),
 //          MakeObjectVectorAccessor(&MpTcpSocketBase::m_subflows),
 //          MakeObjectVectorChecker<MpTcpSocketBase>())
-//        .AddTraceSource("CongestionWindow",
-//          "Congestion window at mptcp level",
-//          MakeTraceSourceAccessor(&MpTcpSocketBase::m_cWnd)
 //        )
 
 
@@ -364,30 +361,12 @@ MpTcpSocketBase::SetPeerKey(uint64_t remoteKey)
 
 
 
-// TODO on peut le supprimer
-void
-MpTcpSocketBase::ProcessOptionMpTcp(const Ptr<const TcpOption> opt)
-{
-//    switch(opt->GetSubType())
-//    {
-//        case TcpOptionMpTcpMain::MP_DSS:
-//            break;
-//
-//        case TcpOptionMpTcpMain::MP_CAPABLE:
-//
-//            break;
-//
-//        case TcpOptionMpTcpMain::MP_JOIN:
-//            break;
-//
-////case TcpOptionMpTcpMain::MP_REMOVE_ADDR:
-////        case TcpOptionMpTcpMain::MP_PRIO:
-////            break;
-////        case TcpOptionMpTcpMain::MP_ADD_ADDR:
-//        default:
-//            NS_LOG_INFO("Mptcp option not handled (yet)");
-//    };
-}
+// TODO this should get reestablished and process the option depending on the state ?
+//int
+//MpTcpSocketBase::ProcessOptionMpTcp(const Ptr<const TcpOption> opt)
+//{
+//   NS_FATAL_ERROR("disabled .");
+//}
 
 
 
@@ -412,7 +391,8 @@ MpTcpSocketBase::CompleteFork(
 )
 {
   NS_LOG_FUNCTION(this);
-
+  NS_FATAL_ERROR("Disabled");
+  #if 0
   // Get port and address from peer (connecting host)
 
   // That should not be the case
@@ -464,6 +444,7 @@ MpTcpSocketBase::CompleteFork(
   }
 
   NS_LOG_INFO(this << "MPTCP connection is initiated (Receiver): ");
+  #endif
 }
 
 
@@ -821,7 +802,8 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
 //      Simulator::ScheduleNow(&MpTcpSocketBase::OnSubflowEstablishment, this, sf);
       OnSubflowEstablishment(sf);
     }
-    else {
+    else
+    {
       NS_FATAL_ERROR("Unhandled case");
     }
   }
@@ -945,35 +927,17 @@ MpTcpSocketBase::OnSubflowCreated (Ptr<Socket> socket, const Address &from)
 {
     NS_LOG_LOGIC(this);
     Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
-    if(sf->IsMaster())
-    {
-        TcpSocketBase::NotifyNewConnectionCreated (this, from);
-    }
-    else
-    {
-        // use a specific callback
-//        NotifySubflowConnected(sf);
-        NS_FATAL_ERROR("TODO");
-    }
+
+    NotifySubflowCreated(sf);
 }
 
 void
 MpTcpSocketBase::OnSubflowConnectionSuccess (Ptr<Socket> socket)
 {
+
     NS_LOG_LOGIC(this);
     Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
-    if(sf->IsMaster())
-    {
-//        TcpSocketBase::NotifyConnectionSucceeded (this, from);
-        ConnectionSucceeded();
-    }
-//    else
-//    {
-        // use a specific callback
-        NotifySubflowConnected(sf);
-//        NS_FATAL_ERROR("TODO");
-////        Notify
-//    }
+    NotifySubflowConnected(sf);
 }
 
 void
@@ -1067,7 +1031,8 @@ void
 MpTcpSocketBase::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface)
 {
     NS_LOG_DEBUG(this << " called with endpoint " << m_endPoint);
-    TcpSocketBase::ForwardUp(packet, header, port, incomingInterface);
+    NS_FATAL_ERROR("This socket should never receive any packet");
+//    TcpSocketBase::ForwardUp(packet, header, port, incomingInterface);
 }
 
 uint32_t
@@ -1221,7 +1186,7 @@ MpTcpSocketBase::SendFastClose(Ptr<MpTcpSubflow> sf)
   // TODO: send an MPTCP_fail
    TcpHeader header;
 //   Ptr<MpTcpSubflow> sf = GetSubflow(0);
-  sf->GenerateEmptyPacketHeader(header,TcpHeader::RST);
+  sf->GenerateEmptyPacketHeader(header, TcpHeader::RST);
   Ptr<TcpOptionMpTcpFastClose> opt = Create<TcpOptionMpTcpFastClose>();
 
   opt->SetPeerKey( GetPeerKey() );
@@ -1337,7 +1302,8 @@ MpTcpSocketBase::PeerClose( SequenceNumber32 dsn, Ptr<MpTcpSubflow> sf)
 
 //  SequenceNumber32 dsn = SequenceNumber32 (dss->GetDataFinDSN() );
   // TODO the range check should be generalized somewhere else
-  if( dsn < m_rxBuffer->NextRxSequence() || m_rxBuffer->MaxRxSequence() < dsn) {
+  if( dsn < m_rxBuffer->NextRxSequence() || m_rxBuffer->MaxRxSequence() < dsn)
+  {
 
     NS_LOG_INFO("dsn " << dsn << " out of expected range [ " << m_rxBuffer->NextRxSequence()  << " - " << m_rxBuffer->MaxRxSequence() << " ]" );
     return ;
@@ -1412,7 +1378,7 @@ MpTcpSocketBase::OnInfiniteMapping(Ptr<TcpOptionMpTcpDSS> dss, Ptr<MpTcpSubflow>
 
 /**
 this function supposes that
-
+TODO is  never called apparently
 **/
 void
 MpTcpSocketBase::OnSubflowNewAck(Ptr<MpTcpSubflow> subflow)
@@ -1445,6 +1411,7 @@ MpTcpSocketBase::SyncTxBuffers()
   ComputeTotalCWND();
 
 
+  // TODO remove it maybe (check) ?
   // TODO I should go through all
   // TODO that should be triggered !!! it should ask the meta for data rather !
   if (GetTxAvailable() > 0)
@@ -1509,14 +1476,15 @@ void
 MpTcpSocketBase::SyncTxBuffers(Ptr<MpTcpSubflow> subflow)
 {
 
-  NS_LOG_LOGIC("Syncing TxBuffer between meta and subflow " << subflow);
+  NS_LOG_LOGIC("Syncing TxBuffer between meta " << this << " and subflow " << subflow);
 
   while(true)
   {
 //    SequenceNumber32 dack = 0;
     MpTcpMapping mapping;
 
-    if(!subflow->DiscardAtMostOneTxMapping( SEQ32TO64(FirstUnackedSeq()), mapping )) {
+    if(!subflow->DiscardAtMostOneTxMapping( SEQ32TO64(FirstUnackedSeq()), mapping ))
+    {
       NS_LOG_DEBUG("Nothing discarded");
       break;
     }
@@ -1546,7 +1514,17 @@ not been acknowledged at both connection level and on all subflows on
 which it has been sent."
 
 TODO:
+
+
 **/
+
+void
+MpTcpSocketBase::UpdateTxBuffer()
+{
+    NS_LOG_LOGIC("Synchronizing buffers");
+
+    SyncTxBuffers();
+}
 
 
 void
@@ -1554,11 +1532,9 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
 {
   NS_LOG_FUNCTION(this << " new dataack=[" <<  dsn << "]");
 
-  // TODO
-//  switch(m_state) {
-//
-//  };
+  TcpSocketBase::NewAck(dsn);
 
+  #if 0
 
   // update tx buffer
   // TODO if I call this, it crashes because on the MpTcpBase client, there is no endpoint configured
@@ -1617,7 +1593,7 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
   **/
   m_firstTxUnack = std::min(dsn, m_txBuffer->TailSequence());;
 
-  SyncTxBuffers();
+
 
   // TODO wrong. what happens with NR-SACK ?
   if (m_firstTxUnack > m_nextTxSequence)
@@ -1625,9 +1601,15 @@ MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
       m_nextTxSequence = m_firstTxUnack; // If advanced
     }
 
-  #if 0
+
 
   #endif
+}
+
+bool
+MpTcpSocketBase::IsInfiniteMappingEnabled() const
+{
+    return false;
 }
 
 // Send 1-byte data to probe for the window size at the receiver when
@@ -1640,21 +1622,252 @@ MpTcpSocketBase::PersistTimeout()
   NS_FATAL_ERROR("TODO");
 }
 
+
+
+
+
 /**
  * Sending data via subflows with available window size.
  * Todo somehow rename to dispatch
+ * we should not care about IsInfiniteMapping()
  */
 bool
 MpTcpSocketBase::SendPendingData(bool withAck)
 {
-  NS_LOG_FUNCTION(this << "Sending data");
+  NS_LOG_FUNCTION(this << "Sending data" << TcpStateName[m_state]);
 
 //  MappingList mappings;
+  if (m_txBuffer->Size () == 0)
+    {
+      NS_LOG_DEBUG("Nothing to send");
+      return false;                           // Nothing to send
+    }
+  //start/size
+  int nbMappingsDispatched = 0; // mimic nbPackets in TcpSocketBase::SendPendingData
+
+  //// Generate DSS mappings
+  //// This could go into a specific function
+  /////////////////////////////////////////////
+//  MappingVector mappings;
+  SequenceNumber64 dsnHead;
+  SequenceNumber32 ssn;
+  int subflowArrayId;
+  uint16_t length;
+
+  //mappings.reserve( GetNActiveSubflows() );
+  // the MapToSsn will be done,
+  // dsn, size, and path instead of a unmapped mapping
+  // GenerateMapping( sf, );
+  // Pb: infinite loop because of
+  while(m_scheduler->GenerateMapping(subflowArrayId, dsnHead, length))
+  {
+      NS_LOG_DEBUG("Generated mapping for sf=" << subflowArrayId << " dsn=" << dsnHead
+                    << " of len=" << length);
+
+      Ptr<MpTcpSubflow> subflow = GetSubflow(subflowArrayId);
+      bool ok = subflow->AddLooseMapping(dsnHead, length);
+
+      NS_ASSERT(ok);
+
+
+      ////
+      //// see next #if 0 to see how it should be
+      SequenceNumber32 dsnTail = SEQ64TO32(dsnHead) + length;
+
+      // temp
+      Ptr<Packet> p = m_txBuffer->CopyFromSequence(length, dsnHead);
+
+
+      NS_ASSERT(p->GetSize() <= length);
+
+      int ret = subflow->Send(p, 0);
+      NS_LOG_DEBUG("Send result=" << ret);
+
+      /*
+      Ideally we should be able to send data out of order so that it arrives in order at the
+      receiver but to do that we need SACK support (IMO). Once SACK is implemented it should
+      be reasonably easy to add
+      */
+      NS_ASSERT(dsnHead == m_nextTxSequence);
+      //TODO update m_nextTx / txmark
+      //  // TODO here update the m_nextTxSequence only if it is in order
+      //      // Maybe the max is unneeded; I put it here
+      SequenceNumber64 nextTxSeq = SEQ32TO64(m_nextTxSequence);
+      if( dsnHead <= nextTxSeq
+          && (dsnTail) >= nextTxSeq )
+      {
+        m_nextTxSequence = dsnTail;
+      }
+
+      m_highTxMark = std::max( m_highTxMark.Get(), dsnTail);
+      NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
+  }
+
+
+    // disabled for now since not advancing txmark was creating an infinite loop
+    // but once TCP sack is implemented we should reenable it
+    #if 0
+    NS_LOG_DEBUG("Looping through  subflows to dispatch meta Tx data");
+
+  // Then we loop through subflows to see if the dsn was mapped to the subflow
+  // this allows to send the same data over different subflows
+    for(int i = 0; i < (int)GetNActiveSubflows() ; i++ )
+    {
+        Ptr<MpTcpSubflow> sf = GetSubflow(i);
+
+
+        //! retrieve the DSN ranges that this subflow has mappings for.
+        std::set<MpTcpMapping> temp;
+        sf->GetMappedButMissingData(temp);
+
+        // go through the unsent meta Tx buffer
+        // and check if any part of the Tx Data is mapped in a subflow but not yet in the
+        // subflow tx
+        for(std::set<MpTcpMapping>::iterator it = temp.begin(); it != temp.end(); ++it)
+        {
+            // Extract the mapped part
+            MpTcpMapping mapping = *it;
+            NS_LOG_DEBUG("Subflow expect mapping " << mapping);
+
+            // temp
+            Ptr<Packet> p = m_txBuffer->CopyFromSequence(mapping.GetLength(), SEQ64TO32(mapping.HeadDSN()));
+
+
+            NS_ASSERT(p->GetSize() <= mapping.GetLength());
+
+            int ret = sf->Send(p, 0);
+            NS_LOG_DEBUG("Send result=" << ret);
+
+            /*
+            Ideally we should be able to send data out of order so that it arrives in order at the
+            receiver but to do that we need SACK support (IMO). Once SACK is implemented it should
+            be reasonably easy to add
+            */
+            NS_ASSERT(mapping.HeadDSN() == m_nextTxSequence);
+            //TODO update m_nextTx / txmark
+//  // TODO here update the m_nextTxSequence only if it is in order
+//      // Maybe the max is unneeded; I put it here
+            SequenceNumber64 nextTxSeq = SEQ32TO64(m_nextTxSequence);
+            if( mapping.HeadDSN() <= nextTxSeq
+                && mapping.TailDSN() >= nextTxSeq )
+            {
+              m_nextTxSequence = SEQ64TO32(mapping.TailDSN()) + 1;
+            }
+
+            m_highTxMark = std::max( m_highTxMark.Get(), SEQ64TO32(mapping.TailDSN()));
+            NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
+        }
+
+    }
+    #endif
+
+
+  // Just dump the generated mappings
+//  NS_LOG_UNCOND("=================\nGenerated " << mappings.size() << " mappings for node=" << (int)GetNode()->GetId());
+//  for(MappingVector::iterator it(mappings.begin()); it  != mappings.end(); it++ )
+//  {
+//    MpTcpMapping& mapping = it->second;
+//    NS_LOG_UNCOND("Send " << it->second << " on sf id=" << (int)it->first);
+//  }
+//  NS_LOG_UNCOND("=================");
+//
+////  NS_ASSERT_MSG( mappings.size() == GetNActiveSubflows(), "The number of mappings should be equal to the nb of already established subflows" );
+//
+//  NS_LOG_DEBUG("generated [" << mappings.size() << "] mappings");
+//  // TODO dump mappings ?
+//  // Loop through mappings and send Data
+////  for(int i = 0; i < (int)GetNActiveSubflows() ; i++ )
+//  for(MappingVector::iterator it(mappings.begin()); it  != mappings.end(); it++ )
+//  {
+//
+//
+//    Ptr<MpTcpSubflow> sf = GetSubflow(it->first);
+//    MpTcpMapping& mapping = it->second;
+////    Retrieve data  Rename SendMappedData
+//    //SequenceNumber32 dataSeq = mappings[i].first;
+//    //uint16_t mappingSize = mappings[i].second;
+//
+//    NS_LOG_DEBUG("Sending mapping "<< mapping << " on subflow #" << (int)it->first);
+//
+//    //sf->AddMapping();
+//    Ptr<Packet> p = m_txBuffer->CopyFromSequence(mapping.GetLength(), SEQ64TO32(mapping.HeadDSN()));
+//    NS_ASSERT(p->GetSize() == mapping.GetLength());
+//
+//    /// Recently replaced by the following
+////    int ret = sf->SendMapping(p, mapping);
+//    /// here the mapping should be already mapped set
+//    int ret = sf->AddMapping(mapping);
+//
+//
+//    if( ret < 0)
+//    {
+//      // TODO dump the mappings ?
+//      NS_FATAL_ERROR("Could not send mapping. The generated mappings");
+//    }
+//
+//
+//
+//
+//
+//    // if successfully sent,
+//    nbMappingsDispatched++;
+//
+////    bool sentPacket =
+//    sf->SendPendingData();
+////    NS_LOG_DEBUG("Packet sent ? boolean=s" << sentPacket );
+//
+//  // TODO here update the m_nextTxSequence only if it is in order
+//      // Maybe the max is unneeded; I put it here
+//    if( SEQ64TO32(mapping.HeadDSN()) <= m_nextTxSequence && SEQ64TO32(mapping.TailDSN()) >= m_nextTxSequence)
+//    {
+//      m_nextTxSequence = SEQ64TO32(mapping.TailDSN()) + 1;
+//    }
+//
+//    m_highTxMark = std::max( m_highTxMark.Get(), SEQ64TO32(mapping.TailDSN()));
+////      m_nextTxSequence = std::max(m_nextTxSequence.Get(), mapping.TailDSN() + 1);
+//    NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
+//  }
+
+
+
+  // TODO here send for all
+
+
+
+  uint32_t remainingData = m_txBuffer->SizeFromSequence(m_nextTxSequence );
+
+  if (m_closeOnEmpty && (remainingData == 0))
+    {
+      TcpHeader header;
+
+      ClosingOnEmpty(header);
+
+    }
+
+//  NS_LOG_LOGIC ("Dispatched " << nPacketsSent << " mappings");
+  return nbMappingsDispatched > 0;
+}
+
+#if 0
+bool
+MpTcpSocketBase::SendPendingData(bool withAck)
+{
+  NS_LOG_FUNCTION(this << "Sending data" << TcpStateName[m_state]);
+
+//  MappingList mappings;
+  if (m_txBuffer->Size () == 0)
+    {
+      NS_LOG_DEBUG("Nothing to send");
+      return false;                           // Nothing to send
+    }
   //start/size
   int nbMappingsDispatched = 0; // mimic nbPackets in TcpSocketBase::SendPendingData
 
   MappingVector mappings;
   //mappings.reserve( GetNActiveSubflows() );
+  // the MapToSsn will be done,
+  // dsn, size, and path instead of a unmapped mapping
+  // GenerateMapping( sf, );
   m_scheduler->GenerateMappings(mappings);
 
 
@@ -1689,7 +1902,10 @@ MpTcpSocketBase::SendPendingData(bool withAck)
     Ptr<Packet> p = m_txBuffer->CopyFromSequence(mapping.GetLength(), SEQ64TO32(mapping.HeadDSN()));
     NS_ASSERT(p->GetSize() == mapping.GetLength());
 
-    int ret = sf->SendMapping(p, mapping);
+    /// Recently replaced by the following
+//    int ret = sf->SendMapping(p, mapping);
+    /// here the mapping should be already mapped set
+    int ret = sf->AddMapping(mapping);
 
 
     if( ret < 0)
@@ -1697,6 +1913,10 @@ MpTcpSocketBase::SendPendingData(bool withAck)
       // TODO dump the mappings ?
       NS_FATAL_ERROR("Could not send mapping. The generated mappings");
     }
+
+
+
+
 
     // if successfully sent,
     nbMappingsDispatched++;
@@ -1707,7 +1927,8 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 
   // TODO here update the m_nextTxSequence only if it is in order
       // Maybe the max is unneeded; I put it here
-    if( SEQ64TO32(mapping.HeadDSN()) <= m_nextTxSequence && SEQ64TO32(mapping.TailDSN()) >= m_nextTxSequence) {
+    if( SEQ64TO32(mapping.HeadDSN()) <= m_nextTxSequence && SEQ64TO32(mapping.TailDSN()) >= m_nextTxSequence)
+    {
       m_nextTxSequence = SEQ64TO32(mapping.TailDSN()) + 1;
     }
 
@@ -1716,7 +1937,11 @@ MpTcpSocketBase::SendPendingData(bool withAck)
     NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
   }
 
-//  m_closeOnEmpty
+
+
+  // TODO here send for all
+
+
 
   uint32_t remainingData = m_txBuffer->SizeFromSequence(m_nextTxSequence );
 
@@ -1731,12 +1956,14 @@ MpTcpSocketBase::SendPendingData(bool withAck)
 //  NS_LOG_LOGIC ("Dispatched " << nPacketsSent << " mappings");
   return nbMappingsDispatched > 0;
 }
+#endif
 
 int
 MpTcpSocketBase::Listen(void)
 {
   NS_LOG_FUNCTION (this);
-  return TcpSocketBase::Listen();
+  NS_FATAL_ERROR("Disabled");
+  return 0;
 
 }
 
@@ -1932,18 +2159,6 @@ MpTcpSocketBase::ReTxTimeout()
   NS_LOG_FUNCTION(this);
   return TcpSocketBase::ReTxTimeout();
 }
-//void
-//MpTcpSocketBase::SetReTxTimeout(uint8_t sFlowIdx)
-//{
-//  Ptr<MpTcpSubflow> sFlow = m_subflows[sFlowIdx];
-//  if (sFlow->m_retxEvent.IsExpired())
-//    {
-//      Time rto = sFlow->rtt->RetransmitTimeout();
-//      sFlow->m_retxEvent = Simulator::Schedule(rto, &MpTcpSocketBase::ReTxTimeout, this, sFlowIdx);
-//    }
-//}
-
-
 
 
 // I moved it to mptcp-crypto.h
@@ -2111,13 +2326,14 @@ MpTcpSocketBase::OnSubflowEstablished(Ptr<MpTcpSubflow> subflow)
       NS_FATAL_ERROR("Unhandled case where subflow got established while meta in " << TcpStateName[m_state] );
     }
   // from
-//    InetSocketAddress addr(subflow->m_endPoint->GetPeerAddress(), subflow->m_endPoint->GetPeerPort());
+    InetSocketAddress addr(subflow->m_endPoint->GetPeerAddress(), subflow->m_endPoint->GetPeerPort());
 //    NotifyNewConnectionCreated(subflow, addr);
+    NotifyNewConnectionCreated(this, addr);
   }
 //  else
 //  {
   ComputeTotalCWND();
-  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowCreated, this, subflow );
+//  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowCreated, this, subflow );
 //  }
 }
 
@@ -2148,14 +2364,14 @@ MpTcpSocketBase::OnSubflowEstablishment(Ptr<MpTcpSubflow> subflow)
     Simulator::ScheduleNow(&MpTcpSocketBase::ConnectionSucceeded, this);
   }
 
-  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowConnected, this, subflow);
+//  Simulator::ScheduleNow(&MpTcpSocketBase::NotifySubflowConnected, this, subflow);
 }
 
 
 void
 MpTcpSocketBase::NotifySubflowCreated(Ptr<MpTcpSubflow> sf)
 {
-  NS_LOG_FUNCTION(this << "Registered cb " << sf);
+  NS_LOG_FUNCTION(this << sf);
   if (!m_subflowCreated.IsNull ())
   {
       m_subflowCreated (sf);
@@ -2181,7 +2397,7 @@ MpTcpSocketBase::SetSubflowAcceptCallback(
 )
 {
   NS_LOG_FUNCTION(this << &joinRequest << " " << &connectionCreated);
-  NS_LOG_WARN("TODO not implemented yet");
+//  NS_LOG_WARN("TODO not implemented yet");
 //  m_subflowConnectionSucceeded = connectionCreated;
   m_joinRequest = joinRequest;
   m_subflowCreated = connectionCreated;
@@ -2398,39 +2614,26 @@ MpTcpSocketBase::Close(void)
   #endif
 }
 
-/**
-TODO it should trigger an event in the path id manager
-**/
-int
-MpTcpSocketBase::CloseSubflow(Ptr<MpTcpSubflow> sf)
-{
-  NS_LOG_LOGIC("Closing sf " << sf);
-
-  int ret = sf->Close();
-  if(ret != 0) {
-    NS_FATAL_ERROR("Could not close subflow");
-  }
-
-  return ret;
-}
-
 void
 MpTcpSocketBase::CloseAllSubflows()
 {
   NS_LOG_FUNCTION(this << "Closing all subflows");
-  NS_ASSERT( m_state == FIN_WAIT_2 || m_state == CLOSING || m_state == CLOSE_WAIT);
+  NS_ASSERT( m_state == FIN_WAIT_2 || m_state == CLOSING || m_state == CLOSE_WAIT || m_state == LAST_ACK);
 
-  for(int i = 0; i < Closing; ++i) {
+  for(int i = 0; i < Closing; ++i)
+  {
 //    Established
     NS_LOG_INFO("Closing all subflows in state [" << containerNames [i] << "]");
 //    std::for_each( );
     for( SubflowList::const_iterator it = m_subflows[i].begin(); it != m_subflows[i].end(); it++ )
     {
         Ptr<MpTcpSubflow> sf = *it;
-        NS_ASSERT( CloseSubflow(sf) == 0);
+        //   TODO trigger events in path manager
+          NS_LOG_LOGIC("Closing sf " << sf);
 
+          int ret = sf->Close();
 //        }
-//        NS_ASSERT_MSG(sf->Close() == 0, "Can't close subflow");
+        NS_ASSERT_MSG(ret == 0, "Can't close subflow");
     }
 
     m_subflows[Closing].insert( m_subflows[Closing].end(), m_subflows[i].begin(), m_subflows[i].end());
@@ -2445,19 +2648,19 @@ MpTcpSocketBase::CloseAllSubflows()
 
 void
 MpTcpSocketBase::ReceivedAck(
-//  const TcpHeader& tcpHeader,
-//  Ptr<TcpOptionMpTcpDSS> dss
   SequenceNumber32 dack
   , Ptr<MpTcpSubflow> sf
   , bool count_dupacks
   )
 {
-    #if 0
+//    NS_FATAL_ERROR("Received DACK " << dack << "from subflow" << sf << "(Enable dupacks:" << count_dupacks << " )");
   NS_LOG_FUNCTION("Received DACK " << dack << "from subflow" << sf << "(Enable dupacks:" << count_dupacks << " )");
 //  NS_ASSERT( dss->GetFlags() & TcpOptionMpTcpDSS::DataAckPresent);
 
 //  SequenceNumber32 dack = SequenceNumber32(dss->GetDataAck());
 
+  TcpSocketBase::ReceivedAck(dack);
+#if 0
   if (dack < FirstUnackedSeq())
     { // Case 1: Old ACK, ignored.
       NS_LOG_LOGIC ("Old ack Ignored " << dack  );
@@ -2482,8 +2685,8 @@ MpTcpSocketBase::ReceivedAck(
       NewAck( dack );
       m_dupAckCount = 0;
     }
-    #endif
 
+#endif
 }
 
 
@@ -2546,6 +2749,7 @@ MpTcpSocketBase::OnTimeWaitTimeOut(void)
   // Would normally call CloseAndNotify
   NS_LOG_LOGIC("Timewait timeout expired");
   NS_LOG_UNCOND("after timewait timeout, there are still " << m_subflows[Closing].size() << " subflows pending");
+
   CloseAndNotify();
 }
 
@@ -2699,28 +2903,6 @@ MpTcpSocketBase::DoPeerClose(void)
     }
 }
 
-//
-//void
-//MpTcpSocketBase::LastAckTimeout(uint8_t sFlowIdx)
-//{
-//  NS_LOG_FUNCTION (this);
-//  Ptr<MpTcpSubflow> sFlow = m_subflows[sFlowIdx];
-//  sFlow->m_lastAckEvent.Cancel();
-//  if (sFlow->state == LAST_ACK)
-//    {
-//      NS_LOG_INFO("(" << (int) sFlow->m_routeId << ") LAST_ACK -> CLOSED {LastAckTimeout}");
-//      CloseAndNotify(sFlowIdx);
-//    }
-////  if (!m_closeNotified)
-////    {
-////      m_closeNotified = true;
-////    }
-//}
-//
-
-
-
-
 
 // TODO this could be reimplemented via choosing
 void
@@ -2729,26 +2911,6 @@ MpTcpSocketBase::SendEmptyPacket(TcpHeader& header)
   NS_FATAL_ERROR("Disabled. Should call subflow member");
 }
 
-  #if 0
-void
-MpTcpSocketBase::AppendDataFin(TcpHeader& header) const
-//const
-{
-  // TODO
-
-  NS_LOG_LOGIC("Appending a DFIN with seq " << m_txBuffer->TailSequence());
-//  NS_ASSERT(m_state == )
-  Ptr<const TcpOptionMpTcpDSS> dss;
-  GetOrCreateMpTcpOption(header,dss);
-//  if(!GetMpTcpOption(header,dss))
-//    dss = Create<>(TcpOptionMpTcpMain::MP_DSS);
-
-  //well so far this worked
-  // TailSequence = lastByte (+1) of the buffer
-//  dss->AddDataFin ( SEQ32TO64(m_txBuffer->TailSequence()));
-
-}
-#endif
 
 /** Do the action to close the socket. Usually send a packet with appropriate
  flags depended on the current m_state.
@@ -2768,7 +2930,7 @@ MpTcpSocketBase::DoClose()
   TcpHeader header;
 
 
-  Ptr<MpTcpSubflow> subflow = GetSubflow(0);
+
 
   switch (m_state)
   {
@@ -2780,6 +2942,7 @@ MpTcpSocketBase::DoClose()
 
 
       m_state = FIN_WAIT_1;
+      Ptr<MpTcpSubflow> subflow = GetSubflow(0);
       subflow->GenerateEmptyPacketHeader(header,TcpHeader::ACK);
 //      SendEmptyPacket(header);
       subflow->AppendDSSFin();
@@ -2791,6 +2954,7 @@ MpTcpSocketBase::DoClose()
       {
 // send ACK to close the peer
       NS_LOG_INFO ("CLOSE_WAIT -> LAST_ACK");
+      Ptr<MpTcpSubflow> subflow = GetSubflow(0);
       m_state = LAST_ACK;
 
       subflow->GenerateEmptyPacketHeader(header, TcpHeader::ACK);
@@ -2816,11 +2980,10 @@ MpTcpSocketBase::DoClose()
 
       break;
   case LISTEN:
-  case LAST_ACK:
-//      CloseAllSubflows();
-// In these three states, move to CLOSED and tear down the end point
       CloseAndNotify();
-
+      break;
+  case LAST_ACK:
+      TimeWait();
       break;
   case CLOSED:
   case FIN_WAIT_1:
@@ -2907,7 +3070,6 @@ MpTcpSocketBase::ComputeTotalCWND()
     }
   }
   m_tcb->m_cWnd = totalCwnd;
-//  m_cWnd = totalCwnd;
   NS_LOG_DEBUG("Cwnd after computation=" << m_tcb->m_cWnd.Get());
   return totalCwnd;
 }

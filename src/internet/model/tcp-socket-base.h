@@ -54,6 +54,7 @@ class Packet;
 class TcpL4Protocol;
 class TcpHeader;
 class MpTcpSubflow;
+class TcpTraceHelper;
 
 /**
  * \ingroup tcp
@@ -710,6 +711,10 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
+  virtual void ReceivedAck (SequenceNumber32 ack);
+
+  // TODO remove this function
+  // use ReceivedAck (SequenceNumber32 ack); instead and dispatch the packet inspection somewhere else
   virtual void ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
   /**
@@ -717,7 +722,10 @@ protected:
    * \param packet the packet
    * \param tcpHeader the packet's TCP header
    */
-  virtual void ReceivedData (Ptr<Packet> packet, const TcpHeader& tcpHeader);
+  virtual void ReceivedData (Ptr<Packet> packet,
+                             const TcpHeader& tcpHeader
+
+                             );
 
   /**
    * \brief Take into account the packet for RTT estimation
@@ -783,6 +791,9 @@ protected:
    * Test each option, and if it is enabled on our side, add it
    * to the header
    *
+   * In linux, options are first enabled ,
+   * then they are generated in tcp_options_write.
+   *
    * \param tcpHeader TcpHeader to add options to
    */
   virtual void AddOptions (TcpHeader& tcpHeader);
@@ -806,24 +817,40 @@ protected:
   virtual Ptr<MpTcpSubflow> UpgradeToMeta();
 
   /**
+   * TODO replace all of them by ProcessTcpOptions ?
+   * than just override processMpTcp depending on the state ?
    *
+   *
+   * \return if it returns 1, we need to upgrade the meta socket
+   * if negative then it should discard the packet ?
    */
-  virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
-  virtual int ProcessTcpOptionsListen(const TcpHeader& header);
-  virtual int ProcessTcpOptionsSynRcvd(const TcpHeader& header);
-  virtual int ProcessTcpOptionsEstablished(const TcpHeader& header);
+  virtual int ProcessTcpOptions(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsSynSent(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsListen(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsSynRcvd(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsEstablished(const TcpHeader& header);
 //  virtual int ProcessTcpOptionsClosing(const TcpHeader& header);
+//  virtual int ProcessTcpOptionsLastAck(const TcpHeader& header);
 //  virtual int ProcessTcpOptionsTimeWait(const TcpHeader& header);
+//  virtual void ProcessSynRcvdOptions(const TcpHeader& hdr);
+
   /**
    *
    */
 //  virtual int ProcessTcpOption(const Ptr<const TcpOption> option);
-  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
+  // TODO this should be removed and Tcp Options done in a better way
+//  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
   /**
    *
    * \return 1
    */
-  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
+//  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> option);
+
+  /**
+   * In this baseclass, this only deals with MpTcpCapable options in order to know if the socket
+   * should be converted to an MPTCP meta socket.
+   */
+  virtual int ProcessOptionMpTcp(const Ptr<const TcpOption> option);
 
   /**
    * \brief Read and parse the Window scale option
@@ -908,7 +935,6 @@ protected:
    */
   virtual Time ComputeRTO() const;
 
-  virtual void ProcessSynRcvdOptions(const TcpHeader& hdr);
   /**
    *
    */
@@ -926,8 +952,10 @@ protected:
   virtual uint64_t GenerateUniqueMpTcpKey() ;
 
 protected:
+  //!< TODO try to remove some friends
   friend class MpTcpSubflow;
-  friend class MpTcpSchedulerRoundRobin;    //!< TODO this should not be necessary
+  friend class MpTcpSchedulerRoundRobin;
+  friend class TcpTraceHelper;
 
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event

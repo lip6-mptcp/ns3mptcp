@@ -52,6 +52,7 @@ namespace ns3
 class MpTcpSocketBase;
 class MpTcpPathIdManager;
 class TcpOptionMpTcpDSS;
+class TcpOptionMpTcpMain;
 
 /**
  * \class MpTcpSubflow
@@ -253,8 +254,8 @@ public:
 //  virtual void ParseDSS(Ptr<Packet> p, const TcpHeader& header, Ptr<TcpOptionMpTcpDSS> dss);
 
     // State transition functions
-  virtual void
-  ProcessEstablished(Ptr<Packet>, const TcpHeader&); // Received a packet upon ESTABLISHED state
+//  virtual void
+//  ProcessEstablished(Ptr<Packet>, const TcpHeader&); // Received a packet upon ESTABLISHED state
 
   /**
   * \
@@ -316,9 +317,10 @@ TODO move this up to TcpSocketBase
    * Parse DSS essentially
 
    */
-  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
+//  virtual int ProcessOptionMpTcpEstablished(const Ptr<const TcpOption> option);
   virtual int ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS> option);
-
+  virtual int ProcessOptionMpTcpJoin(const Ptr<const TcpOptionMpTcpMain> option);
+  virtual int ProcessOptionMpTcpCapable(const Ptr<const TcpOptionMpTcpMain> option);
 //  virtual int ProcessTcpOptionMpTcpDSS(Ptr<const TcpOptionMpTcpDSS> dss);
 
   Ptr<MpTcpPathIdManager> GetIdManager();
@@ -339,15 +341,14 @@ protected:
   /**
   * This is a public function in TcpSocketBase but it shouldn't be public here !
   **/
-  virtual int
-  Close(void);   // Close by app: Kill socket upon tx buffer emptied
+  virtual int Close(void);
 
 
   /**
-  TODO mvoe to TcpSocketBase. Split  SendDataPacket into several functions ?
+  TODO move to TcpSocketBase. Split  SendDataPacket into several functions ?
+  TODO remove
   */
-  void
-  GenerateDataPacketHeader(TcpHeader& header, SequenceNumber32 seq, uint32_t maxSize, bool withAck);
+  void GenerateDataPacketHeader(TcpHeader& header, SequenceNumber32 seq, uint32_t maxSize, bool withAck);
 
 
   virtual void
@@ -358,8 +359,12 @@ protected:
   * \param mapping
   * \todo should check if mappings intersect, already exist etc...
   */
-  virtual bool AddPeerMapping(const MpTcpMapping& mapping);
+//  virtual bool AddPeerMapping(const MpTcpMapping& mapping);
 
+
+  virtual void GetMappedButMissingData(
+                std::set< MpTcpMapping >& missing
+                );
 
   /**
    * Depending on if this subflow is master or not, we want to
@@ -405,40 +410,69 @@ protected:
   virtual void
   ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader);
 
-//  virtual void ProcessOptionMpTcp (const Ptr<const TcpOption> option);
-  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> optionMapTo);
+  virtual int ProcessOptionMpTcp (const Ptr<const TcpOption> option);
 
   /**
-    GetMeta()->m_rxBuffer.NextRxSequence().GetValue()
-  **/
-//  virtual void
-//  AppendDataAck(TcpHeader& hdr) const;
+   * To deal with MP_JOIN/MP_CAPABLE
+   */
+//  virtual int ProcessOptionMpTcpSynSent(const Ptr<const TcpOption> optionMapTo);
+
+
 public:
-  Ptr<MpTcpSocketBase>
-  GetMeta() const;
+  /**
+   *
+   */
+  Ptr<MpTcpSocketBase> GetMeta() const;
+
+  /**
+   * Not implemented
+   * \return false
+   */
+  bool IsInfiniteMappingEnabled() const;
 
 protected:
+
+  /////////////////////////////////////////////
+  //// DSS Mapping handling
+  /////////////////////////////////////////////
+
+  /**
+   * Mapping is said "loose" because it is not tied to an SSN yet, this is the job
+   * of this function: it will look for the FirstUnmappedSSN() and map the DSN to it.
+   *
+   * Thus you should call it with increased dsn.
+   *
+   * \param dsnHead
+   */
+  bool AddLooseMapping(SequenceNumber64 dsnHead, uint16_t length);
+
+  /**
+   * If no mappings set yet, then it returns the tail ssn of the Tx buffer.
+   * Otherwise it returns the last registered mapping TailSequence
+   */
+  SequenceNumber32 FirstUnmappedSSN();
+
   /**
    * \brief Creates a DSS option if does not exist and configures it to have a dataack
    * TODO what happens if existing datack already set ?
    */
-  virtual void
-  AppendDSSAck();
-  virtual void
-  AddMpTcpOptionDSS(TcpHeader& header);
+  virtual void AppendDSSAck();
 
   /**
-   *
+   * Corresponds to mptcp_write_dss_mapping and mptcp_write_dss_ack
    */
-  virtual void
-  AppendDSSFin();
-  virtual void
-  AppendDSSMapping(const MpTcpMapping& mapping);
+  virtual void AddMpTcpOptionDSS(TcpHeader& header);
 
-  virtual void
-  ReceivedAck(Ptr<Packet>, const TcpHeader&); // Received an ACK packet
-  virtual void
-  ReceivedData(Ptr<Packet>, const TcpHeader&);
+  /**
+   * rename to addDSSFin
+   */
+  virtual void AppendDSSFin();
+  virtual void AppendDSSMapping(const MpTcpMapping& mapping);
+
+  virtual void ReceivedAck(Ptr<Packet>, const TcpHeader&); // Received an ACK packet
+//  virtual void ReceivedAck(SequenceNumber32 seq); // Received an ACK packet
+
+  virtual void ReceivedData(Ptr<Packet>, const TcpHeader&);
 
 
   /**
@@ -452,11 +486,11 @@ protected:
   * Like send, but pass on the global seq number associated with
   * \see Send
   **/
-  virtual int
-  SendMapping(Ptr<Packet> p,
-              //SequenceNumber32 seq
-              MpTcpMapping& mapping
-              );
+//  virtual int
+//  SendMapping(Ptr<Packet> p,
+//              //SequenceNumber32 seq
+//              MpTcpMapping& mapping
+//              );
 
 
   virtual void
@@ -472,6 +506,10 @@ protected:
   virtual void
   SendEmptyPacket(TcpHeader& header);
 
+  /**
+   * Overrides the TcpSocketBase that just handles the MP_CAPABLE option.
+   *
+   */
   virtual void AddMpTcpOptions (TcpHeader& header);
 //  virtual Ptr<TcpSocketBase>
 //  Fork(void); // Call CopyObject<> to clone me
@@ -486,37 +524,9 @@ protected:
   virtual void
   CancelAllTimers(void); // Cancel all timer when endpoint is deleted
 
-//  virtual void AddDSNMapping(uint8_t sFlowIdx, uint64_t dSeqNum, uint16_t dLvlLen, uint32_t sflowSeqNum, uint32_t ack, Ptr<Packet> pkt);
-//  virtual void StartTracing(string traced);
-//  virtual void CwndTracer(uint32_t oldval, uint32_t newval);
-
-//  virtual void SetFinSequence(const SequenceNumber32& s);
-//  virtual bool Finished();
-//  DSNMapping *GetunAckPkt();
-
-//  void InitializeCwnd (void);
 
   uint16_t m_routeId;   //!< Subflow's ID (TODO rename into subflowId ). Position of this subflow in MetaSock's subflows std::vector
 
-
-//  EventId m_retxEvent;          // Retransmission timer
-//  EventId m_lastAckEvent;     // Timer for last ACK
-//  EventId m_timewaitEvent;    // Timer for closing connection at sender side
-
-
-  // TODO replace by parent's m_ m_cWnd
-//  TracedValue<uint32_t> m_cWnd; // Congestion window (in bytes)
-
-
-//  TracedValue<uint32_t> m_ssThresh;          //!< Slow start threshold
-//  uint32_t maxSeqNb;          // Highest sequence number of a sent byte. Equal to (TxSeqNumber - 1) until a retransmission occurs
-//  uint32_t highestAck;        // Highest received ACK for the subflow level sequence number
-//  uint32_t m_initialCWnd;     //!< Initial cWnd value
-//  SequenceNumber32 m_recover; //!< Previous highest Tx seqNb for fast recovery
-//  uint32_t m_retxThresh;      //!< Fast Retransmit threshold
-//  bool m_inFastRec;           // Currently in fast recovery
-//  bool m_limitedTx;           // perform limited transmit
-//  uint32_t m_dupAckCount;     // DupACK counter TO REMOVE exist in parent
 
   // Use Ptr here so that we don't have to unallocate memory manually ?
 //  typedef std::list<MpTcpMapping> MappingList
@@ -528,17 +538,15 @@ protected:
 
 protected:
   Ptr<MpTcpSocketBase> m_metaSocket;    //!< Meta
-
+  virtual void SendPacket(TcpHeader header, Ptr<Packet> p);
 
 //private:
 
 private:
   // Delayed values to
-  uint8_t m_dssFlags;   //!< used to know if AddMpTcpOptions should send a flag
-  MpTcpMapping m_dssMapping;
+  uint8_t m_dssFlags;           //!< used to know if AddMpTcpOptions should send a flag
+  MpTcpMapping m_dssMapping;    //!< Pending ds configuration to be sent in next packet
 
-  //!
-  virtual void SendPacket(TcpHeader header, Ptr<Packet> p);
 
   bool m_backupSubflow; //!< Priority
   bool m_masterSocket;  //!< True if this is the first subflow established (with MP_CAPABLE)
