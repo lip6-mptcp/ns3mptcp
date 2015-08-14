@@ -482,7 +482,7 @@ MpTcpSubflow::SendMapping(Ptr<Packet> p, MpTcpMapping& mapping)
 bool
 MpTcpSubflow::AddLooseMapping(SequenceNumber64 dsnHead, uint16_t length)
 {
-    NS_LOG_LOGIC("Adding mapping " << dsnHead << length);
+    NS_LOG_LOGIC("Adding mapping with dsn=" << dsnHead << " len=" << length);
     MpTcpMapping mapping;
 
     mapping.MapToSSN(FirstUnmappedSSN());
@@ -501,7 +501,7 @@ MpTcpSubflow::FirstUnmappedSSN()
     SequenceNumber32 ssn;
     if(!m_TxMappings.FirstUnmappedSSN(ssn))
     {
-        ssn = m_txBuffer->TailSequence() + 1;
+        ssn = m_txBuffer->TailSequence();
     }
     return ssn;
 }
@@ -567,10 +567,6 @@ MpTcpSubflow::CheckRangeIsCoveredByMapping(SequenceNumber32 ssnHead, SequenceNum
 void
 MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
 {
-  MpTcpMapping mapping;
-
-  SequenceNumber32 ssnHead = header.GetSequenceNumber();
-  SequenceNumber32 ssnTail = ssnHead + SequenceNumber32(p->GetSize());
 
   // TODO here we should decide if we call AppendMapping or not and with which value
 
@@ -583,6 +579,9 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
     // and thus not add the mapping for several packets
     /// TODO : just moved from SendDataPacket.
     ///============================
+      SequenceNumber32 ssnHead = header.GetSequenceNumber();
+//      SequenceNumber32 ssnTail = ssnHead + SequenceNumber32(p->GetSize())-1;
+
       MpTcpMapping mapping;
       // TODO
       bool result = m_TxMappings.GetMappingForSSN(ssnHead, mapping);
@@ -591,7 +590,7 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
         m_TxMappings.Dump();
         NS_FATAL_ERROR("Could not find mapping associated to ssn");
       }
-      NS_ASSERT_MSG(mapping.TailSSN() >= ssnHead +p->GetSize(), "mapping should cover the whole packet" );
+      NS_ASSERT_MSG(mapping.TailSSN() >= ssnHead +p->GetSize() -1, "mapping should cover the whole packet" );
 
       AppendDSSMapping(mapping);
     ///============================

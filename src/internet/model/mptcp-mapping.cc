@@ -375,7 +375,7 @@ MpTcpMappingContainer::GetMappingsStartingFromSSN(SequenceNumber32 ssn, std::set
     MpTcpMapping temp;
     temp.MapToSSN(ssn);
     MappingList::const_iterator it = std::lower_bound( m_mappings.begin(), m_mappings.end(), temp);
-//
+
     std::copy(it, m_mappings.end(), std::inserter(missing, missing.begin()));
     return false;
 }

@@ -1622,12 +1622,15 @@ MpTcpSocketBase::PersistTimeout()
   NS_FATAL_ERROR("TODO");
 }
 
+
+
+
+
 /**
  * Sending data via subflows with available window size.
  * Todo somehow rename to dispatch
  * we should not care about IsInfiniteMapping()
  */
-
 bool
 MpTcpSocketBase::SendPendingData(bool withAck)
 {
@@ -1642,8 +1645,10 @@ MpTcpSocketBase::SendPendingData(bool withAck)
   //start/size
   int nbMappingsDispatched = 0; // mimic nbPackets in TcpSocketBase::SendPendingData
 
+  //// Generate DSS mappings
+  //// This could go into a specific function
+  /////////////////////////////////////////////
 //  MappingVector mappings;
-
   SequenceNumber64 dsnHead;
   SequenceNumber32 ssn;
   int subflowArrayId;
@@ -1653,18 +1658,56 @@ MpTcpSocketBase::SendPendingData(bool withAck)
   // the MapToSsn will be done,
   // dsn, size, and path instead of a unmapped mapping
   // GenerateMapping( sf, );
-
+  // Pb: infinite loop because of
   while(m_scheduler->GenerateMapping(subflowArrayId, dsnHead, length))
   {
       NS_LOG_DEBUG("Generated mapping for sf=" << subflowArrayId << " dsn=" << dsnHead
                     << " of len=" << length);
 
-      bool ok = GetSubflow(subflowArrayId)->AddLooseMapping(dsnHead, length);
+      Ptr<MpTcpSubflow> subflow = GetSubflow(subflowArrayId);
+      bool ok = subflow->AddLooseMapping(dsnHead, length);
+
       NS_ASSERT(ok);
+
+
+      ////
+      //// see next #if 0 to see how it should be
+      SequenceNumber32 dsnTail = SEQ64TO32(dsnHead) + length;
+
+      // temp
+      Ptr<Packet> p = m_txBuffer->CopyFromSequence(length, dsnHead);
+
+
+      NS_ASSERT(p->GetSize() <= length);
+
+      int ret = subflow->Send(p, 0);
+      NS_LOG_DEBUG("Send result=" << ret);
+
+      /*
+      Ideally we should be able to send data out of order so that it arrives in order at the
+      receiver but to do that we need SACK support (IMO). Once SACK is implemented it should
+      be reasonably easy to add
+      */
+      NS_ASSERT(dsnHead == m_nextTxSequence);
+      //TODO update m_nextTx / txmark
+      //  // TODO here update the m_nextTxSequence only if it is in order
+      //      // Maybe the max is unneeded; I put it here
+      SequenceNumber64 nextTxSeq = SEQ32TO64(m_nextTxSequence);
+      if( dsnHead <= nextTxSeq
+          && (dsnTail) >= nextTxSeq )
+      {
+        m_nextTxSequence = dsnTail;
+      }
+
+      m_highTxMark = std::max( m_highTxMark.Get(), dsnTail);
+      NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
   }
 
 
-
+    // disabled for now since not advancing txmark was creating an infinite loop
+    // but once TCP sack is implemented we should reenable it
+    #if 0
+    NS_LOG_DEBUG("Looping through  subflows to dispatch meta Tx data");
 
   // Then we loop through subflows to see if the dsn was mapped to the subflow
   // this allows to send the same data over different subflows
@@ -1672,24 +1715,51 @@ MpTcpSocketBase::SendPendingData(bool withAck)
     {
         Ptr<MpTcpSubflow> sf = GetSubflow(i);
 
-        #if 0
-        std::vector<MpTcpMapping> temp;
+
+        //! retrieve the DSN ranges that this subflow has mappings for.
+        std::set<MpTcpMapping> temp;
         sf->GetMappedButMissingData(temp);
 
         // go through the unsent meta Tx buffer
-        // and check if any part of it is mapped in a subflow
-        for(it = temp.begin(); it != temp.end(); ++it)
-//        while(sf->CanMapDSN2SSN(dsnHead, len))
+        // and check if any part of the Tx Data is mapped in a subflow but not yet in the
+        // subflow tx
+        for(std::set<MpTcpMapping>::iterator it = temp.begin(); it != temp.end(); ++it)
         {
             // Extract the mapped part
+            MpTcpMapping mapping = *it;
+            NS_LOG_DEBUG("Subflow expect mapping " << mapping);
+
             // temp
             Ptr<Packet> p = m_txBuffer->CopyFromSequence(mapping.GetLength(), SEQ64TO32(mapping.HeadDSN()));
-            sf->Send(p, 0);
 
+
+            NS_ASSERT(p->GetSize() <= mapping.GetLength());
+
+            int ret = sf->Send(p, 0);
+            NS_LOG_DEBUG("Send result=" << ret);
+
+            /*
+            Ideally we should be able to send data out of order so that it arrives in order at the
+            receiver but to do that we need SACK support (IMO). Once SACK is implemented it should
+            be reasonably easy to add
+            */
+            NS_ASSERT(mapping.HeadDSN() == m_nextTxSequence);
             //TODO update m_nextTx / txmark
+//  // TODO here update the m_nextTxSequence only if it is in order
+//      // Maybe the max is unneeded; I put it here
+            SequenceNumber64 nextTxSeq = SEQ32TO64(m_nextTxSequence);
+            if( mapping.HeadDSN() <= nextTxSeq
+                && mapping.TailDSN() >= nextTxSeq )
+            {
+              m_nextTxSequence = SEQ64TO32(mapping.TailDSN()) + 1;
+            }
+
+            m_highTxMark = std::max( m_highTxMark.Get(), SEQ64TO32(mapping.TailDSN()));
+            NS_LOG_LOGIC("m_nextTxSequence=" << m_nextTxSequence << " m_highTxMark=" << m_highTxMark);
         }
-        #endif
+
     }
+    #endif
 
 
   // Just dump the generated mappings

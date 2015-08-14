@@ -64,6 +64,7 @@ MpTcpSchedulerRoundRobin::SetMeta(Ptr<MpTcpSocketBase> metaSock)
   NS_ASSERT(metaSock);
   NS_ASSERT_MSG(m_metaSock == 0, "SetMeta already called");
   m_metaSock = metaSock;
+//  m_firstUnmappedDsn = m_metaSock->m_txBuffer->HeadSequence();
 }
 
 //uint16_t
@@ -86,6 +87,7 @@ bool
 MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length)
 {
     NS_LOG_FUNCTION(this);
+    NS_ASSERT(m_metaSock);
 
     //!
     int nbOfSubflows = m_metaSock->GetNActiveSubflows();
@@ -94,23 +96,29 @@ MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNum
 
     //! Tx data not sent to subflows yet
     SequenceNumber32 metaNextTxSeq = m_metaSock->m_nextTxSequence;
+
     amountOfDataToSend = m_metaSock->m_txBuffer->SizeFromSequence( metaNextTxSeq );
 
     NS_LOG_DEBUG("Amount of data to send [" << amountOfDataToSend  << "]");
+    if(amountOfDataToSend <= 0)
+    {
+      NS_LOG_DEBUG("Nothing to send from meta");
+      return false;
+    }
 
     uint32_t metaWindow = m_metaSock->AvailableWindow();
-//    m_metaSock->
+
 
     if(metaWindow <= 0)
     {
         NS_LOG_DEBUG("No meta window available (TODO should be in persist state ?)");
-        return -1; // TODO ?
+        return false; // TODO ?
     }
 
     while(attempt < nbOfSubflows)
     {
         attempt++;
-        m_lastUsedFlowId = (m_lastUsedFlowId + 1);
+        m_lastUsedFlowId = (m_lastUsedFlowId + 1) % nbOfSubflows;
         Ptr<MpTcpSubflow> subflow = m_metaSock->GetSubflow(m_lastUsedFlowId);
         uint32_t subflowWindow = subflow->AvailableWindow();
 
@@ -124,7 +132,7 @@ MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNum
 
             activeSubflowArrayId = m_lastUsedFlowId;
             dsn = metaNextTxSeq;
-            length = canSend;
+            length = std::min(canSend, amountOfDataToSend);
             return true;
         }
     }
