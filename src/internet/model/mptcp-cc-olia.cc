@@ -1,9 +1,25 @@
-
-#include "ns3/mp-tcp-olia.h"
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/*
+ * Copyright (c) 2015 Université Pierre et Marie Curie (UPMC)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * Author: Matthieu Coudron <matthieu.coudron@lip6.fr>
+ */
+#include "ns3/mptcp-olia.h"
 #include "ns3/log.h"
 #include "ns3/object.h"
-#include "ns3/mp-tcp-id-manager.h"
-//#include "ns3/mp-tcp-id-manager.h"
 
 NS_LOG_COMPONENT_DEFINE("MpTcpCCOlia");
 
@@ -18,7 +34,7 @@ TypeId
 MpTcpCCOlia::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::MpTcpCCOlia")
-    .SetParent<MpTcpSocketBase> ()
+    .SetParent<TcpCongestionOps> ()
     .AddConstructor<MpTcpCCOlia> ()
 //    .AddAttribute ("ReTxThreshold", "Threshold for fast retransmit",
 //                    UintegerValue (3),
@@ -41,16 +57,19 @@ MpTcpCCOlia::GetTypeId (void)
 //{
 //  return GetTypeId();
 //}
-
+std::string
+MpTcpCCOlia::GetName(void) const {
+    return "OLIA";
+};
 
 MpTcpCCOlia::MpTcpCCOlia(void) :
-  MpTcpSocketBase()
+  TcpCongestionOps()
 {
   NS_LOG_FUNCTION (this);
 }
 
 MpTcpCCOlia::MpTcpCCOlia(const MpTcpCCOlia& sock) :
-  MpTcpSocketBase(sock)
+  TcpCongestionOps(sock)
 {
   NS_LOG_FUNCTION (this);
   NS_LOG_LOGIC ("Invoked the copy constructor");
@@ -96,38 +115,11 @@ MpTcpCCOlia::GetSSThresh(void) const
   return 2;
 }
 
-TypeId
-MpTcpCCOlia::GetMpTcpSubflowTypeId()
+virtual Ptr<TcpCongestionOps>
+uint32_t MpTcpCCOlia::Fork ()
 {
-  return MpTcpSubflow::GetTypeId();
+  //!
+  return CreateObject<MpTcpCCOlia>(*this);
 }
-
-
-uint32_t
-MpTcpCCOlia::GetInitialCwnd(void) const
-{
-  return 10;
-}
-
-//
-//Ptr<SubFlow>
-//MpTcpCCOlia::GetSubflowToUse(Ptr<MpTcpSocketBase> metaSock)
-//{
-//  uint8_t nextSubFlow = 0;
-//  switch (m_distribAlgo)
-//    {
-//  case Round_Robin:
-//    nextSubFlow = (m_lastUsedsFlowIdx + 1) % m_subflows.size();
-//    break;
-//  default:
-//    break;
-//    }
-//  return nextSubFlow;
-//
-//}
-//
-
-
-
 
 } //end of ns3

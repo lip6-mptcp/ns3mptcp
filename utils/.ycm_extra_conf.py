@@ -40,17 +40,22 @@ log.addHandler(handler)
 # log.addHandler()
 
 # that's what we have to fill
-system_flags = []
+
+def GetClangStandardHeaders():
+  system_flags = []
+
+  res = subprocess.check_output("sed -n '/#include <...> search starts here/,/End of search list/{//!p}' result.txt", shell=True)
+  res = res.decode()
+  system_headers = res.splitlines()
+
+  for include in system_headers:
+    system_flags.append('-isystem')
+    log.info("Appended system %s" % include)
+    system_flags.append(include.strip())
+
+  return system_flags
 
 
-res = subprocess.check_output("sed -n '/#include <...> search starts here/,/End of search list/{//!p}' result.txt", shell=True)
-res = res.decode()
-system_headers = res.splitlines()
-
-for include in system_headers:
-  system_flags.append('-isystem')
-  log.info("Appended system %s" % include)
-  system_flags.append(include.strip())
 
 
 # Set this to the absolute path to the folder (NOT the file!) containing the
@@ -59,7 +64,7 @@ for include in system_headers:
 #
 # Most projects will NOT need to set this to anything; you can just change the
 # 'flags' list of compilation flags.
-compilation_database_folder = '/home/teto/ns3off/build/'
+compilation_database_folder = os.path.join(DirectoryOfThisScript(),'build/')
 
 if os.path.exists( compilation_database_folder ):
   log.info("Loading database")
@@ -121,27 +126,14 @@ def MatchHeaderToSource( filename ):
   filename += ".cc"
   log.debug("Looking for implementation of %s" % filename)
   # be careful it is the python 2.7 version and as such does not return bytes
-  match = subprocess.check_output("find src -name %s" % (filename), shell=True)
-  match=match.strip()
-  #match=match.decode()
-  #test = match.decode("ascii")
-  #print( "test1=%r", test)
-  #print( "test1=%r", match.decode()
-  #splitlines()[0].strip()
+  try:
+    match = subprocess.check_output("find src -name %s" % (filename), shell=True)
+    match=match.strip()
+  except Exception as e:
+    log.error("Could not map header to implementation: %s:" % e)
 
-  #match = "/home/teto/ns3off/src/internet/model/tcp-socket-base.cc"
-  log.debug("Encoded match=%r %r" % (match, "toto"))
   match = os.path.abspath(match) 
-  log.debug("match=%s" % match)
   return match
-
-
-# legacy code
-    #basename = os.path.splitext( filename )[ 0 ]
-    #for extension in SOURCE_EXTENSIONS:
-      #replacement_file = basename + extension
-      #if os.path.exists( replacement_file ):
-
 
 
 def GetCompilationInfoForFile( filename ):
@@ -152,14 +144,7 @@ def GetCompilationInfoForFile( filename ):
   log.debug("GetCompilationInfoForFile called with parameter=%s" % filename)
   final_name = filename
   if IsHeaderFile( filename ):
-   #match
     final_name = MatchHeaderToSource( filename)
-    #compilation_info = database.GetCompilationInfoForFile(
-          #replacement_file )
-    #if compilation_info.compiler_flags_:
-        #return compilation_info
-    #return compilation_info
-  
   
   log.info("compilation_info for =%s" % final_name)
 
@@ -169,7 +154,7 @@ def GetCompilationInfoForFile( filename ):
 # This is the entry point; this function is called by ycmd to produce flags for
 # a file.
 def FlagsForFile( filename, **kwargs ):
-  log.debug("== New request ==\nGetting flags for file %s" % filename)
+  log.debug("== Getting flags for file %s" % filename)
   if database:
     # Bear in mind that compilation_info.compiler_flags_ does NOT return a
     # python list, but a "list-like" StringVec object
@@ -179,24 +164,20 @@ def FlagsForFile( filename, **kwargs ):
       return None
     
     log.debug(" flags before being made relative %s" % compilation_info.compiler_flags_)
-    #log.debug(" flags before being made relative %s" % compilation_info.compiler_flags_)
 
-
-    final_flags = MakeRelativePathsInFlagsAbsolute(
+    # this should not be necessary, I leave it just in case
+  flags = MakeRelativePathsInFlagsAbsolute(
       compilation_info.compiler_flags_,
       compilation_info.compiler_working_dir_ )
     
+  flags += system_flags;
 
-    final_flags += system_flags;
-
-  else:
-    # in case you don't use the clang db
-    relative_to = DirectoryOfThisScript()
-    final_flags = MakeRelativePathsInFlagsAbsolute( flags, relative_to )
+    #relative_to = DirectoryOfThisScript()
+    #final_flags = MakeRelativePathsInFlagsAbsolute( flags, relative_to )
   
-  log.debug("Open filename '%s': found flags=%s\n" % (filename, final_flags))
+  log.debug("Open filename '%s': found flags=%s\n" % (filename, flags))
   return {
-    'flags': final_flags,
+    'flags': flags,
     'do_cache': True
   }
 

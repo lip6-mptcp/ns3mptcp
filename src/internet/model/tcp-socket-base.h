@@ -1014,7 +1014,7 @@ protected:
   bool m_nullIsn;       //< Should the ISN be null ?
 
   // Options
-  bool    m_mptcpAllow;           //!< Window Scale option enabled
+//  bool    m_mptcpAllow;           //!< Window Scale option enabled
   bool    m_mptcpEnabled;         //!< Window Scale option enabled
   bool    m_mptcpLocalKey;        //!< MPTCP key
   bool    m_mptcpLocalToken;      //!< Hash of the key
