@@ -177,8 +177,8 @@ public:
    * It detects such events by tracing its subflow m_state.
    *
    */
-//  virtual void
-//  OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
+  virtual void
+  OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
 
   /**
    * Initiates a new subflow with MP_JOIN
@@ -374,6 +374,11 @@ public:
    * and MP_FASTCLOSE on one of the subflows
    */
   virtual void SendRST(void);
+
+  /** TODO superseed into TcpSocketBase
+  Here it sends MP_FIN
+   */
+  virtual void SendFin();
 
   /**
   public equivalent ?

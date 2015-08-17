@@ -529,11 +529,16 @@ MpTcpSocketBase::ReceivedAck(Ptr<Packet> packet, const TcpHeader& mptcpHeader)
   NS_FATAL_ERROR("Disabled");
 }
 
+/* this is called by TcpSocketBase::ReceivedAck when 3 out of order arrived for instance
+For now do nothing
+*/
+
 uint32_t
 MpTcpSocketBase::SendDataPacket(SequenceNumber32 seq, uint32_t maxSize, bool withAck)
 {
 //  NS_LOG_FUNCTION (this << "Should do nothing" << maxSize << withAck);
-  NS_FATAL_ERROR("Disabled");
+//  NS_FATAL_ERROR("Disabled");
+    NS_LOG_WARN("Does nothing");
   // Disabled
   return 0;
 }
@@ -727,16 +732,16 @@ MpTcpSocketBase::OnSubflowRecv(Ptr<MpTcpSubflow> sf)
 /**
 TODO check that it autodisconnects when we destroy the object ?
 **/
-//void
-//MpTcpSocketBase::OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd)
-//{
-//  NS_LOG_LOGIC("Subflow updated window from " << oldCwnd << " to " << newCwnd
-////        << " (context=" << context << ")"
-//        );
-//
-//  //
-////  m_cWnd = ComputeTotalCWND();
-//}
+void
+MpTcpSocketBase::OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd)
+{
+  NS_LOG_LOGIC("Subflow updated window from " << oldCwnd << " to " << newCwnd
+//        << " (context=" << context << ")"
+        );
+
+  // maybe ComputeTotalCWND should be left
+  m_tcb->m_cWnd = ComputeTotalCWND();
+}
 
 
 /**
@@ -967,8 +972,8 @@ MpTcpSocketBase::AddSubflow(Ptr<MpTcpSubflow> sflow)
 //  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
   Ptr<MpTcpSubflow> sf = sflow;
   bool ok;
-// ok = sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this));
-//  NS_ASSERT_MSG(ok, "Tracing mandatory to update the MPTCP global congestion window");
+  ok = sf->TraceConnect ("CongestionWindow", "CongestionWindow", MakeCallback(&MpTcpSocketBase::OnSubflowNewCwnd, this));
+  NS_ASSERT_MSG(ok, "Tracing mandatory to update the MPTCP global congestion window");
 
   //! We need to act on certain subflow state transitions according to doc "There is not a version with bound arguments."
     //  NS_ASSERT(sFlow->TraceConnect ("State", "State", MakeCallback(&MpTcpSocketBase::OnSubflowNewState, this)) );
@@ -1527,6 +1532,9 @@ MpTcpSocketBase::UpdateTxBuffer()
 }
 
 
+/*
+This should take care of ReTxTimeout
+*/
 void
 MpTcpSocketBase::NewAck(SequenceNumber32 const& dsn)
 {
@@ -1665,6 +1673,8 @@ MpTcpSocketBase::SendPendingData(bool withAck)
                     << " of len=" << length);
 
       Ptr<MpTcpSubflow> subflow = GetSubflow(subflowArrayId);
+
+      // For now we limit the mapping to a per packet basis
       bool ok = subflow->AddLooseMapping(dsnHead, length);
 
       NS_ASSERT(ok);
@@ -1681,6 +1691,8 @@ MpTcpSocketBase::SendPendingData(bool withAck)
       NS_ASSERT(p->GetSize() <= length);
 
       int ret = subflow->Send(p, 0);
+      // Flush to update cwnd and stuff
+//      subflow->SendPendingData();
       NS_LOG_DEBUG("Send result=" << ret);
 
       /*
@@ -2122,12 +2134,7 @@ MpTcpSocketBase::DoRetransmit()
           // Must have lost FIN, re-send
 //          SendEmptyPacket(TcpHeader::FIN);
           TcpHeader header;
-        Ptr<MpTcpSubflow> subflow = GetSubflow(0);
-//          m_state = FIN_WAIT_1;
-//          subflow->GenerateEmptyPacketHeader(header,);
-    //      SendEmptyPacket(header);
-          subflow->AppendDSSFin();
-          subflow->SendEmptyPacket(TcpHeader::ACK);
+          SendFin();
 
         }
       return;
@@ -2139,6 +2146,7 @@ MpTcpSocketBase::DoRetransmit()
 
   DumpRxBuffers(0);
 
+//  SendDataPacket();
   NS_FATAL_ERROR("TODO later, but for the tests only, it should not be necesssary ?! Check for anything suspicious");
 //
 //  m_nextTxSequence = FirstUnackedSeq();
@@ -2152,6 +2160,16 @@ MpTcpSocketBase::DoRetransmit()
   //reTxTrack.push_back(std::make_pair(Simulator::Now().GetSeconds(), ns3::TcpNewReno::cWnd));
 }
 
+void
+MpTcpSocketBase::SendFin()
+{
+    Ptr<MpTcpSubflow> subflow = GetSubflow(0);
+//          m_state = FIN_WAIT_1;
+//          subflow->GenerateEmptyPacketHeader(header,);
+//      SendEmptyPacket(header);
+    subflow->AppendDSSFin();
+    subflow->SendEmptyPacket(TcpHeader::ACK);
+}
 
 void
 MpTcpSocketBase::ReTxTimeout()
@@ -2481,6 +2499,7 @@ MpTcpSocketBase::BytesInFlight()
   return TcpSocketBase::BytesInFlight();
 
   #if 0
+  // can be removed I guess
   uint32_t total = 0;
 
   for( SubflowList::const_iterator it = m_subflows[Established].begin(); it != m_subflows[Established].end(); it++ )

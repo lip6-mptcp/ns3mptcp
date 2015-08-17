@@ -219,6 +219,8 @@ Once a mapping has been advertised on a subflow, it must be honored. If the remo
 
 TODO: it might be best to use a
 std::lower_bound on map
+Could be fun implemented as an interval tree
+http://www.geeksforgeeks.org/interval-tree/
 */
 class MpTcpMappingContainer
 {
@@ -329,13 +331,13 @@ class MpTcpMappingContainer
   virtual bool GetMappingsStartingFromSSN(SequenceNumber32 ssn, std::set<MpTcpMapping>& mappings);
 
 protected:
-//    std::map<SequenceNumber64, uint32_t> m_unmapped;
-// TODO this may be more efficient to do the search
 
     /**
-    //!< SSN/ mapping
+    SSN/ mapping
+    TODO
+    Maybe use a map to recortd extra info
+    we can assume that
     */
-//    std::map<SequenceNumber32, MpTcpMapping> m_mappings;
 
     std::set<MpTcpMapping> m_mappings;     //!< it is a set ordered by SSN
 };

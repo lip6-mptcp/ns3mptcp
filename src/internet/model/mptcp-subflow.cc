@@ -344,15 +344,16 @@ MpTcpSubflow::Send(Ptr<Packet> p, uint32_t flags)
   int ret = TcpSocketBase::Send(p, flags);
 
 
-//  if(ret > 0)
-//  {
+  if(ret > 0)
+  {
 //      // Check that the packet is covered by mapping
 //      // compute ssnHead and tail
 //      SequenceNumber32 ssnTail = m_txBuffer->TailSequence();
-//      SequenceNumber32 ssnHead = m_txBuffer->TailSequence() - p->Size();
-//      NS_ASSERT(CheckRangeIsCoveredByMapping(ssnHead, ssnTail));
+      MpTcpMapping temp;
+      SequenceNumber32 ssnHead = m_txBuffer->TailSequence() - p->GetSize();
+      NS_ASSERT(m_TxMappings.GetMappingForSSN(ssnHead, temp));
 //      return ret;
-//  }
+  }
 
   return ret;
 }
@@ -567,7 +568,7 @@ MpTcpSubflow::CheckRangeIsCoveredByMapping(SequenceNumber32 ssnHead, SequenceNum
 void
 MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
 {
-
+  NS_LOG_FUNCTION (this << header <<  p);
   // TODO here we should decide if we call AppendMapping or not and with which value
 
 
@@ -610,16 +611,31 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
  *
  */
 uint32_t
-MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32_t length)
+MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32_t maxSize)
 {
-  NS_LOG_FUNCTION(this << "Sending packet starting at SSN [" << ssnHead.GetValue() << "] with len=" << length);
+  NS_LOG_FUNCTION(this << "Sending packet starting at SSN [" << ssnHead.GetValue() << "] with len=" << maxSize);
+  //! if we send data...
+//  if(p->GetSize() && !IsInfiniteMappingEnabled())
+//  {
 
+      MpTcpMapping mapping;
+      // TODO
+      bool result = m_TxMappings.GetMappingForSSN(ssnHead, mapping);
+      if(!result)
+      {
+        m_TxMappings.Dump();
+        NS_FATAL_ERROR("Could not find mapping associated to ssn");
+      }
+//      NS_ASSERT_MSG(mapping.TailSSN() >= ssnHead +p->GetSize() -1, "mapping should cover the whole packet" );
+
+      AppendDSSMapping(mapping);
+    ///============================
+
+//  }
 //  #error TODO copy some commands from TcpSocketBase
 
-
-
   // Here we set the maxsize to the size of the mapping
-  return TcpSocketBase::SendDataPacket(header, ssnHead, length);
+  return TcpSocketBase::SendDataPacket(header, ssnHead, std::min( (int)maxSize,mapping.TailSSN()-ssnHead+1));
 }
 
 
@@ -1427,7 +1443,7 @@ void
 MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
 {
   //NS_ASSERT(m_state == SYN_SENT || m_state == SYN_RCVD);
-  NS_LOG_FUNCTION(this << hdr);
+  NS_LOG_FUNCTION(this << hdr << hdr.FlagsToString(hdr.GetFlags()));
 
   if( IsMaster() )
   {
@@ -2768,7 +2784,12 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
 //      AddPeerMapping(m);
       // Add peer mapping
       bool ok = m_RxMappings.AddMapping( m );
-      NS_ASSERT(ok);
+      if(!ok)
+      {
+        NS_LOG_WARN("Could not insert mapping: already received ?");
+        m_RxMappings.Dump();
+//        NS_FATAL_ERROR("Insert failed");
+      }
   }
 
 //  #if 0

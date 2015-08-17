@@ -79,7 +79,7 @@ public:
   virtual Ptr<MpTcpSubflow> GetSubflowToUseForEmptyPacket();
 
 protected:
-  uint8_t  m_lastUsedFlowId;  //!< keep track of last used subflow
+  uint8_t  m_lastUsedFlowId;        //!< keep track of last used subflow
   Ptr<MpTcpSocketBase> m_metaSock;  //!<
 };
 

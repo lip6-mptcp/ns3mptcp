@@ -1319,7 +1319,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet,
                             )
 {
   // If there is any data piggybacked, store it into m_rxBuffer
-
+  NS_LOG_FUNCTION(this << packet << tcpHeader);
   NS_ASSERT (0 != (tcpHeader.GetFlags () & TcpHeader::ACK));
   ReceivedAck(tcpHeader.GetAckNumber());
   if (packet->GetSize () > 0)
@@ -1369,7 +1369,9 @@ TcpSocketBase::ReceivedAck (SequenceNumber32 ack)
             {
               // RFC3042 Limited transmit: Send a new packet for each duplicated ACK before fast retransmit
               NS_LOG_INFO ("Limited transmit");
-              uint32_t sz = SendDataPacket (m_nextTxSequence, m_tcb->m_segmentSize, true);
+              NS_LOG_UNCOND("Limited transmit removed");
+              uint32_t sz = 0;
+//              uint32_t sz = SendDataPacket (m_nextTxSequence, GetSegSize(), true);
               m_nextTxSequence += sz;
             }
           else if (m_dupAckCount == m_retxThresh)
@@ -3142,6 +3144,8 @@ TcpSocketBase::DoRetransmit ()
       if (m_state == FIN_WAIT_1 || m_state == CLOSING)
         { // Must have lost FIN, re-send
           SendEmptyPacket (TcpHeader::FIN);
+          // TODO write a member called SendFin
+//          SendFin();
         }
       return;
     }

@@ -69,12 +69,12 @@ break all my workflow
 **/
 
 /* shamefully copied from tcp-test.cc */
-static inline std::string GetString (Ptr<Packet> p)
-{
-  std::ostringstream oss;
-  p->CopyData (&oss, p->GetSize ());
-  return oss.str ();
-}
+//static inline std::string GetString (Ptr<Packet> p)
+//{
+//  std::ostringstream oss;
+//  p->CopyData (&oss, p->GetSize ());
+//  return oss.str ();
+//}
 
 /**
 This is a copy of the TCP test
@@ -367,7 +367,7 @@ MpTcpTestCase::ServerHandleRecv (Ptr<Socket> sock)
         }
       NS_TEST_EXPECT_MSG_EQ ((m_currentServerRxBytes + p->GetSize () <= m_totalBytes), true,
                              "Server received too many bytes");
-      NS_LOG_DEBUG ("Server recv data=\"" << GetString (p) << "\"");
+      NS_LOG_DEBUG ("Server recv data=\"" << p->ToString() << "\"");
       p->CopyData (&m_serverRxPayload[m_currentServerRxBytes], p->GetSize ());
       m_currentServerRxBytes += p->GetSize ();
       ServerHandleSend (sock, sock->GetTxAvailable ());
@@ -391,7 +391,7 @@ MpTcpTestCase::ServerHandleSend (Ptr<Socket> sock, uint32_t available)
       NS_LOG_DEBUG ("toSend=min(nbBytesLeft=" << left << ",m_serverWriteSize=" << m_serverWriteSize << ")");
       toSend = std::min (toSend, m_serverWriteSize);
       Ptr<Packet> p = Create<Packet> (&m_serverRxPayload[m_currentServerTxBytes], toSend);
-      NS_LOG_DEBUG ("Server send data=\"" << GetString (p) << "\"");
+      NS_LOG_DEBUG ("Server send data=\"" << p->ToString() << "\"");
       int sent = sock->Send (p);
       NS_TEST_EXPECT_MSG_EQ ((sent != -1), true, "Server error during send ?");
       m_currentServerTxBytes += sent;
@@ -417,7 +417,7 @@ MpTcpTestCase::SourceHandleSend (Ptr<Socket> sock, uint32_t available)
       toSend = std::min (toSend, m_sourceWriteSize);
       NS_LOG_DEBUG ("toSend=min(nbBytesLeft=" << left << ",sourceWriteSize=" << m_sourceWriteSize << ")");
       Ptr<Packet> p = Create<Packet> (&m_sourceTxPayload[m_currentSourceTxBytes], toSend);
-      NS_LOG_DEBUG ("Source send data=\"" << GetString (p) << "\"");
+      NS_LOG_DEBUG ("Source send data=\"" << p->ToString() << "\"");
       int sent = sock->Send (p);
       NS_TEST_EXPECT_MSG_EQ ((sent != -1), true, "Error during send ?");
       m_currentSourceTxBytes += sent;
@@ -442,7 +442,7 @@ MpTcpTestCase::SourceHandleRecv (Ptr<Socket> sock)
       p->CopyData (&m_sourceRxPayload[m_currentSourceRxBytes], p->GetSize ());
       m_currentSourceRxBytes += p->GetSize ();
 
-      NS_LOG_DEBUG ("Source recv data=\"" << GetString (p) << "\". m_currentSourceRxBytes=" << m_currentSourceRxBytes);
+      NS_LOG_DEBUG ("Source recv data=\"" << p->ToString() << "\". m_currentSourceRxBytes=" << m_currentSourceRxBytes);
     }
   if (m_currentSourceRxBytes == m_totalBytes)
     {
