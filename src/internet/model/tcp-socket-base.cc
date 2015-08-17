@@ -138,7 +138,7 @@ TcpSocketBase::GetTypeId (void)
                     MakeUintegerAccessor (&TcpSocketBase::m_retxThresh),
                     MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("LimitedTransmit", "Enable limited transmit",
-                   BooleanValue (true),
+                   BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_limitedTx),
                    MakeBooleanChecker ())
     .AddTraceSource ("RTO",
@@ -1374,7 +1374,9 @@ TcpSocketBase::ReceivedAck (SequenceNumber32 ack)
 //              uint32_t sz = SendDataPacket (m_nextTxSequence, GetSegSize(), true);
               m_nextTxSequence += sz;
             }
+          // origina l version is ==
           else if (m_dupAckCount == m_retxThresh)
+//          else if (m_dupAckCount >= m_retxThresh)
             {
               // triple duplicate ack triggers fast retransmit (RFC2582 sec.3 bullet #1)
               uint32_t oldSsThresh = m_tcb->m_ssThresh;
@@ -1395,7 +1397,8 @@ TcpSocketBase::ReceivedAck (SequenceNumber32 ack)
             }
           else
             {
-              NS_FATAL_ERROR ("m_dupAckCount > m_retxThresh and we still are in DISORDER state");
+                NS_LOG_UNCOND("m_retxThresh=" << m_retxThresh << " m_dupAckCount=" << m_dupAckCount);
+//              NS_FATAL_ERROR ("m_dupAckCount > m_retxThresh and we still are in DISORDER state");
             }
         }
       else if (m_tcb->m_ackState == TcpSocketState::RECOVERY)

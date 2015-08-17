@@ -2678,8 +2678,8 @@ MpTcpSocketBase::ReceivedAck(
 
 //  SequenceNumber32 dack = SequenceNumber32(dss->GetDataAck());
 
-  TcpSocketBase::ReceivedAck(dack);
-#if 0
+//  TcpSocketBase::ReceivedAck(dack);
+//#if 0
   if (dack < FirstUnackedSeq())
     { // Case 1: Old ACK, ignored.
       NS_LOG_LOGIC ("Old ack Ignored " << dack  );
@@ -2692,7 +2692,7 @@ MpTcpSocketBase::ReceivedAck(
 //          NS_LOG_WARN ("TODO Dupack of " << dack << " not handled yet." );
           // TODO add new prototpye ?
 
-            DupAck(dack, sf, ++m_dupAckCount);
+//            DupAck(dack, sf, ++m_dupAckCount);
         }
       // otherwise, the ACK is precisely equal to the nextTxSequence
       NS_ASSERT( dack  <= m_nextTxSequence);
@@ -2705,7 +2705,7 @@ MpTcpSocketBase::ReceivedAck(
       m_dupAckCount = 0;
     }
 
-#endif
+//#endif
 }
 
 

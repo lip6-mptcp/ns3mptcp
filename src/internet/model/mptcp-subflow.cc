@@ -655,7 +655,7 @@ MpTcpSubflow::Retransmit(void)
 {
   NS_LOG_FUNCTION (this);
 
-  TcpSocketBase::Retransmit();
+//  TcpSocketBase::Retransmit();
 #if 0
   NS_LOG_LOGIC (this << " ReTxTimeout Expired at time " << Simulator::Now ().GetSeconds ()
   << "Exiting Fast recovery  (previously set to " << m_inFastRec << ")");
@@ -705,25 +705,12 @@ void
 MpTcpSubflow::DoRetransmit()
 {
   NS_LOG_FUNCTION(this);
-  // TODO maybe this call should go to DoRetransmit
-  GetMeta()->OnSubflowRetransmit(this);
 
-  // TODO this can't work, we need to regenerate the DSS and embed it
-//  TcpSocketBase::DoRetransmit();
-  /**
-  We want to send mappings only
-  **/
-//  MpTcpMapping mapping;
-//  if(!m_TxMappings.GetMappingForSSN(FirstUnackedSeq(), mapping))
-////  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
-//  {
-//    m_TxMappings.Dump();
-//    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << FirstUnackedSeq() << "]. Should be impossible");
-//  }
+  GetMeta()->OnSubflowRetransmit(this);
 
   TcpSocketBase::DoRetransmit();
   #if 0
-  NS_LOG_FUNCTION (this);
+//  NS_LOG_FUNCTION (this);
   // Retransmit SYN packet
   if (m_state == SYN_SENT)
     {
@@ -760,6 +747,7 @@ MpTcpSubflow::DoRetransmit()
   if(!m_TxMappings.GetMappingForSSN(FirstUnackedSeq(), mapping))
 //  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
   {
+    NS_LOG_UNCOND("Rx mappings");
     m_TxMappings.Dump();
     NS_FATAL_ERROR("Could not associate a mapping to ssn [" << FirstUnackedSeq() << "]. Should be impossible");
   }
@@ -876,7 +864,7 @@ MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
   if(sendDataAck)
   {
       // TODO replace with member function to keep isolation
-      uint32_t dack = GetMeta()->m_rxBuffer->NextRxSequence().GetValue();
+      uint32_t dack = GetMeta()->GetRxBuffer()->NextRxSequence().GetValue();
       dss->SetDataAck( dack );
   }
 
@@ -2136,8 +2124,9 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
 //  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
   {
 //      NS_LOG_DEBUG("Could not find a mapping for headSSN=" << headSSN );
+
       m_RxMappings.Dump();
-    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
+      NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
 //    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
   }
   NS_LOG_DEBUG("Extracting mapping " << mapping);
@@ -2787,6 +2776,7 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
       if(!ok)
       {
         NS_LOG_WARN("Could not insert mapping: already received ?");
+        NS_LOG_UNCOND("Dumping Rx mappings...");
         m_RxMappings.Dump();
 //        NS_FATAL_ERROR("Insert failed");
       }

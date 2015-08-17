@@ -201,7 +201,6 @@ MpTcpTestCase::SetupMpTcpSpecificCallbacks(Ptr<MpTcpSocketBase> meta)
     //!
     NS_ASSERT(meta);
 
-//    meta->
     meta->SetSubflowConnectCallback(
                         MakeCallback(&MpTcpTestCase::OnSubflowConnectionSuccess, this),
                         MakeCallback(&MpTcpTestCase::OnSubflowConnectionFailure, this)
@@ -346,7 +345,7 @@ MpTcpTestCase::ServerHandleConnectionCreated (Ptr<Socket> sock, const Address & 
   // TODO setup tracing there !
 
   Ptr<MpTcpSocketBase> server_meta = DynamicCast<MpTcpSocketBase>(sock);
-  NS_LOG_DEBUG("meta " << server_meta);
+  NS_LOG_DEBUG("server meta=" << server_meta);
   SetupMpTcpSpecificCallbacks(server_meta);
 //  server_meta->SetupMetaTracing("server");
 }
