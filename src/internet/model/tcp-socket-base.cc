@@ -2946,6 +2946,13 @@ TcpSocketBase::EstimateRtt (const TcpHeader& tcpHeader)
     }
 }
 
+Ptr<const RttEstimator>
+TcpSocketBase::GetRttEstimator()
+{
+    //!
+    return m_rtt;
+}
+
 Time
 TcpSocketBase::ComputeRTO() const
 {

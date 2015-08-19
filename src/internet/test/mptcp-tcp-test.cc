@@ -99,6 +99,9 @@ public:
   void OnSubflowConnectionFailure (Ptr<MpTcpSubflow> newSubflow);
   void OnSubflowCreationSuccess (Ptr<MpTcpSubflow> newSubflow);
 
+  // when a request is emitted
+  bool OnSubflowJoinRequest (Ptr<MpTcpSubflow>, const Address &, const Address & );
+
 private:
   virtual void DoSetup (void);
   virtual void DoRun (void);
@@ -133,15 +136,21 @@ private:
 
   bool m_useIpv6;
 
-  //
+  Ptr<Node> m_serverNode;
+  Ptr<Node> m_sourceNode;
+
   int m_numberOfSubflows;
   int m_numberOfTimesMetaConnectionCreatedCallbackGotCalled;
   int m_numberOfTimesMetaConnectionSucceedCallbackGotCalled;
   int m_numberOfTimesSubflowCreationSucceedCallbackGotCalled;
   int m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled;
   int m_numberOfTimesSubflowConnectionFailureCallbackGotCalled;
+  int m_numberOfJoinRequests;
   Ptr<MpTcpSocketBase> m_metaClient;
   Ptr<MpTcpSocketBase> m_metaServer;
+
+  const int m_serverPort;
+  const int m_sourcePort;
 };
 
 static std::string Name (std::string str, uint32_t totalStreamSize,
@@ -183,22 +192,67 @@ MpTcpTestCase::MpTcpTestCase (
     m_serverWriteSize (serverWriteSize),
     m_serverReadSize (serverReadSize),
     m_useIpv6 (useIpv6),
+    m_serverNode (0),
+    m_sourceNode (0),
     m_numberOfSubflows(numberOfSubflows),
     m_numberOfTimesMetaConnectionCreatedCallbackGotCalled(0),
     m_numberOfTimesMetaConnectionSucceedCallbackGotCalled(0),
     m_numberOfTimesSubflowCreationSucceedCallbackGotCalled(0),
     m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled(0),
     m_numberOfTimesSubflowConnectionFailureCallbackGotCalled(0),
+    m_numberOfJoinRequests(0),
     m_metaClient(0),
-    m_metaServer(0)
+    m_metaServer(0),
+    m_serverPort(1234),
+    m_sourcePort(4321)
 {
 }
+
+
+//
+//void
+//MpTcpTestCase::HandleSubflowCreated(Ptr<MpTcpSubflow> subflow)
+//{
+//  NS_LOG_LOGIC("Created new subflow [" << subflow << "]. Is master: " << subflow->IsMaster());
+//
+//  if(subflow->IsMaster())
+//  {
+//    NS_LOG_LOGIC("successful establishement of first subflow " << subflow);
+//  }
+//  else
+//  {
+//    //! ce n'est pas le master donc forcement il s'agit d'un join
+//    NS_LOG_LOGIC("successful JOIN of subflow " << subflow );
+//  }
+////  subflow->GetMeta()->SetupSubflowTracing(subflow);
+//}
+//
+//
+//void
+//MpTcpTestCase::HandleSubflowConnected(Ptr<MpTcpSubflow> subflow)
+//{
+//  NS_LOG_LOGIC("successful connection of a subflow");
+//
+//  if(subflow->IsMaster())
+//  {
+//    NS_LOG_LOGIC("successful establishement of first subflow " << subflow);
+//  }
+//  else
+//  {
+//    //! ce n'est pas le master donc forcement il s'agit d'un join
+//    NS_LOG_LOGIC("successful JOIN of subflow " << subflow );
+//  }
+//
+//  TcpTraceHelper helper;
+//  helper.SetupSocketTracing(subflow);
+//}
+
 
 
 void
 MpTcpTestCase::SetupMpTcpSpecificCallbacks(Ptr<MpTcpSocketBase> meta)
 {
-    //!
+    NS_LOG_LOGIC("Setup callbacks for " << meta);
     NS_ASSERT(meta);
 
     meta->SetSubflowConnectCallback(
@@ -207,11 +261,19 @@ MpTcpTestCase::SetupMpTcpSpecificCallbacks(Ptr<MpTcpSocketBase> meta)
                                     );
 
     meta->SetSubflowAcceptCallback(
-                        MakeNullCallback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > (),
-//                        MakeCallback(&MpTcpTestCase::OnSubflowNewRequest, this)
-//                        MakeNullCallback<void, Ptr<MpTcpSubflow>()
+//                        MakeNullCallback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > (),
+                        MakeCallback(&MpTcpTestCase::OnSubflowJoinRequest, this),
                         MakeCallback(&MpTcpTestCase::OnSubflowCreationSuccess, this)
                                     );
+}
+
+
+bool
+MpTcpTestCase::OnSubflowJoinRequest (Ptr<MpTcpSubflow>, const Address &from, const Address &to )
+{
+    NS_LOG_FUNCTION(this << from << to);
+    m_numberOfJoinRequests++;
+    return true;
 }
 
 
@@ -246,22 +308,51 @@ MpTcpTestCase::OnSubflowCreationSuccess (Ptr<MpTcpSubflow> newSubflow)
     tcpHelper.SetupSocketTracing(newSubflow, os.str());
 }
 
+// TODO only supports IPv4 for now
 void
 MpTcpTestCase::OnMetaConnectionSuccessful (Ptr<Socket> socket)
 {
     //!
     NS_LOG_LOGIC("Meta connection successful");
 
-    m_numberOfTimesMetaConnectionSucceedCallbackGotCalled++;
-
     m_metaClient = DynamicCast<MpTcpSocketBase>(socket);
     NS_ASSERT_MSG(m_metaClient, "The passed socket should be the MPTCP meta socket");
 
-    TcpTraceHelper TcpTraceHelper;
-    TcpTraceHelper.SetupSocketTracing(m_metaClient, "source/meta");
+    m_numberOfTimesMetaConnectionSucceedCallbackGotCalled++;
 
-    // Setup join callbacks
-    SetupMpTcpSpecificCallbacks ( m_metaClient );
+    // only if fully established can you create new subflows
+    if (m_metaClient->FullyEstablished())
+    {
+        NS_LOG_LOGIC("Meta fully established, Creating subflows");
+        //! Create additionnal subflows
+        //! i starts at 1 because master is already created
+        for (int i = 1; i < m_numberOfSubflows; ++i)
+        {
+              //! 'i+1' because 0 is localhost
+              Ipv4Address serverAddr = m_serverNode->GetObject<Ipv4>()->GetAddress(i+1, 0).GetLocal();
+              Ipv4Address sourceAddr = m_sourceNode->GetObject<Ipv4>()->GetAddress(i+1, 0).GetLocal();
+
+              //! TODO, we should be able to not specify a port but it seems buggy so for now, let's set a port
+            //  InetSocketAddress local( sourceAddr);
+              InetSocketAddress local(sourceAddr, m_sourcePort);
+              InetSocketAddress remote(serverAddr, m_serverPort);
+
+              m_metaClient->ConnectNewSubflow(local, remote);
+        }
+    }
+    else
+    {
+        NS_LOG_LOGIC("Setup trace helpers");
+        TcpTraceHelper TcpTraceHelper;
+        TcpTraceHelper.SetupSocketTracing(m_metaClient, "source/meta");
+
+//        m_metaClient->SetJoinConnectCallback(MakeCallback (&HandleSubflowConnected));
+        // Setup join callbacks
+        SetupMpTcpSpecificCallbacks ( m_metaClient );
+    }
+
+
+
 }
 
 void
@@ -313,10 +404,12 @@ MpTcpTestCase::DoRun (void)
                          " the number of requested subflows");
 
   NS_TEST_EXPECT_MSG_EQ (m_numberOfTimesMetaConnectionSucceedCallbackGotCalled,
-                         1, "The callback should be called only once since ");
+                         2, "The callback should be called twice, depending on if the connection is fully established or not");
   NS_TEST_EXPECT_MSG_EQ (m_numberOfTimesMetaConnectionCreatedCallbackGotCalled,
                          1, "The callback should be called only once since ");
 
+
+  // TODO test m_numberOfJoinRequests
 
 }
 
@@ -528,25 +621,51 @@ Assign (const Ptr<NetDevice> &device)
 void
 MpTcpTestCase::SetupDefaultSim (void)
 {
+  NS_LOG_INFO("SetupDefaultSim Start ");
   const char* netmask = "255.255.255.0";
   const char* ipaddr0 = "192.168.1.0";
 //  const char* ipaddr1 = "192.168.1.2";
-  Ptr<Node> node0 = CreateInternetNode ();
-  Ptr<Node> node1 = CreateInternetNode ();
+  m_serverNode = CreateInternetNode ();
+  m_sourceNode = CreateInternetNode ();
 
-  PointToPointHelper p2p;
+  // Create one path per subflow
+  for(int i = 0; i < m_numberOfSubflows; ++i)
+  {
 
-  p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
-  p2p.SetChannelAttribute ("Delay", StringValue ("10ms"));
-  NetDeviceContainer cont = p2p.Install(node0,node1);
-  p2p.EnablePcapAll("mptcp-tcp", true);
+    std::stringstream netAddr;
+    netAddr << "192.168." << i << ".0";
 
-  Ipv4AddressHelper ipv4;
-  ipv4.SetBase(ipaddr0,netmask);
-  ipv4.Assign(cont);
-  //ipv4.Assign(node1);
-  //Ptr<SimpleNetDevice> dev0 = AddSimpleNetDevice (node0, ipaddr0, netmask);
-  //Ptr<SimpleNetDevice> dev1 = AddSimpleNetDevice (node1, ipaddr1, netmask);
+    PointToPointHelper p2p;
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
+    p2p.SetChannelAttribute ("Delay", StringValue ("10ms"));
+    NetDeviceContainer cont = p2p.Install(m_serverNode, m_sourceNode);
+//    p2p.EnablePcapAll("test", true);
+
+    Ipv4AddressHelper ipv4;
+    NS_LOG_DEBUG("setting ipv4 base " << netAddr.str());
+    ipv4.SetBase( netAddr.str().c_str(), netmask);
+    ipv4.Assign(cont);
+    /// Added by matt for debugging purposes
+
+    //PointToPointHelper helper;
+    //helper.EnablePcapAll("test",true);
+    //helper.EnablePcapAll("testmptcp", false);
+
+  }
+//
+//  PointToPointHelper p2p;
+//
+//  p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
+//  p2p.SetChannelAttribute ("Delay", StringValue ("10ms"));
+//  NetDeviceContainer cont = p2p.Install(m_serverNode,m_sourceNode);
+//  p2p.EnablePcapAll("mptcp-tcp", true);
+//
+//  Ipv4AddressHelper ipv4;
+//  ipv4.SetBase(ipaddr0,netmask);
+//  ipv4.Assign(cont);
+  //ipv4.Assign(m_sourceNode);
+  //Ptr<SimpleNetDevice> dev0 = AddSimpleNetDevice (m_serverNode, ipaddr0, netmask);
+  //Ptr<SimpleNetDevice> dev1 = AddSimpleNetDevice (m_sourceNode, ipaddr1, netmask);
 
   /// Added by matt for debugging purposes
   //EnablePcapAll ("tcp-bulk-send", false);
@@ -564,9 +683,9 @@ MpTcpTestCase::SetupDefaultSim (void)
   //dev1->SetChannel (channel);
 
 
-//  Ptr<SocketFactory> sockFactory0 = node0->GetObject<MpTcpSocketFactory> ();
-  Ptr<SocketFactory> sockFactory0 = node0->GetObject<TcpSocketFactory> ();
-  Ptr<SocketFactory> sockFactory1 = node1->GetObject<TcpSocketFactory> ();
+//  Ptr<SocketFactory> sockFactory0 = m_serverNode->GetObject<MpTcpSocketFactory> ();
+  Ptr<SocketFactory> sockFactory0 = m_serverNode->GetObject<TcpSocketFactory> ();
+  Ptr<SocketFactory> sockFactory1 = m_sourceNode->GetObject<TcpSocketFactory> ();
 
   Ptr<Socket> server = sockFactory0->CreateSocket ();
   Ptr<Socket> source = sockFactory1->CreateSocket ();
@@ -580,7 +699,7 @@ MpTcpTestCase::SetupDefaultSim (void)
 
   uint16_t port = 50000;
   InetSocketAddress serverlocaladdr (Ipv4Address::GetAny (), port);
-  InetSocketAddress serverremoteaddr ( node0->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), port);
+  InetSocketAddress serverremoteaddr ( m_serverNode->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), port);
 
   server->Bind (serverlocaladdr);
   server->Listen ();
@@ -589,7 +708,7 @@ MpTcpTestCase::SetupDefaultSim (void)
 
 //  NS_LOG_INFO( "test" << server);
   // TODO check Connect called only once
-  source->SetConnectCallback(MakeCallback (&MpTcpTestCase::OnMetaConnectionSuccessful,this),
+  source->SetConnectCallback(MakeCallback (&MpTcpTestCase::OnMetaConnectionSuccessful, this),
                              MakeNullCallback<void, Ptr<Socket> >());
   source->SetRecvCallback (MakeCallback (&MpTcpTestCase::SourceHandleRecv, this));
   source->SetSendCallback (MakeCallback (&MpTcpTestCase::SourceHandleSend, this));
@@ -604,18 +723,19 @@ MpTcpTestCase::SetupDefaultSim6 (void)
   Ipv6Prefix prefix = Ipv6Prefix(64);
   Ipv6Address ipaddr0 = Ipv6Address("2001:0100:f00d:cafe::1");
   Ipv6Address ipaddr1 = Ipv6Address("2001:0100:f00d:cafe::2");
-  Ptr<Node> node0 = CreateInternetNode6 ();
-  Ptr<Node> node1 = CreateInternetNode6 ();
-  Ptr<SimpleNetDevice> dev0 = AddSimpleNetDevice6 (node0, ipaddr0, prefix);
-  Ptr<SimpleNetDevice> dev1 = AddSimpleNetDevice6 (node1, ipaddr1, prefix);
+  m_serverNode = CreateInternetNode6 ();
+  m_sourceNode = CreateInternetNode6 ();
+
+  Ptr<SimpleNetDevice> dev0 = AddSimpleNetDevice6 (m_serverNode, ipaddr0, prefix);
+  Ptr<SimpleNetDevice> dev1 = AddSimpleNetDevice6 (m_sourceNode, ipaddr1, prefix);
 
   Ptr<SimpleChannel> channel = CreateObject<SimpleChannel> ();
   dev0->SetChannel (channel);
   dev1->SetChannel (channel);
 
   //! indirect call to m_tcp->CreateSocket
-  Ptr<SocketFactory> sockFactory0 = node0->GetObject<TcpSocketFactory> ();
-  Ptr<SocketFactory> sockFactory1 = node1->GetObject<TcpSocketFactory> ();
+  Ptr<SocketFactory> sockFactory0 = m_serverNode->GetObject<TcpSocketFactory> ();
+  Ptr<SocketFactory> sockFactory1 = m_sourceNode->GetObject<TcpSocketFactory> ();
 
   Ptr<Socket> server = sockFactory0->CreateSocket ();
   Ptr<Socket> source = sockFactory1->CreateSocket ();
@@ -690,7 +810,7 @@ public:
 
     Time::SetResolution (Time::MS);
 
-    const int MaxNumberOfSubflows = 1;
+    const int MaxNumberOfSubflows = 2;
     for(int i = 1; i <= MaxNumberOfSubflows;++i)
     {
         // Arguments to these test cases are 1) totalStreamSize,

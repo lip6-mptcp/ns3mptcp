@@ -161,13 +161,13 @@ public:
 //  SetJoinCreatedCallback(Callback<void, Ptr<MpTcpSubflow> >);
 
   /**
-   *
+   * Triggers callback registered by SetSubflowAcceptCallback
    */
   void
   NotifySubflowCreated(Ptr<MpTcpSubflow> sf);
 
   /**
-   *
+   * Triggers callback registered by SetSubflowConnectCallback
    */
   void
   NotifySubflowConnected(Ptr<MpTcpSubflow> sf);
@@ -182,6 +182,9 @@ public:
 
   /**
    * Initiates a new subflow with MP_JOIN
+   *
+   * Wrapper that just creates a subflow, bind it to a specific address
+   * and then establishes the connection
    */
   virtual int
   ConnectNewSubflow(const Address &local, const Address &remote);
@@ -374,6 +377,19 @@ public:
    * and MP_FASTCLOSE on one of the subflows
    */
   virtual void SendRST(void);
+
+  /**
+   * The connection is considered fully established
+   * when it can create new subflows, i.e., when it received
+   * a first dss ack
+   */
+  virtual bool FullyEstablished() const;
+
+  /**
+   * This retriggers Connection success callback
+   * You have to check in the callback if it fully estalbished or not
+   */
+  virtual void BecomeFullyEstablished();
 
   /** TODO superseed into TcpSocketBase
   Here it sends MP_FIN
@@ -683,7 +699,10 @@ protected: // protected variables
   virtual void UpdateTxBuffer();
 
   friend class TcpL4Protocol;
+  // TODO make it so this is not necessary
+  // like putting m_nextTxSequence in MpTcpScheduler and make it friend ?
   friend class MpTcpSchedulerRoundRobin;
+  friend class MpTcpSchedulerFastestRTT;
 
 
   /**

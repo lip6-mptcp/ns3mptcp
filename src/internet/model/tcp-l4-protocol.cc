@@ -186,23 +186,33 @@ TcpL4Protocol::DoDispose (void)
 
 
 Ptr<Socket>
-TcpL4Protocol::CreateSocket (TypeId congestionTypeId)
+TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
 {
-    return CreateSocket(congestionTypeId, TcpSocketBase::GetTypeId());
+    ObjectFactory congestionAlgorithmFactory;
+    congestionAlgorithmFactory.SetTypeId (congestionTypeId);
+    Ptr<TcpCongestionOps> algo = congestionAlgorithmFactory.Create<TcpCongestionOps> ();
+
+    return CreateSocket(algo, socketTypeId);
 }
 
-// TODO create a ForkSocket Function ?
+//// TODO create a ForkSocket Function ?
+//Ptr<Socket>
+//TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
+//{
+//}
+
+
 Ptr<Socket>
-TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
+TcpL4Protocol::CreateSocket (Ptr<TcpCongestionOps> algo, TypeId socketTypeId)
 {
   NS_LOG_FUNCTION_NOARGS ();
   ObjectFactory rttFactory;
-  ObjectFactory congestionAlgorithmFactory;
+  ObjectFactory socketFactory;
   rttFactory.SetTypeId (m_rttTypeId);
-  congestionAlgorithmFactory.SetTypeId (congestionTypeId);
+  socketFactory.SetTypeId(socketTypeId);
 
   Ptr<RttEstimator> rtt = rttFactory.Create<RttEstimator> ();
-  Ptr<TcpCongestionOps> algo = congestionAlgorithmFactory.Create<TcpCongestionOps> ();
+
   Ptr<TcpSocketBase> socket;
 
   // TODO allocate the max between children of tcpsocketbase ?
@@ -214,22 +224,42 @@ TcpL4Protocol::CreateSocket (TypeId congestionTypeId, TypeId socketTypeId)
                 << " & sizeof(tcp) = "<< sizeof(TcpSocketBase)
 
                 );
+  /**
+  This part is a hackish and creates memory leaks. The idea here is that when one creates a TcpSocketBase,
+  there is the possibility that this socket may be replaced by an MpTcp Socket. In order for the application to
+  see the same socket, we reallocate via the "placement new" technique
+  **/
+  if(socketTypeId == TcpSocketBase::GetTypeId())
+  {
+      //  char *addr = new char[ std::max(sizeof(MpTcpSocketBase), sizeof(TcpSocketBase))];
+      char *addr = new char[sizeof(std::aligned_storage<sizeof(MpTcpSocketBase)>::type)];
 
-//  char *addr = new char[ std::max(sizeof(MpTcpSocketBase), sizeof(TcpSocketBase))];
-  char *addr = new char[sizeof(std::aligned_storage<sizeof(MpTcpSocketBase)>::type)];
-
-  // now we should call the destructor ourself
-  TcpSocketBase *temp = new (addr) TcpSocketBase();
-  socket = CompleteConstruct(temp);
-  socket.Acquire();
+      // now we should call the destructor ourself
+      TcpSocketBase *temp = new (addr) TcpSocketBase();
+      socket = CompleteConstruct(temp);
+      socket.Acquire();
+  }
+  else
+  {
+    socket = socketFactory.Create<TcpSocketBase> ();
+  }
   socket->SetNode (m_node);
   socket->SetTcp (this);
   socket->SetRtt (rtt);
+
+  // TODO solve
   socket->SetCongestionControlAlgorithm (algo);
 
   m_sockets.push_back (socket);
   return socket;
 }
+
+Ptr<Socket>
+TcpL4Protocol::CreateSocket (TypeId congestionTypeId)
+{
+    return CreateSocket (congestionTypeId, TcpSocketBase::GetTypeId());
+}
+
 
 Ptr<Socket>
 TcpL4Protocol::CreateSocket (void)
@@ -411,21 +441,21 @@ TcpL4Protocol::PacketReceived (Ptr<Packet> packet, TcpHeader &incomingTcpHeader,
 /**
 TODO return Meta & subflow ?
 **/
-Ptr<MpTcpSubflow>
-TcpL4Protocol::UpgradeToMpTcpMetaSocket(Ptr<TcpSocketBase> socket)
-{
-
-
-  Ptr<MpTcpSubflow> master =  new MpTcpSubflow(*socket);
-  AddSocket(master);
-//  MpTcpSocketBase* meta = new MpTcpSocketBase(*socket);
-
-  MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
-
-  meta->AddSubflow(master);
-
-  return master;
-}
+//Ptr<MpTcpSubflow>
+//TcpL4Protocol::UpgradeToMpTcpMetaSocket(Ptr<TcpSocketBase> socket)
+//{
+//
+//
+//  Ptr<MpTcpSubflow> master =  new MpTcpSubflow(*socket);
+//  AddSocket(master);
+////  MpTcpSocketBase* meta = new MpTcpSocketBase(*socket);
+//
+//  MpTcpSocketBase* meta = new (this) MpTcpSocketBase;
+//
+//  meta->AddSubflow(master);
+//
+//  return master;
+//}
 
 
 void

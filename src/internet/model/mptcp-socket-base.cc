@@ -255,7 +255,8 @@ MpTcpSocketBase::ConnectNewSubflow(const Address &local, const Address &remote)
   NS_ASSERT_MSG(InetSocketAddress::IsMatchingType(local) && InetSocketAddress::IsMatchingType(remote), "only support ipv4");
 
   //!
-  NS_LOG_LOGIC("Trying to add a new subflow " << InetSocketAddress::ConvertFrom(local).GetIpv4() << "->" << InetSocketAddress::ConvertFrom(remote).GetIpv4());
+  NS_LOG_LOGIC("Trying to add a new subflow " << InetSocketAddress::ConvertFrom(local).GetIpv4()
+                << "->" << InetSocketAddress::ConvertFrom(remote).GetIpv4());
 
 
 
@@ -263,10 +264,9 @@ MpTcpSocketBase::ConnectNewSubflow(const Address &local, const Address &remote)
   Ptr<MpTcpSubflow> sf = CreateSubflow(false);
 
   NS_ASSERT(sf->Bind(local) == 0);
-  NS_ASSERT(sf->Connect(remote) == 0);
+  int ret = sf->Connect(remote);
 
-//  SetupSubflowTracing(sf);
-  return 0;
+  return ret;
 }
 
 uint64_t
@@ -1631,7 +1631,22 @@ MpTcpSocketBase::PersistTimeout()
 }
 
 
+void
+MpTcpSocketBase::BecomeFullyEstablished()
+{
+    NS_LOG_FUNCTION (this);
+    m_receivedDSS = true;
 
+    // should be called only on client side
+    ConnectionSucceeded();
+}
+
+bool
+MpTcpSocketBase::FullyEstablished() const
+{
+    NS_LOG_FUNCTION_NOARGS();
+    return m_receivedDSS;
+}
 
 
 /**

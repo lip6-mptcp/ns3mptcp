@@ -871,9 +871,7 @@ MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
   // If no mapping set but datafin set , we have to create the mapping from scratch
   if( sendDataFin && !(m_dssFlags & TcpOptionMpTcpDSS::DSNMappingPresent))
   {
-    // TODO replace with member function to keep isolation
 
-    // TODO map to ssn
     m_dssMapping.MapToSSN(SequenceNumber32(0));
     m_dssMapping.SetHeadDSN(SEQ64TO32(GetMeta()->m_txBuffer->TailSequence() ));
     m_dssMapping.SetMappingSize(1);
@@ -885,10 +883,6 @@ MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
   if(m_dssFlags & TcpOptionMpTcpDSS::DSNMappingPresent)
   {
 
-
-      // TODO don't send  mapping for every subsequent packet
-      // New prototype
-      //SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
       dss->SetMapping(m_dssMapping.HeadDSN().GetValue(), m_dssMapping.HeadSSN().GetValue(),
                             m_dssMapping.GetLength(), sendDataFin);
    }
@@ -903,25 +897,12 @@ MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
     // TODO look for the mapping
     if((header.GetFlags () & TcpHeader::SYN))
     {
-//         if token not generated yet
-//        if(m_mptcpLocalKey == 0)
-//        {
-//            !
-//            m_mptcpLocalKey = GenerateUniqueMpTcpKey();
-//        }
-        // Append the MPTCP capable option
-//        Ptr<TcpOptionMpTcpCapable> mpc = CreateObject<TcpOptionMpTcpCapable>();
-//        mpc->SetSenderKey( m_mptcpLocalKey );
-//        header.AppendOption(mpc);
-        //!
-        // TODO assert on the state ?
+
         AddOptionMpTcp3WHS(header);
-//        break;
     }
     // as long as we've not received an ack from the peer we
     // send an MP_CAPABLE with both keys
-    // TODO create a member function that returns if multipath is available
-    else if(!GetMeta()->m_receivedDSS)
+    else if(!GetMeta()->FullyEstablished())
     {
         AddOptionMpTcp3WHS(header);
     }
@@ -936,147 +917,11 @@ MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
 
 }
 
-/**
-I ended up duplicating this code to update the meta r_Wnd, which would have been hackish otherwise
-TODO to remove
-**/
-#if 0
-void
-MpTcpSubflow::DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface)
-{
-  NS_LOG_FUNCTION(this);
-  //m_rWnd = tcpHeader.GetWindowSize();
-
-
-  NS_LOG_FUNCTION(this);
-
-  NS_LOG_LOGIC ("Socket " << this << " forward up " <<
-      m_endPoint->GetPeerAddress () <<
-      ":" << m_endPoint->GetPeerPort () <<
-      " to " << m_endPoint->GetLocalAddress () <<
-      ":" << m_endPoint->GetLocalPort ());
-  Address fromAddress = InetSocketAddress(header.GetSource(), port);
-  Address toAddress = InetSocketAddress(header.GetDestination(), m_endPoint->GetLocalPort());
-
-  //NS_LOG_INFO("Before: " << packet->GetSize());
-  // Peel off TCP header and do validity checking
-  TcpHeader tcpHeader;
-  packet->RemoveHeader(tcpHeader);
-  if (tcpHeader.GetFlags() & TcpHeader::ACK)
-  {
-    EstimateRtt(tcpHeader);
-  }
-//  ReadOptions(tcpHeader);
-
-  GetMeta()->ProcessMpTcpOptions(tcpHeader, this);
-
-  //NS_LOG_INFO("After cuttingHeader: " << packet->GetSize());
-  // Update Rx window size, i.e. the flow control window
-//  TODO this will be done in meta
-//  if (m_rWnd.Get() == 0 && tcpHeader.GetWindowSize() != 0)
-//    { // persist probes end
-//      NS_LOG_LOGIC (this << " Leaving zerowindow persist state");
-//      m_persistEvent.Cancel();
-//    }
-
-//  m_rWnd = tcpHeader.GetWindowSize();
-//  GetMeta()->m_rWnd = tcpHeader.GetWindowSize();
-
-  /*  Update of receive window:
-
-  If we are in master socket, in SYN_SENT or SYN_RCVD state then the connection should not be qualified
-  as an mptcp connection yet, so we are allowed to save the receive window.
-  When the connection qualifies as MPTCP, we copy the receive window value into the meta.
-
-  As soon as the connection qualifies as an MPTCP connection, then there is only one possible way to update
-  the receiver window, as explained in http://www.rfc-editor.org/rfc/rfc6824.txt :
-      "The sender remembers receiver window advertisements from the
-     receiver.  It should only update its local receive window values when
-     the largest sequence number allowed (i.e., DATA_ACK + receive window)
-     increases, on the receipt of a DATA_ACK. "
-  */
-  if(IsMaster() && (m_state == SYN_SENT || m_state == SYN_RCVD) ) {
-      NS_LOG_LOGIC("Connection does not qualify as MPTCP yet so we can update receive window");
-//      GetMeta()->SetRemoteWindow(tcpHeader.GetWindowSize());
-        m_rWnd = tcpHeader.GetWindowSize();
-  }
-
-
-
-  // Discard fully out of range data packets
-  if (packet->GetSize() && OutOfRange(tcpHeader.GetSequenceNumber(), tcpHeader.GetSequenceNumber() + packet->GetSize()))
-    {
-      NS_LOG_LOGIC ("At state " << TcpStateName[m_state] <<
-          " received packet of seq [" << tcpHeader.GetSequenceNumber () <<
-          ":" << tcpHeader.GetSequenceNumber () + packet->GetSize () <<
-          ") out of range [" << m_rxBuffer->NextRxSequence () << ":" <<
-          m_rxBuffer->MaxRxSequence () << ")");
-      // Acknowledgement should be sent for all unacceptable packets (RFC793, p.69)
-      if (m_state == ESTABLISHED && !(tcpHeader.GetFlags() & TcpHeader::RST))
-        {
-          SendEmptyPacket(TcpHeader::ACK);
-        }
-      return;
-    }
-
-  // TCP state machine code in different process functions
-  // C.f.: tcp_rcv_state_process() in tcp_input.c in Linux kernel
-  switch (m_state)
-    {
-  case ESTABLISHED:
-    ProcessEstablished(packet, tcpHeader);
-    break;
-  case LISTEN:
-    ProcessListen(packet, tcpHeader, fromAddress, toAddress);
-    break;
-  case TIME_WAIT:
-    // Do nothing
-    break;
-  case CLOSED:
-    // Send RST if the incoming packet is not a RST
-    if ((tcpHeader.GetFlags() & ~(TcpHeader::PSH | TcpHeader::URG)) != TcpHeader::RST)
-      { // Since m_endPoint is not configured yet, we cannot use SendRST here
-        TcpHeader h;
-        h.SetFlags(TcpHeader::RST);
-        h.SetSequenceNumber(m_nextTxSequence);
-        h.SetAckNumber(m_rxBuffer->NextRxSequence());
-        h.SetSourcePort(tcpHeader.GetDestinationPort());
-        h.SetDestinationPort(tcpHeader.GetSourcePort());
-        h.SetWindowSize(AdvertisedWindowSize());
-        AddOptions(h);
-        m_tcp->SendPacket(Create<Packet>(), h, header.GetDestination(), header.GetSource(), m_boundnetdevice);
-      }
-    break;
-  case SYN_SENT:
-    ProcessSynSent(packet, tcpHeader);
-    break;
-  case SYN_RCVD:
-    ProcessSynRcvd(packet, tcpHeader, fromAddress, toAddress);
-    break;
-  case FIN_WAIT_1:
-  case FIN_WAIT_2:
-  case CLOSE_WAIT:
-    ProcessWait(packet, tcpHeader);
-    break;
-  case CLOSING:
-    ProcessClosing(packet, tcpHeader);
-    break;
-  case LAST_ACK:
-    ProcessLastAck(packet, tcpHeader);
-    break;
-  default: // mute compiler
-    break;
-    }
-
-}
-#endif // 0
 
 void
 MpTcpSubflow::ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 {
   NS_LOG_FUNCTION (this << tcpHeader);
-
-//  ProcessOptions()
 
   return TcpSocketBase::ProcessClosing(packet,tcpHeader);
 }
@@ -2754,14 +2599,12 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
 {
   NS_LOG_FUNCTION (this << dss << " from subflow ");
 
-  if(!GetMeta()->m_receivedDSS )
+  if(!GetMeta()->FullyEstablished() )
   {
     NS_LOG_LOGIC("First DSS received !");
-    GetMeta()->m_receivedDSS = true;
 
-    // Wrong, one should be able to send this a lot before
-    // should be called only on client side
-//    GetMeta()->ConnectionSucceeded();
+    GetMeta()->BecomeFullyEstablished();
+
   }
 
   //! datafin case handled at the start of the function

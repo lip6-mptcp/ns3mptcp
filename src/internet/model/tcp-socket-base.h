@@ -188,6 +188,9 @@ public:
    */
   virtual void SetRtt (Ptr<RttEstimator> rtt);
 
+
+  virtual Ptr<const RttEstimator> GetRttEstimator();
+
   /**
    * \brief Set the first Tx byte not acknowledged yet
    * \param seq First byte unacknowledged

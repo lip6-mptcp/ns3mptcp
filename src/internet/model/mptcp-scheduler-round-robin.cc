@@ -37,7 +37,6 @@ MpTcpSchedulerRoundRobin::GetTypeId (void)
     //
     .AddConstructor<MpTcpSchedulerRoundRobin> ()
   ;
-//  NS_LOG_UNCOND("TcpOptionMpTcpMain::GetTypeId called !");
   return tid;
 }
 
