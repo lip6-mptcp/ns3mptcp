@@ -100,7 +100,7 @@ public:
   void OnSubflowCreationSuccess (Ptr<MpTcpSubflow> newSubflow);
 
   // when a request is emitted
-  bool OnSubflowJoinRequest (Ptr<MpTcpSubflow>, const Address &, const Address & );
+  bool OnSubflowJoinRequest (Ptr<MpTcpSocketBase>, const Address &, const Address & );
 
 private:
   virtual void DoSetup (void);
@@ -269,10 +269,15 @@ MpTcpTestCase::SetupMpTcpSpecificCallbacks(Ptr<MpTcpSocketBase> meta)
 
 
 bool
-MpTcpTestCase::OnSubflowJoinRequest (Ptr<MpTcpSubflow>, const Address &from, const Address &to )
+MpTcpTestCase::OnSubflowJoinRequest (Ptr<MpTcpSocketBase> meta, const Address &from, const Address &to )
 {
     NS_LOG_FUNCTION(this << from << to);
     m_numberOfJoinRequests++;
+
+    NS_LOG_DEBUG ("Received JOIN request for meta " << meta
+                    << " from " << InetSocketAddress::ConvertFrom(from)
+                    << " towards " << InetSocketAddress::ConvertFrom(to)
+                    );
     return true;
 }
 
@@ -290,6 +295,14 @@ MpTcpTestCase::OnSubflowConnectionSuccess (Ptr<MpTcpSubflow> newSubflow)
     NS_LOG_FUNCTION(this);
     m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled++;
 
+    if(newSubflow->IsMaster())
+    {
+        NS_LOG_INFO("Detected master (MP_CAPABLE)");
+    }
+    else
+    {
+        NS_LOG_INFO("Detected additionnal subflow (MP_JOIN)");
+    }
     TcpTraceHelper tcpHelper;
     std::stringstream os;
     os << "source/subflow" << m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled;
@@ -400,7 +413,7 @@ MpTcpTestCase::DoRun (void)
                          "Source received back expected data buffers");
 
   NS_TEST_EXPECT_MSG_EQ (m_numberOfTimesSubflowConnectionSucceedCallbackGotCalled,
-                         m_numberOfSubflows, "The callback should be called as many times as"
+                         m_numberOfSubflows, "OnSubflowConnectionSuccess should be called as many times as"
                          " the number of requested subflows");
 
   NS_TEST_EXPECT_MSG_EQ (m_numberOfTimesMetaConnectionSucceedCallbackGotCalled,
@@ -623,7 +636,7 @@ MpTcpTestCase::SetupDefaultSim (void)
 {
   NS_LOG_INFO("SetupDefaultSim Start ");
   const char* netmask = "255.255.255.0";
-  const char* ipaddr0 = "192.168.1.0";
+//  const char* ipaddr0 = "192.168.1.0";
 //  const char* ipaddr1 = "192.168.1.2";
   m_serverNode = CreateInternetNode ();
   m_sourceNode = CreateInternetNode ();
@@ -639,7 +652,7 @@ MpTcpTestCase::SetupDefaultSim (void)
     p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
     p2p.SetChannelAttribute ("Delay", StringValue ("10ms"));
     NetDeviceContainer cont = p2p.Install(m_serverNode, m_sourceNode);
-//    p2p.EnablePcapAll("test", true);
+    p2p.EnablePcapAll("mptcp-tcp", true);
 
     Ipv4AddressHelper ipv4;
     NS_LOG_DEBUG("setting ipv4 base " << netAddr.str());
@@ -810,8 +823,10 @@ public:
 
     Time::SetResolution (Time::MS);
 
+    // i should start at 1
+    // during the tests I just want to test an exact number of paths
     const int MaxNumberOfSubflows = 2;
-    for(int i = 1; i <= MaxNumberOfSubflows;++i)
+    for(int i = MaxNumberOfSubflows; i <= MaxNumberOfSubflows;++i)
     {
         // Arguments to these test cases are 1) totalStreamSize,
         // 2) source write size, 3) source read size
@@ -819,7 +834,8 @@ public:
         // with units of bytes
 //        AddTestCase (new MpTcpTestCase ( i, 13, 200, 200, 200, 200, false), TestCase::QUICK);
 //        AddTestCase (new MpTcpTestCase (i, 13, 1, 1, 1, 1, false), TestCase::QUICK);
-        AddTestCase (new MpTcpTestCase (i, 100000, 100, 50, 100, 20, false), TestCase::QUICK);
+        AddTestCase (new MpTcpTestCase (i, 1000, 100, 50, 100, 20, false), TestCase::QUICK);
+//        AddTestCase (new MpTcpTestCase (i, 100000, 100, 50, 100, 20, false), TestCase::QUICK);
 
     // here it's a test where I lower streamsize to see where it starts failing.
     // 2100 is ok, 2200 fails

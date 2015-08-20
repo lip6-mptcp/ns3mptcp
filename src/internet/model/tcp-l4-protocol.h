@@ -112,6 +112,7 @@ public:
    */
 //  Ptr<MpTcpSubflow>
 //  UpgradeToMpTcpMetaSocket(Ptr<TcpSocketBase> socket);
+  void DumpSockets () const;
 
   /**
    * \brief Allocate an IPv4 Endpoint

@@ -45,7 +45,7 @@
 #include <algorithm>
 #include <openssl/sha.h>
 
-NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
+
 
 /*
 #define DISABLE_MEMBER(retType,member) retType \
@@ -55,6 +55,8 @@ NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
 */
 
 namespace ns3 {
+
+NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
 
 NS_OBJECT_ENSURE_REGISTERED(MpTcpSubflow);
 
@@ -80,14 +82,8 @@ MpTcpSubflow::GetTypeId(void)
 {
   static TypeId tid = TypeId("ns3::MpTcpSubflow")
       .SetParent<TcpSocketBase>()
-//      .AddConstructor<MpTcpSubflow>()
-      // TODO should be inherited
-//      .AddTraceSource("CongestionWindow",
-//          "The congestion control window to trace.",
-//           MakeTraceSourceAccessor(&MpTcpSubflow::m_cWnd))
-//      .AddTraceSource("SSThreshold",
-//          "The Slow Start Threshold.",
-//           MakeTraceSourceAccessor(&MpTcpSubflow::m_ssThresh))
+      .SetGroupName ("Internet")
+      .AddConstructor<MpTcpSubflow>()
     ;
   return tid;
 }
@@ -115,23 +111,16 @@ GetMapping(const Ptr<const TcpOptionMpTcpDSS> dss)
 TypeId
 MpTcpSubflow::GetInstanceTypeId(void) const
 {
-  return GetTypeId();
+  return MpTcpSubflow::GetTypeId();
 }
 
-//bool
+
 void
 MpTcpSubflow::SetMeta(Ptr<MpTcpSocketBase> metaSocket)
 {
   NS_ASSERT(metaSocket);
-//  NS_ASSERT(m_state == CLOSED);
   NS_LOG_FUNCTION(this);
   m_metaSocket = metaSocket;
-
-  // kinda hackish
-//  m_TxMappings.m_txBuffer = &m_txBuffer;
-//  m_RxMappings.m_rxBuffer = &m_rxBuffer;
-
-//  return true;
 }
 
 void
@@ -946,9 +935,13 @@ MpTcpSubflow::DeallocateEndPoint(void)
 
 
 void
-MpTcpSubflow::CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress)
+MpTcpSubflow::CompleteFork(Ptr<const Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress)
 {
   NS_LOG_INFO( this << "Completing fork of MPTCP subflow");
+
+
+  GetMeta()->GenerateUniqueMpTcpKey();
+
   // Get port and address from peer (connecting host)
   // TODO upstream ns3 should assert that to and from Address are of the same kind
   TcpSocketBase::CompleteFork(p, h, fromAddress, toAddress);
@@ -960,6 +953,7 @@ MpTcpSubflow::CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fro
        NS_LOG_LOGIC("Setting meta endpoint to " << m_endPoint
                     << " (old endpoint=" << GetMeta()->m_endPoint << " )");
        GetMeta()->m_endPoint = m_endPoint;
+
     }
 }
 
@@ -1068,6 +1062,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
       else
       {
         /**
+        Host A                                             Host B
                |             |   SYN + MP_JOIN(Token-B, R-A)  |
                |             |------------------------------->|
                |             |<-------------------------------|
@@ -1186,7 +1181,7 @@ MpTcpSubflow::ProcessOptionMpTcpCapable(const Ptr<const TcpOptionMpTcpMain> opti
 //        }
 //        NS_ASSERT_MSG( GetTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
 
-    // TODO depending on the state
+    // TODO check it depending on the state
     GetMeta()->SetPeerKey( mpcRcvd->GetSenderKey() );
 
     // TODO add it to the manager too
@@ -1280,6 +1275,11 @@ MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
 
   if( IsMaster() )
   {
+//    if(GetMeta()->GetLocalKey() == 0)
+//    {
+//
+//    }
+
     //! Use an MP_CAPABLE option
     Ptr<TcpOptionMpTcpCapable> mpc =  CreateObject<TcpOptionMpTcpCapable>();
     switch(hdr.GetFlags())
@@ -1314,7 +1314,7 @@ MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
 //          result =
 //          MpTcpSocketBase::GenerateTokenForKey( MPTCP_SHA1, GetMeta()->GetRemoteKey(), token, idsn );
 
-          join->SetPeerToken(GetMeta()->m_peerToken);
+          join->SetPeerToken(GetMeta()->GetPeerToken());
           join->SetNonce(0);
         }
         break;

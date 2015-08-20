@@ -47,13 +47,6 @@
 #include "ns3/tcp-option-mptcp.h"
 #include "ns3/callback.h"
 #include "ns3/trace-helper.h"
-#include <openssl/sha.h>
-
-NS_LOG_COMPONENT_DEFINE("MpTcpSocketBase");
-
-#define LOOP_THROUGH_SUBFLOWS(sflow)  for(SubflowList::iterator sflow = 0; sflow != m_subflows.end(); ++sflow)
-
-
 
 
 using namespace std;
@@ -61,6 +54,7 @@ using namespace std;
 
 namespace ns3
 {
+NS_LOG_COMPONENT_DEFINE("MpTcpSocketBase");
 
 NS_OBJECT_ENSURE_REGISTERED(MpTcpSocketBase);
 
@@ -112,8 +106,14 @@ TypeId
 MpTcpSocketBase::GetTypeId(void)
 {
   static TypeId tid = TypeId("ns3::MpTcpSocketBase")
+      // To some extent, would ideally derive directly from TcpSocket ?
       .SetParent<TcpSocketBase>()
-//      .AddConstructor<MpTcpSocketBase>()
+      .AddConstructor<MpTcpSocketBase>()
+//          .AddAttribute ("SocketType",
+//                   "Socket type of TCP objects.",
+//                   TypeIdValue (MpTcpSubflow::GetTypeId ()),
+//                   MakeTypeIdAccessor (&MpTcpSocketBase::m_subflowTypeId),
+//                   MakeTypeIdChecker ())
 // TODO rehabilitate
 //      .AddAttribute("SchedulingAlgorithm", "Algorithm for data distribution between m_subflows", EnumValue(Round_Robin),
 //          MakeEnumAccessor(&MpTcpSocketBase::SetDataDistribAlgo),
@@ -146,8 +146,8 @@ MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
   m_tracePrefix("default"),
   m_prefixCounter(1),
   m_server(true), // TODO remove or use it
-  m_localKey(0),
-  m_localToken(0),
+//  m_localKey(0),
+//  m_localToken(0),
   m_peerKey(0),
   m_peerToken(0),
   m_doChecksum(false),
@@ -168,15 +168,17 @@ MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
   m_tracePrefix(sock.m_tracePrefix),
   m_prefixCounter(1), //!< Start at one
   m_server(sock.m_server), //! true, if I am forked
-  m_localKey(sock.m_localKey),
-  m_localToken(sock.m_localToken),
+//  m_localKey(sock.m_localKey),
+//  m_localToken(sock.m_localToken),
   m_peerKey(sock.m_peerKey),
   m_peerToken(sock.m_peerToken),
   m_doChecksum(sock.m_doChecksum),
   m_subflowConnectionSucceeded(sock.m_subflowConnectionSucceeded),
   m_subflowConnectionFailure(sock.m_subflowConnectionFailure),
   m_joinRequest(sock.m_joinRequest),
-  m_subflowCreated(sock.m_subflowCreated)
+  m_subflowCreated(sock.m_subflowCreated),
+  m_receivedDSS(sock.m_receivedDSS),
+  m_subflowTypeId(sock.m_subflowTypeId)
 
 {
   NS_LOG_FUNCTION(this);
@@ -197,12 +199,11 @@ MpTcpSocketBase::MpTcpSocketBase() :
   m_tracePrefix("default"),
   m_prefixCounter(1),
   m_server(true),
-  m_localKey(0),
-  m_localToken(0),
   m_peerKey(0),
   m_peerToken(0),
   m_doChecksum(false),
-  m_receivedDSS(false)
+  m_receivedDSS(false),
+  m_subflowTypeId(MpTcpSubflow::GetTypeId ())
 {
   NS_LOG_FUNCTION(this);
 
@@ -260,8 +261,15 @@ MpTcpSocketBase::ConnectNewSubflow(const Address &local, const Address &remote)
 
 
 
-  // false => not master (this is silly I know)
-  Ptr<MpTcpSubflow> sf = CreateSubflow(false);
+  // TODO remove next line
+  m_subflowTypeId = MpTcpSubflow::GetTypeId();
+  Ptr<Socket> socket = m_tcp->CreateSocket( m_congestionControl, m_subflowTypeId);
+  NS_ASSERT(socket);
+  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(socket);
+  NS_ASSERT(sf);
+  AddSubflow(sf);
+
+//  CreateSubflow(false);
 
   NS_ASSERT(sf->Bind(local) == 0);
   int ret = sf->Connect(remote);
@@ -272,7 +280,19 @@ MpTcpSocketBase::ConnectNewSubflow(const Address &local, const Address &remote)
 uint64_t
 MpTcpSocketBase::GetLocalKey() const
 {
-  return m_localKey;
+  return m_mptcpLocalKey;
+}
+
+uint32_t
+MpTcpSocketBase::GetLocalToken() const
+{
+  return m_mptcpLocalToken;
+}
+
+uint32_t
+MpTcpSocketBase::GetPeerToken() const
+{
+  return m_peerToken;
 }
 
 uint64_t
@@ -337,16 +357,12 @@ MpTcpSocketBase::SetPeerKey(uint64_t remoteKey)
   m_peerKey = remoteKey;
 
   // not  sure yet. Wait to see if SYN/ACK is acked
-  NS_LOG_DEBUG("Peer key set to " << m_peerKey);
-
-
-  //! TODO generate remote token/IDSN
-//  MpTcpSocketBase::GenerateTokenForKey
+//  NS_LOG_DEBUG("Peer key set to " << );
 
 // TODO use the one  from mptcp-crypo.h
   GenerateTokenForKey(HMAC_SHA1, m_peerKey, m_peerToken, idsn);
 
-  NS_LOG_DEBUG("Peer token set to " << m_peerToken);
+  NS_LOG_DEBUG("Peer key/token set to " << m_peerKey << "/" << m_peerToken);
 
   //! TODO Set in TcpSocketBase an attribute to enable idsn random
   // motivation is that it's clearer to plot from 0
@@ -384,7 +400,7 @@ TODO remove
 **/
 void
 MpTcpSocketBase::CompleteFork(
-  Ptr<Packet> p,
+  Ptr<const Packet> p,
   const TcpHeader& mptcpHeader,
   const Address& fromAddress,
   const Address& toAddress
@@ -393,57 +409,6 @@ MpTcpSocketBase::CompleteFork(
   NS_LOG_FUNCTION(this);
   NS_FATAL_ERROR("Disabled");
   #if 0
-  // Get port and address from peer (connecting host)
-
-  // That should not be the case
-//  NS_ASSERT(InetSocketAddress::ConvertFrom(toAddress).GetIpv4() == m_endPoint->GetLocalAddress());
-//  NS_ASSERT(InetSocketAddress::ConvertFrom(toAddress).GetPort() == m_endPoint->GetLocalPort());
-//
-//  NS_ASSERT(InetSocketAddress::ConvertFrom(fromAddress).GetIpv4() == m_endPoint->GetPeerAddress());
-//  NS_ASSERT(InetSocketAddress::ConvertFrom(fromAddress).GetPort() == m_endPoint->GetPeerPort());
-  Ptr<const TcpOptionMpTcpCapable> mpc;
-  NS_ASSERT( GetTcpOption(mptcpHeader, mpc) );
-
-  m_server = true;
-
-  NS_LOG_INFO("peer key " << mpc->GetSenderKey() );
-  SetPeerKey( mpc->GetSenderKey() );
-
-  // got moved to constructor
-  // TODO generate unique key
-//  m_localKey = GenerateKey();
-
-  // We only setup destroy callback for MPTCP connection's endPoints, not on subflows endpoints.
-  SetupCallback();
-
-  // Otherwise when looking for the token on an MP_JOIN it is not found
-  // TODO this is wrong, TcpL4Protocol now gives CreateSocket etc...
-//  m_tcp->m_sockets.push_back(this);
-  m_tcp->AddSocket ( this) ;
-  // TODO move out to an helper
-//  SetupMetaTracing(m_tracePrefix);
-
-  // Create new master subflow (master subsock) and assign its endpoint to the connection endpoint
-//  Ptr<MpTcpSubflow> sFlow = CreateSubflowAndCompleteFork(true, mptcpHeader, fromAddress, toAddress);
-
-//  ComputeTotalCWND();
-
-  m_state = SYN_RCVD; // Think of updating it
-  NS_LOG_INFO(this << " LISTEN -> SYN_RCVD");
-//  NS_ASSERT_MSG(sFlow,"Contact ns3 team");
-
-  // TODO remove that, it should be done by the subflow complete fork
-  m_connected = true;
-
-  NotifyNewConnectionCreated(this, fromAddress);
-
-  // As this connection is established, the socket is available to send data now
-  if (GetTxAvailable() > 0)
-  {
-    NotifySend(GetTxAvailable());
-  }
-
-  NS_LOG_INFO(this << "MPTCP connection is initiated (Receiver): ");
   #endif
 }
 
@@ -815,53 +780,15 @@ MpTcpSocketBase::OnSubflowNewState(std::string context,
 
 }
 
-/*
-Create in SYN/RCVD mode
-*/
-//  CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
-// TODO remove
-#if 0
-Ptr<MpTcpSubflow>
-MpTcpSocketBase::CreateSubflowAndCompleteFork(
-  bool masterSocket,
-//  Ptr<Packet> p,
- const TcpHeader& mptcpHeader, const Address& fromAddress, const Address& toAddress
-)
-{
-  NS_LOG_FUNCTION(this);
 
-  Ptr<MpTcpSubflow> sFlow = CreateSubflow(masterSocket);
-
-  Ptr<Packet> p = Create<Packet>();
-
-
-//
-//  Simulator::ScheduleNow(
-//      &MpTcpSubflow::CompleteFork,
-//      sFlow,
-//      p,
-//      mptcpHeader,
-//      fromAddress,
-//      toAddress
-//    );
-  sFlow->CompleteFork(p, mptcpHeader, fromAddress,toAddress);
-//  SetupSubflowTracing(sFlow);
-
-  //! TODO steal endpoint ?
-  if(sFlow->IsMaster())
-  {
-    m_endPoint = sFlow->m_endPoint;
-  }
-
-  return sFlow;
-}
-#endif
 /*
 TODO it should block subflow creation until it received a DSS on a new subflow
 TODO rename ? CreateAndAdd? Add ? Start ? Initiate
 TODO do it so that it does not return the subflow. Should make for fewer mistakes
 
 C'est là qu'il faut activer le socket tracing
+
+TODO remove
 */
 
 Ptr<MpTcpSubflow>
@@ -961,14 +888,11 @@ MpTcpSocketBase::OnSubflowConnectionFailure (Ptr<Socket> socket)
     }
 }
 
-//
-//  Ptr<MpTcpSubflow>
-//Ptr<MpTcpSubflow>
+
 void
 MpTcpSocketBase::AddSubflow(Ptr<MpTcpSubflow> sflow)
 {
   NS_LOG_FUNCTION(sflow);
-
 //  Ptr<MpTcpSubflow> sf = DynamicCast<MpTcpSubflow>(sflow);
   Ptr<MpTcpSubflow> sf = sflow;
   bool ok;
@@ -986,13 +910,13 @@ MpTcpSocketBase::AddSubflow(Ptr<MpTcpSubflow> sflow)
       m_state = sf->GetState();
       m_mptcpLocalKey = sf->m_mptcpLocalKey;
       m_mptcpLocalToken = sf->m_mptcpLocalToken;
+      NS_LOG_DEBUG("Set master key/token to "<< m_mptcpLocalKey << "/" << m_mptcpLocalToken);
 
       // Those may be overriden later
       m_endPoint = sf->m_endPoint;
       m_endPoint6 = sf->m_endPoint6;
   }
 
-  //!
   sf->SetMeta(this);
 
   /* We override here callbacks so that subflows
@@ -1009,13 +933,9 @@ MpTcpSocketBase::AddSubflow(Ptr<MpTcpSubflow> sflow)
 //  sf->SetCloseCallbacks
 //  sf->SetDataSentCallback (  );
 //  sf->RecvCallback (cbRcv);
-
-
-
+  sf->SetCongestionControlAlgorithm(this->m_congestionControl);
 
   m_subflows[Others].push_back( sf );
-
-
 }
 
 
@@ -1040,59 +960,149 @@ MpTcpSocketBase::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port
 //    TcpSocketBase::ForwardUp(packet, header, port, incomingInterface);
 }
 
-uint32_t
-MpTcpSocketBase::GetToken() const
+//uint32_t
+//MpTcpSocketBase::GetToken() const
+//{
+////  NS_ASSERT(m_state != SYN);
+//  return m_localToken;
+//}
+
+
+bool
+MpTcpSocketBase::NotifyJoinRequest (const Address &from, const Address & toAddress)
 {
-//  NS_ASSERT(m_state != SYN);
-  return m_localToken;
+  NS_LOG_FUNCTION (this << &from);
+  if (!m_joinRequest.IsNull ())
+    {
+      return m_joinRequest (this, from, toAddress);
+    }
+  else
+    {
+      // accept all incoming connections by default.
+      // this way people writing code don't have to do anything
+      // special like register a callback that returns true
+      // just to get incoming connections
+      return true;
+    }
 }
 
 
+bool
+MpTcpSocketBase::OwnIP(const Address& address) const
+{
+    NS_LOG_FUNCTION(this);
+    NS_ASSERT_MSG(Ipv4Address::IsMatchingType(address), "only ipv4 supported for now");
+
+    Ipv4Address ip = Ipv4Address::ConvertFrom(address);
+
+//  < GetNDevices()
+  Ptr<Node> node = GetNode();
+  Ptr<Ipv4L3Protocol> ipv4 = node->GetObject<Ipv4L3Protocol>();
+  return (ipv4->GetInterfaceForAddress(ip) >= 0);
+  #if 0
+//  for (Ipv4InterfaceList::const_iterator it = m_interfaces.begin(); it != m_interfaces.end(); it++)
+  for (uint32_t i(0); i < node->GetNDevices(); i++)
+  {
+      //Ptr<NetDevice> device = m_node->GetDevice(i);
+      // Pourrait y avoir plusieurs IPs sur l'interface
+      Ptr<NetDevice> device = node->GetDevice(i);
+      // Cette fonction est mauvaise:
+      if (device->GetAddress() == address)
+      {
+        return true;
+      }
+
+//      }
+  }
+    #endif
+  return false;
+}
+
+
+/*
+Create in SYN/RCVD mode
+*/
+//  CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
+// TODO remove
+#if 0
+Ptr<MpTcpSubflow>
+MpTcpSocketBase::CreateSubflowAndCompleteFork(
+  bool masterSocket,
+//  Ptr<Packet> p,
+ const TcpHeader& mptcpHeader, const Address& fromAddress, const Address& toAddress
+)
+{
+  NS_LOG_FUNCTION(this);
+
+  Ptr<MpTcpSubflow> sFlow = CreateSubflow(masterSocket);
+
+  Ptr<Packet> p = Create<Packet>();
+
+
+  sFlow->CompleteFork(p, mptcpHeader, fromAddress,toAddress);
+//  SetupSubflowTracing(sFlow);
+
+ return sFlow;
+}
+#endif
+
 Ipv4EndPoint*
 MpTcpSocketBase::NewSubflowRequest(
-//Ptr<Packet> p,
-const TcpHeader & header,
+Ptr<const Packet> p,
+const TcpHeader & tcpHeader,
 const Address & fromAddress,
 const Address & toAddress,
 Ptr<const TcpOptionMpTcpJoin> join
 )
 {
   NS_LOG_LOGIC("Received request for a new subflow while in state " << TcpStateName[m_state]);
-  NS_LOG_WARN("TODO check if destination exists here");
-  NS_ASSERT(InetSocketAddress::IsMatchingType(fromAddress) && InetSocketAddress::IsMatchingType(toAddress));
+  NS_ASSERT_MSG(InetSocketAddress::IsMatchingType(fromAddress) && InetSocketAddress::IsMatchingType(toAddress),
+                "Source and destination addresses should be of the same type");
   //join->GetState() == TcpOptionMpTcpJoin::Syn &&
-  NS_ASSERT(join->GetPeerToken() == m_localToken);
+  NS_ASSERT(join);
+  NS_ASSERT(join->GetPeerToken() == GetLocalToken());
 
-  //! TODO check we can accept the creation of a new subflow (did we receive a DSS already ?)
-//  NS_ASSERT(m_state == ESTABLISHED);
+  // TODO check toAddress belongs to this node
+
+
+//  check we can accept the creation of a new subflow (did we receive a DSS already ?)
+  if( !FullyEstablished() )
+  {
+    NS_LOG_WARN("Received an MP_JOIN while meta not fully established yet.");
+    return 0;
+  }
+
+
 
   //! TODO here we should trigger a callback to say if we accept the connection or not
   // (and create a helper that acts as a path manager)
-  // TODO use m_receivedDSS
+  Ipv4Address ip = InetSocketAddress::ConvertFrom(toAddress).GetIpv4();
+  if(!OwnIP(ip))
+  {
+    NS_LOG_WARN("This host does not own the ip " << ip);
+    return 0;
+  }
+
+  // Similar to NotifyConnectionRequest
   bool accept_connection = true;
-  if(!accept_connection)
+  if(!NotifyJoinRequest(fromAddress, toAddress))
   {
     NS_LOG_LOGIC("Refusing establishement of a new subflow");
     return 0;
   }
+
   Ptr<MpTcpSubflow> subflow ;
-  //! accepted subflow false => not master
-  // TODO move part of the code here really
-#if 0
-  Ptr<MpTcpSubflow> subflow = CreateSubflowAndCompleteFork(
-      false,
-// TODO pass the packet
-      header,
-      fromAddress,
-      toAddress
-      );
-#endif
-//  NS_ASSERT_MSG(subflow->Bind(toAddress) == 0, "TODO we didn't check that dest ip belonged to the same node, hence this error; subflow should never have been created !!");
 
-//  subflow->Listen();
+  // TODO remove next line
+  m_subflowTypeId = MpTcpSubflow::GetTypeId();
+  Ptr<Socket> sock = m_tcp->CreateSocket(m_congestionControl, m_subflowTypeId);
 
+  subflow = DynamicCast<MpTcpSubflow>(sock);
+  AddSubflow(subflow);
 
-//  Schedule()
+  // Call it now so that endpoint gets allocated
+  subflow->CompleteFork(p, tcpHeader, fromAddress, toAddress);
+
   return subflow->m_endPoint;
 }
 
@@ -1108,72 +1118,8 @@ MpTcpSocketBase::Connect(const Address & toAddress)
   NS_LOG_FUNCTION(this);
 
   // TODO may have to set m_server to false here
-  NS_FATAL_ERROR("TODO rmeove");
+  NS_FATAL_ERROR("TODO remove");
   return -1;
-#if 0
-// generated either on connect or fork
-//  m_localKey = GenerateKey();
-  m_localKey = 42;
-
-
-  if( IsConnected() )
-  {
-    NS_LOG_WARN("Trying to connect meta while already connected");
-    return -ERROR_ISCONN; // INVAL ?
-  }
-
-  //! TODO should generate a key
-  if (m_state == CLOSED || m_state == LISTEN || m_state == SYN_SENT || m_state == LAST_ACK || m_state == CLOSE_WAIT)
-    {
-      m_server = false;
-
-      Ptr<MpTcpSubflow> sFlow = CreateSubflow(true);
-
-      // This function will allocate a new one
-      int ret = sFlow->Connect(toAddress);
-//      SetupSubflowTracing(sFlow);
-
-      if(ret != 0)
-      {
-        NS_LOG_ERROR("Could not connect but why ? TODO destroy subflow");
-        // TODO destroy
-        return ret;
-      }
-      // NS_LOG_INFO ("looks like successful connection");
-
-      /**
-      * We need to copy the m_endPoint and prevent it from being unallocated otherwise
-      a 2nd socket could be created again and *overrides* this one .
-      */
-      if(sFlow->IsMaster())
-      {
-        m_endPoint = sFlow->m_endPoint;
-      }
-
-
-//      m_endPoint6 = sFlow->m_endPoint6;
-
-//      m_subflows[Others].push_back( sFlow );
-
-//      NS_ASSERT( );
-//      SendEmptyPacket(TcpHeader::SYN);
-      NS_LOG_INFO (TcpStateName[m_state] << " -> SYN_SENT");
-      m_state = SYN_SENT;
-
-      return ret;
-    }
-  else if (m_state != TIME_WAIT)
-    { // In states SYN_RCVD, ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2, and CLOSING, an connection
-      // exists. We send RST, tear down everything, and close this socket.
-      // TODO
-//      SendRST();
-//      CloseAndNotify();
-      NS_LOG_UNCOND("Time wait");
-      return -ERROR_ADDRINUSE;
-    }
-
-  return DoConnect();
-#endif
 }
 
 /** This function closes the endpoint completely. Called upon RST_TX action. */
@@ -2421,11 +2367,13 @@ MpTcpSocketBase::NotifySubflowConnected(Ptr<MpTcpSubflow> sf)
     }
 }
 
+
+
 //
 void
 MpTcpSocketBase::SetSubflowAcceptCallback(
 //  Callback<void, Ptr<MpTcpSubflow> > connectionRequest,
-  Callback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > joinRequest,
+  Callback<bool, Ptr<MpTcpSocketBase>, const Address &, const Address & > joinRequest,
   Callback<void, Ptr<MpTcpSubflow> > connectionCreated
 )
 {

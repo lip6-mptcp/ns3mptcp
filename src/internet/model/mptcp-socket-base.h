@@ -44,7 +44,7 @@ class TcpL4Protocol;
 class MpTcpPathIdManager;
 class MpTcpSubflow;
 //class MpTcpSchedulerRoundRobin;
-class MpTcpCongestionControl;
+//class MpTcpCongestionControl;
 class TcpOptionMpTcpDSS;
 class TcpOptionMpTcpJoin;
 class OutputStreamWrapper;
@@ -148,7 +148,7 @@ public:
    * \see Socket::Set
    */
   virtual void
-  SetSubflowAcceptCallback(Callback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > connectionRequest,
+  SetSubflowAcceptCallback(Callback<bool, Ptr<MpTcpSocketBase>, const Address &, const Address & > connectionRequest,
                            Callback<void, Ptr<MpTcpSubflow> > connectionCreated
                            );
 
@@ -215,17 +215,6 @@ public:
 
   void
   DumpRxBuffers(Ptr<MpTcpSubflow> sf) const;
-  /**
-  ONLY TEMPORARY
-  Used to export a whole range of statistics to csv files (filenames hardcoded).
-  This would likely need a rework before upstream, for instance to allow
-  enabling/disabling
-  **/
-//  virtual void
-//  SetupMetaTracing(std::string prefix);
-//  virtual void
-//  SetupSubflowTracing(Ptr<MpTcpSubflow> sf);
-
 
 //  void
 //  ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader);
@@ -406,6 +395,7 @@ public:
 
   /**
    * Initiate
+   * TODO rename into SetupSubflow ?
    */
   virtual void AddSubflow(Ptr<MpTcpSubflow> sf);
 
@@ -423,9 +413,19 @@ public:
   uint64_t GetPeerKey() const;
 
   /**
-  \brief Generated during
+  \brief Generated during the initial 3 WHS
   */
   uint64_t GetLocalKey() const;
+
+  /**
+   * \return Hash of the local key
+   */
+  uint32_t GetLocalToken() const;
+
+  /**
+   * \return Hash of the peer key
+   */
+  uint32_t GetPeerToken() const;
 
     /**
   For now it looks there is no way to know that an ip interface went up so we will assume until
@@ -457,20 +457,29 @@ public: // public variables
    *
    * \return
    */
-  virtual uint32_t GetToken() const;
+//  virtual uint32_t GetToken() const;
 
 
-
+  // TODO can be removed
   virtual void
-  CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
+  CompleteFork(Ptr<const Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
 
 protected: // protected methods
 
   friend class Tcp;
   friend class MpTcpSubflow;
-
   /**
-    *
+   * Expects InetXSocketAddress
+   */
+  virtual bool NotifyJoinRequest (const Address &from, const Address & toAddress);
+  /**
+   * Expects Ipv4 (6 not supported yet)
+   */
+  bool OwnIP(const Address& address) const;
+  /**
+    * Should be called after having sent a dataFIN
+    * Should send a RST on all subflows in state Other
+    * and a FIN for Established subflows
     */
   virtual void CloseAllSubflows();
 
@@ -711,6 +720,7 @@ protected: // protected variables
   **/
   virtual Ipv4EndPoint*
   NewSubflowRequest(
+    Ptr<const Packet> p,
     const TcpHeader & header,
     const Address & fromAddress,
     const Address & toAddress,
@@ -763,8 +773,8 @@ protected:
 
 private:
   // TODO rename into m_localKey  and move tokens into subflow (maybe not even needed)
-  uint64_t m_localKey;    //!< Store local host token, generated during the 3-way handshake
-  uint32_t m_localToken;  //!< Generated from key
+//  uint64_t m_localKey;    //!< Store local host token, generated during the 3-way handshake
+//  uint32_t m_localToken;  //!< Generated from key
 
   uint64_t m_peerKey; //!< Store remote host token
   uint32_t m_peerToken;
@@ -792,12 +802,14 @@ private:
   Callback<void, Ptr<MpTcpSubflow> > m_subflowConnectionFailure;     //!< connection failed callback
 //  Callback<void, Ptr<Socket> >                   m_normalClose;          //!< connection closed callback
 //  Callback<void, Ptr<Socket> >                   m_errorClose;           //!< connection closed due to errors callback
-  Callback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & >       m_joinRequest;    //!< connection request callback
+  Callback<bool, Ptr<MpTcpSocketBase>, const Address &, const Address & >       m_joinRequest;    //!< connection request callback
   Callback<void, Ptr<MpTcpSubflow> >    m_subflowCreated; //!< connection created callback
 
 // , const Address &, bool master
 //  Callback<void, Ptr<MpTcpSubflow> >    m_subflowConnectionSucceeded; //!< connection created callback
 
+    //!
+    TypeId m_subflowTypeId;
 };
 
 }   //namespace ns3

@@ -224,6 +224,8 @@ TcpL4Protocol::CreateSocket (Ptr<TcpCongestionOps> algo, TypeId socketTypeId)
                 << " & sizeof(tcp) = "<< sizeof(TcpSocketBase)
 
                 );
+
+  NS_LOG_UNCOND( "socketTypeId=" << socketTypeId );
   /**
   This part is a hackish and creates memory leaks. The idea here is that when one creates a TcpSocketBase,
   there is the possibility that this socket may be replaced by an MpTcp Socket. In order for the application to
@@ -499,7 +501,7 @@ TcpL4Protocol::LookupMpTcpToken (uint32_t token)
 
 
   //! We should find the token
-    NS_LOG_INFO("token=" << token
+    NS_LOG_INFO("Looking for token=" << token
         << " among " << m_sockets.size() << " sockets "
         );
 
@@ -509,17 +511,21 @@ TcpL4Protocol::LookupMpTcpToken (uint32_t token)
       it++
      )
     {
-
-          Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>( *it );
+          Ptr<TcpSocket> sock = *it;
+          Ptr<MpTcpSocketBase> meta = DynamicCast<MpTcpSocketBase>( sock );
           Address addr;
           (*it)->GetSockName(addr);
-          NS_LOG_DEBUG("Socket ipv4: " << InetSocketAddress::ConvertFrom(addr).GetIpv4() );
-          if(!meta) {
-            NS_LOG_DEBUG("this is not an mptcp socket");
+          NS_LOG_DEBUG("Socket : " << sock
+                << " socket of type=" << sock->GetInstanceTypeId());
+          if(!meta)
+          {
+            NS_LOG_DEBUG("Conversion failed: " << sock << " is not an mptcp socket");
             continue;
           }
 
-          if(meta->GetToken() == token)
+          NS_LOG_DEBUG("Conversion succeeded: " << sock << " is an mptcp socket. Comparing "
+                        "meta->GetLocalToken()=" << meta->GetLocalToken() << " and token="<<  token);
+          if(meta->GetLocalToken() == token)
           {
               NS_LOG_DEBUG("Found match " << &meta);
               return meta;
@@ -569,7 +575,9 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
   **/
   if (endPoints.empty())
   {
-      NS_LOG_LOGIC ("No Ipv4 endpoints matched on TcpL4Protocol, checking if it's a MPTCP JOIN"<<this);
+      NS_LOG_LOGIC ("No Ipv4 endpoints matched on TcpL4Protocol, "
+                    "checking if packet is a MP_JOIN request:" << incomingIpHeader);
+
     // MPTCP related modification----------------------------
     // Extract MPTCP options if there is any
     Ptr<const TcpOptionMpTcpJoin> join;
@@ -577,17 +585,20 @@ TcpL4Protocol::Receive (Ptr<Packet> packet,
 
     // If it is a SYN packet with an MP_JOIN option
     if( (incomingTcpHeader.GetFlags() & TcpHeader::SYN)
-        && join->GetMode() == TcpOptionMpTcpJoin::Syn
         && GetTcpOption(incomingTcpHeader, join)
+        && join->GetMode() == TcpOptionMpTcpJoin::Syn
        )
     {
+        NS_LOG_DEBUG("This is indeed a MP_JOIN");
+
         meta = DynamicCast<MpTcpSocketBase>(LookupMpTcpToken(join->GetPeerToken()));
         if(meta)
         {
 
-            NS_LOG_DEBUG("Found meta matching MP_JOIN token " << join->GetPeerToken());
+            NS_LOG_LOGIC ("Found meta " << meta << " matching MP_JOIN token=" << join->GetPeerToken());
 
             Ipv4EndPoint *endP =  meta->NewSubflowRequest(
+                  packet,
                   incomingTcpHeader,
                   InetSocketAddress(incomingIpHeader.GetSource(), incomingTcpHeader.GetSourcePort() ),
                   InetSocketAddress(incomingIpHeader.GetDestination(), incomingTcpHeader.GetDestinationPort() ) ,
@@ -861,6 +872,21 @@ TcpL4Protocol::SendPacket (Ptr<Packet> pkt, const TcpHeader &outgoing,
   NS_FATAL_ERROR ("Trying to send a packet without IP addresses");
 }
 
+void
+TcpL4Protocol::DumpSockets () const
+{
+    NS_LOG_UNCOND ("== Dumping sockets ==");
+    for(std::vector<Ptr<TcpSocket> >::const_iterator it = m_sockets.cbegin(), last(m_sockets.cend());
+      it != last;
+      it++
+     )
+    {
+        Ptr<TcpSocket> sock = *it;
+        NS_LOG_DEBUG("Socket : " << sock << " socket of type=" << sock->GetInstanceTypeId());
+    }
+    NS_LOG_UNCOND ("== end of dump ==");
+}
+
 bool
 TcpL4Protocol::AddSocket (Ptr<TcpSocket> socket)
 {
@@ -875,6 +901,9 @@ TcpL4Protocol::AddSocket (Ptr<TcpSocket> socket)
 //
 //      ++it;
 //    }
+  NS_LOG_FUNCTION(socket);
+  // TODO remove afterwards
+  DumpSockets();
 
   std::vector<Ptr<TcpSocket> >::iterator it = std::find(m_sockets.begin(), m_sockets.end(), socket);
   if (it == m_sockets.end())
