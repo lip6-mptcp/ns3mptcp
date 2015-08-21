@@ -752,10 +752,11 @@ protected: // protected variables
 //  virtual void OnRemAddress();
 
 public:
-  std::string m_tracePrefix;      //!< help naming csv files, TODO should be removed
-  int m_prefixCounter;      //!< TODO remove and put in a helper
+//  std::string m_tracePrefix;      //!< help naming csv files, TODO should be removed
+//  int m_prefixCounter;      //!< TODO remove and put in a helper
 
 protected:
+  virtual void CreateScheduler(TypeId schedulerTypeId);
 
   // TODO rename since will track local too.
   Ptr<MpTcpPathIdManager> m_remotePathIdManager;  //!< Keep track of advertised ADDR id advertised by remote endhost
@@ -765,7 +766,7 @@ protected:
   TODO the scheduler is so closely
   Rename into MpTcpScheduler
   ***/
-  Ptr<MpTcpSchedulerRoundRobin> m_scheduler;  //!<
+  Ptr<MpTcpScheduler> m_scheduler;  //!<
 
   // TODO make private ? check what it does
   // should be able to rmeove one
@@ -781,7 +782,6 @@ private:
 
   bool     m_doChecksum;  //!< Compute the checksum. Negociated during 3WHS. Unused
 
-public:
   bool     m_receivedDSS;  //!< True if we received at least one DSS
 
 private:
@@ -810,6 +810,7 @@ private:
 
     //!
     TypeId m_subflowTypeId;
+    TypeId m_schedulerTypeId;
 };
 
 }   //namespace ns3

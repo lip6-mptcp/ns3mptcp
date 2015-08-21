@@ -109,11 +109,16 @@ MpTcpSocketBase::GetTypeId(void)
       // To some extent, would ideally derive directly from TcpSocket ?
       .SetParent<TcpSocketBase>()
       .AddConstructor<MpTcpSocketBase>()
-//          .AddAttribute ("SocketType",
-//                   "Socket type of TCP objects.",
-//                   TypeIdValue (MpTcpSubflow::GetTypeId ()),
-//                   MakeTypeIdAccessor (&MpTcpSocketBase::m_subflowTypeId),
-//                   MakeTypeIdChecker ())
+      .AddAttribute ("SocketType",
+               "Socket type of TCP objects.",
+               TypeIdValue (MpTcpSubflow::GetTypeId ()),
+               MakeTypeIdAccessor (&MpTcpSocketBase::m_subflowTypeId),
+               MakeTypeIdChecker ())
+      .AddAttribute ("Scheduler",
+               "How to generate the mappings",
+               TypeIdValue (MpTcpScheduler::GetTypeId ()),
+               MakeTypeIdAccessor (&MpTcpSocketBase::m_schedulerTypeId),
+               MakeTypeIdChecker ())
 // TODO rehabilitate
 //      .AddAttribute("SchedulingAlgorithm", "Algorithm for data distribution between m_subflows", EnumValue(Round_Robin),
 //          MakeEnumAccessor(&MpTcpSocketBase::SetDataDistribAlgo),
@@ -143,11 +148,9 @@ static const std::string containerNames[MpTcpSocketBase::Maximum] = {
 // TODO unused for now
 MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
   TcpSocketBase(sock),
-  m_tracePrefix("default"),
-  m_prefixCounter(1),
+//  m_tracePrefix("default"),
+//  m_prefixCounter(1),
   m_server(true), // TODO remove or use it
-//  m_localKey(0),
-//  m_localToken(0),
   m_peerKey(0),
   m_peerToken(0),
   m_doChecksum(false),
@@ -158,18 +161,16 @@ MpTcpSocketBase::MpTcpSocketBase(const TcpSocketBase& sock) :
     NS_LOG_FUNCTION(this);
     NS_LOG_LOGIC("Copying from TcpSocketBase");
     m_remotePathIdManager = Create<MpTcpPathIdManagerImpl>();
-    m_scheduler = Create<MpTcpSchedulerRoundRobin>();
-    m_scheduler->SetMeta(this);
+
+  CreateScheduler(m_schedulerTypeId);
 }
 
 
 MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
   TcpSocketBase(sock),
-  m_tracePrefix(sock.m_tracePrefix),
-  m_prefixCounter(1), //!< Start at one
+//  m_tracePrefix(sock.m_tracePrefix),
+//  m_prefixCounter(1), //!< Start at one
   m_server(sock.m_server), //! true, if I am forked
-//  m_localKey(sock.m_localKey),
-//  m_localToken(sock.m_localToken),
   m_peerKey(sock.m_peerKey),
   m_peerToken(sock.m_peerToken),
   m_doChecksum(sock.m_doChecksum),
@@ -178,16 +179,17 @@ MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
   m_joinRequest(sock.m_joinRequest),
   m_subflowCreated(sock.m_subflowCreated),
   m_receivedDSS(sock.m_receivedDSS),
-  m_subflowTypeId(sock.m_subflowTypeId)
+  m_subflowTypeId(sock.m_subflowTypeId),
+  m_schedulerTypeId(sock.m_schedulerTypeId)
 
 {
   NS_LOG_FUNCTION(this);
   NS_LOG_LOGIC ("Invoked the copy constructor");
   //! Scheduler may have some states, thus generate a new one
   m_remotePathIdManager = Create<MpTcpPathIdManagerImpl>();
-  m_scheduler = Create<MpTcpSchedulerRoundRobin>();
-  m_scheduler->SetMeta(this);
 
+
+  CreateScheduler(m_schedulerTypeId);
 
   //! TODO here I should generate a new Key
 }
@@ -196,21 +198,25 @@ MpTcpSocketBase::MpTcpSocketBase(const MpTcpSocketBase& sock) :
 // TODO implement a copy constructor
 MpTcpSocketBase::MpTcpSocketBase() :
   TcpSocketBase(),
-  m_tracePrefix("default"),
-  m_prefixCounter(1),
+//  m_tracePrefix("default"),
+//  m_prefixCounter(1),
   m_server(true),
   m_peerKey(0),
   m_peerToken(0),
   m_doChecksum(false),
   m_receivedDSS(false),
-  m_subflowTypeId(MpTcpSubflow::GetTypeId ())
+  m_subflowTypeId(MpTcpSubflow::GetTypeId ()),
+  m_schedulerTypeId(MpTcpSchedulerRoundRobin::GetTypeId())
 {
   NS_LOG_FUNCTION(this);
 
   //not considered as an Object
   m_remotePathIdManager = Create<MpTcpPathIdManagerImpl>();
-  m_scheduler = Create<MpTcpSchedulerRoundRobin>();
-  m_scheduler->SetMeta(this);
+
+
+  CreateScheduler(m_schedulerTypeId);
+
+
 
   m_subflowConnectionSucceeded  = MakeNullCallback<void, Ptr<MpTcpSubflow> >();
   m_subflowConnectionFailure    = MakeNullCallback<void, Ptr<MpTcpSubflow> >();
@@ -249,6 +255,18 @@ MpTcpSocketBase::~MpTcpSocketBase(void)
 }
 
 
+void
+MpTcpSocketBase::CreateScheduler(TypeId schedulerTypeId)
+{
+  NS_LOG_FUNCTION(this);
+  NS_LOG_WARN("Overriding scheduler choice");
+  ObjectFactory schedulerFactory;
+//  schedulerTypeId = MpTcpSchedulerFastestRTT;
+  schedulerTypeId = MpTcpSchedulerRoundRobin::GetTypeId();
+  schedulerFactory.SetTypeId(schedulerTypeId);
+  m_scheduler = schedulerFactory.Create<MpTcpScheduler>();
+  m_scheduler->SetMeta(this);
+}
 
 int
 MpTcpSocketBase::ConnectNewSubflow(const Address &local, const Address &remote)
@@ -261,7 +279,9 @@ MpTcpSocketBase::ConnectNewSubflow(const Address &local, const Address &remote)
 
 
 
-  // TODO remove next line
+  // TODO remove next line (but will cause a bug, likely because m_subflowTypeId is
+  // not constructed properly since MpTcpSocketBase creation is hackish
+  // and does not call CompleteConstruct
   m_subflowTypeId = MpTcpSubflow::GetTypeId();
   Ptr<Socket> socket = m_tcp->CreateSocket( m_congestionControl, m_subflowTypeId);
   NS_ASSERT(socket);
@@ -269,8 +289,7 @@ MpTcpSocketBase::ConnectNewSubflow(const Address &local, const Address &remote)
   NS_ASSERT(sf);
   AddSubflow(sf);
 
-//  CreateSubflow(false);
-
+  // TODO account for this error as well ?
   NS_ASSERT(sf->Bind(local) == 0);
   int ret = sf->Connect(remote);
 
@@ -340,7 +359,8 @@ MpTcpSocketBase::GetSubflow(uint8_t id) const
 
 
 
-//
+// There could be some kind of artifical EstimateRtt based
+// on dataack returns
 //void
 //MpTcpSocketBase::EstimateRtt(const TcpHeader& TcpHeader)
 //{

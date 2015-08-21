@@ -226,7 +226,7 @@ MpTcpMultihomedTestCase::SourceConnectionSuccessful(Ptr<Socket> sock)
 //              << " received a DSS: " << meta->m_receivedDSS
               );
 
-  if(! meta->m_receivedDSS)
+  if(! meta->FullyEstablished())
   {
     //!
     NS_LOG_INFO("No DSS received yet => Not fully established. Can't create any subflow");

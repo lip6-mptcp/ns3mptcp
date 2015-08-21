@@ -834,7 +834,7 @@ public:
         // with units of bytes
 //        AddTestCase (new MpTcpTestCase ( i, 13, 200, 200, 200, 200, false), TestCase::QUICK);
 //        AddTestCase (new MpTcpTestCase (i, 13, 1, 1, 1, 1, false), TestCase::QUICK);
-        AddTestCase (new MpTcpTestCase (i, 1000, 100, 50, 100, 20, false), TestCase::QUICK);
+        AddTestCase (new MpTcpTestCase (i, 100000, 100, 50, 100, 20, false), TestCase::QUICK);
 //        AddTestCase (new MpTcpTestCase (i, 100000, 100, 50, 100, 20, false), TestCase::QUICK);
 
     // here it's a test where I lower streamsize to see where it starts failing.

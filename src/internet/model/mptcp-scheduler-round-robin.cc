@@ -114,6 +114,7 @@ MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNum
         return false; // TODO ?
     }
 
+    NS_LOG_DEBUG ("Able to choose between [" << nbOfSubflows << "] subflows");
     while(attempt < nbOfSubflows)
     {
         attempt++;
