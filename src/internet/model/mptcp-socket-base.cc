@@ -1104,8 +1104,8 @@ Ptr<const TcpOptionMpTcpJoin> join
   }
 
   // Similar to NotifyConnectionRequest
-  bool accept_connection = true;
-  if(!NotifyJoinRequest(fromAddress, toAddress))
+  bool accept_connection = NotifyJoinRequest(fromAddress, toAddress);
+  if(!accept_connection)
   {
     NS_LOG_LOGIC("Refusing establishement of a new subflow");
     return 0;

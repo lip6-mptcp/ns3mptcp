@@ -58,6 +58,9 @@
 #include <string>
 #include <fstream>
 
+/* logging in tests is not *allowed*
+TODO Move this to the example folder rather
+*/
 NS_LOG_COMPONENT_DEFINE ("MpTcpTestSuite");
 
 using namespace ns3;

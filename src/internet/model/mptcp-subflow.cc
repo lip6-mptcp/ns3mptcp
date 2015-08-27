@@ -254,8 +254,8 @@ If copied from a legacy socket, then it's a master socket
 */
 MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
     : TcpSocketBase(sock),
-    m_masterSocket(true),
-    m_dssFlags(0)
+    m_dssFlags(0),
+    m_masterSocket(true)
 
 {
     NS_LOG_FUNCTION (this << &sock);
