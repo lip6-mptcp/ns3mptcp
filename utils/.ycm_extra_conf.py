@@ -57,6 +57,8 @@ def GetClangStandardHeaders():
 
 
 
+def DirectoryOfThisScript():
+  return os.path.dirname( os.path.abspath( __file__ ) )
 
 # Set this to the absolute path to the folder (NOT the file!) containing the
 # compile_commands.json file to use that instead of 'flags'. See here for
@@ -75,8 +77,6 @@ else:
 
 SOURCE_EXTENSIONS = [ '.cpp', '.cxx', '.cc', '.c', '.m', '.mm' ]
 
-def DirectoryOfThisScript():
-  return os.path.dirname( os.path.abspath( __file__ ) )
 
 
 def MakeRelativePathsInFlagsAbsolute( flags, working_directory ):
@@ -170,7 +170,7 @@ def FlagsForFile( filename, **kwargs ):
       compilation_info.compiler_flags_,
       compilation_info.compiler_working_dir_ )
     
-  flags += system_flags;
+  flags += GetClangStandardHeaders();
 
     #relative_to = DirectoryOfThisScript()
     #final_flags = MakeRelativePathsInFlagsAbsolute( flags, relative_to )
