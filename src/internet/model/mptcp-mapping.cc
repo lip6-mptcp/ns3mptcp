@@ -22,6 +22,7 @@
 #include <iostream>
 #include <set>
 #include <iterator>
+#include <algorithm>
 #include "ns3/mptcp-mapping.h"
 #include "ns3/simulator.h"
 #include "ns3/log.h"
@@ -204,7 +205,8 @@ MpTcpMapping::OverlapRangeSSN(const SequenceNumber32& headSSN, const uint16_t& l
 {
   SequenceNumber32 tailSSN = headSSN + len-1;
   //!
-  if( HeadSSN() >  tailSSN || TailSSN() < headSSN) {
+  if( HeadSSN() >  tailSSN || TailSSN() < headSSN)
+  {
     return false;
   }
   NS_LOG_DEBUG("SSN overlap");
@@ -216,8 +218,8 @@ MpTcpMapping::OverlapRangeDSN(const SequenceNumber64& headDSN, const uint16_t& l
 {
   SequenceNumber64 tailDSN = headDSN + len-1;
   //!
-  if( HeadDSN() >  tailDSN || TailDSN() < headDSN) {
-
+  if( HeadDSN() >  tailDSN || TailDSN() < headDSN)
+  {
     return false;
   }
 
@@ -384,18 +386,24 @@ bool
 MpTcpMappingContainer::GetMappingForSSN(const SequenceNumber32& ssn, MpTcpMapping& mapping) const
 {
   NS_LOG_FUNCTION(ssn);
+  if(m_mappings.empty())
+    return false;
 
   MpTcpMapping temp;
   temp.MapToSSN(ssn);
-  MappingList::const_iterator it = std::lower_bound( m_mappings.begin(), m_mappings.end(), temp);
-  if(it == m_mappings.end())
-  {
-    return false;
-  }
 
-
+  // Returns the first that is not less
+  // upper_bound returns the greater
+  MappingList::const_iterator it = std::upper_bound( m_mappings.begin(), m_mappings.end(), temp);
+//  if(it == m_mappings.end())
+//  {
+//    it = m_mappings.begin();
+//    NS_LOG_DEBUG("could not find anything mapped to ssn" << ssn << "/" << temp.HeadSSN());
+////    return false;
+//  }
+  it--;
   mapping = *it;
-  NS_LOG_DEBUG("Found " << mapping << " when asking for ssn=" << ssn);
+  NS_LOG_DEBUG("Is ssn in " << mapping << " ?");
   return mapping.IsSSNInRange( ssn );
 
 

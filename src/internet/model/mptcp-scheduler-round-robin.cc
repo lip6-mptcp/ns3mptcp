@@ -37,7 +37,6 @@ MpTcpSchedulerRoundRobin::GetTypeId (void)
     //
     .AddConstructor<MpTcpSchedulerRoundRobin> ()
   ;
-//  NS_LOG_UNCOND("TcpOptionMpTcpMain::GetTypeId called !");
   return tid;
 }
 
@@ -99,14 +98,14 @@ MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNum
 
     amountOfDataToSend = m_metaSock->m_txBuffer->SizeFromSequence( metaNextTxSeq );
 
-    NS_LOG_DEBUG("Amount of data to send [" << amountOfDataToSend  << "]");
+    uint32_t metaWindow = m_metaSock->AvailableWindow();
+
+    NS_LOG_DEBUG("TxData to send=" << amountOfDataToSend  << "; Available meta window=" << metaWindow);
     if(amountOfDataToSend <= 0)
     {
       NS_LOG_DEBUG("Nothing to send from meta");
       return false;
     }
-
-    uint32_t metaWindow = m_metaSock->AvailableWindow();
 
 
     if(metaWindow <= 0)
@@ -115,6 +114,7 @@ MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNum
         return false; // TODO ?
     }
 
+    NS_LOG_DEBUG ("Able to choose between [" << nbOfSubflows << "] subflows");
     while(attempt < nbOfSubflows)
     {
         attempt++;
@@ -132,7 +132,9 @@ MpTcpSchedulerRoundRobin::GenerateMapping(int& activeSubflowArrayId, SequenceNum
 
             activeSubflowArrayId = m_lastUsedFlowId;
             dsn = metaNextTxSeq;
-            length = std::min(canSend, amountOfDataToSend);
+            canSend = std::min(canSend, amountOfDataToSend);
+            // For now we limit ourselves to a per packet basis
+            length = std::min(canSend, subflow->GetSegSize());
             return true;
         }
     }

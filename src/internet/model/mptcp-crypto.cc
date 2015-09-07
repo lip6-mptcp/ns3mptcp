@@ -73,8 +73,8 @@ GenerateTokenForKey( mptcp_crypto_alg_t ns_alg, uint64_t key, uint32_t& token, u
   it.WriteHtonU64(key);
 
 
-    NS_LOG_DEBUG("Used algorithm [" << gcry_md_algo_name(GCRY_MD_SHA1) << "]");
-    int hash_length = gcry_md_get_algo_dlen( GCRY_MD_SHA1 );
+    NS_LOG_DEBUG("Used algorithm [" << gcry_md_algo_name(gcry_algo) << "]");
+    int hash_length = gcry_md_get_algo_dlen( gcry_algo );
 //    unsigned char digest[ hash_length ];
     unsigned char digest[ 20 ];
 

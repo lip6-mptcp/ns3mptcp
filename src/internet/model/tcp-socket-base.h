@@ -155,6 +155,8 @@ public:
    * \return the object TypeId
    */
   static TypeId GetTypeId (void);
+  virtual TypeId GetInstanceTypeId() const;
+
   /**
    * Create an unbound TCP socket
    */
@@ -187,6 +189,9 @@ public:
    * \param rtt the RTT estimator
    */
   virtual void SetRtt (Ptr<RttEstimator> rtt);
+
+
+  virtual Ptr<const RttEstimator> GetRttEstimator();
 
   /**
    * \brief Set the first Tx byte not acknowledged yet
@@ -397,7 +402,7 @@ protected:
    * \param fromAddress the address of the remote host
    * \param toAddress the address the connection is directed to
    */
-  void CompleteFork (Ptr<Packet> p, const TcpHeader& tcpHeader, const Address& fromAddress, const Address& toAddress);
+  void CompleteFork (Ptr<const Packet> p, const TcpHeader& tcpHeader, const Address& fromAddress, const Address& toAddress);
 
 
 
@@ -811,6 +816,9 @@ protected:
    * Ideally MpTcoSocketBase would take less memory than TcpSocketBase, so one of the goal should be to let
    * MpTcpSocketBase inherit directly from TcpSocket rather than TcpSocketBase.
    *
+   * The function does not register the new subflow in m_tcp->AddSocket, this should be taken care
+   * of afterwards.
+   *
    * \param master
    * \return master subflow. It is not associated to the meta at this point
    */
@@ -947,6 +955,7 @@ protected:
 
   /**
    * Generate a unique key for this host
+   * TODO move it to TcpL4 protocol
    * \see mptcp_set_key_sk
    */
   virtual uint64_t GenerateUniqueMpTcpKey() ;
@@ -1016,8 +1025,8 @@ protected:
   // Options
 //  bool    m_mptcpAllow;           //!< Window Scale option enabled
   bool    m_mptcpEnabled;         //!< Window Scale option enabled
-  bool    m_mptcpLocalKey;        //!< MPTCP key
-  bool    m_mptcpLocalToken;      //!< Hash of the key
+  uint64_t    m_mptcpLocalKey;        //!< MPTCP key
+  uint32_t    m_mptcpLocalToken;      //!< Hash of the key
 
   bool    m_winScalingEnabled;    //!< Window Scale option enabled
   uint8_t m_sndScaleFactor;       //!< Sent Window Scale (i.e., the one of the node)

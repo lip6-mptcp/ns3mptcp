@@ -40,8 +40,9 @@ class Ipv4Interface;
 class TcpSocket;
 class Ipv4EndPoint;
 class Ipv6EndPoint;
-class MpTcpSubflow;
+//class MpTcpSubflow;
 class TcpSocketBase;
+class TcpCongestionOps;
 
 /**
  * \ingroup tcp
@@ -103,13 +104,15 @@ public:
    */
   Ptr<Socket> CreateSocket (TypeId congestionTypeId);
   Ptr<Socket> CreateSocket (TypeId congestionTypeId, TypeId socketTypeId);
+  Ptr<Socket> CreateSocket (Ptr<TcpCongestionOps> algo, TypeId socketTypeId);
 
   /**
    * \param inplace true if it's a fork, if it should share memory
    fork it first then do inplace where you want
    */
-  Ptr<MpTcpSubflow>
-  UpgradeToMpTcpMetaSocket(Ptr<TcpSocketBase> socket);
+//  Ptr<MpTcpSubflow>
+//  UpgradeToMpTcpMetaSocket(Ptr<TcpSocketBase> socket);
+  void DumpSockets () const;
 
   /**
    * \brief Allocate an IPv4 Endpoint

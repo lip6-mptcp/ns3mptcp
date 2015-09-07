@@ -63,7 +63,7 @@ public:
 
   // Accessors
   /**
-   * \brief Get Next Rx Sequence number
+   * \brief Get Next in-order Rx Sequence number (RCV.NXT)
    * \returns Next Rx Sequence number
    */
   SequenceNumber32 NextRxSequence (void) const;
@@ -74,6 +74,7 @@ public:
   SequenceNumber32 MaxRxSequence (void) const;
   /**
    * \brief Increment the Next Sequence number
+   * Valid only during the 3WHS
    */
   void IncNextRxSequence (void);
   /**

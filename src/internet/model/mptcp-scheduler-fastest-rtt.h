@@ -19,14 +19,14 @@
  * Author:  Matthieu Coudron <matthieu.coudron@lip6.fr>
  *          Morteza Kheirkhah <m.kheirkhah@sussex.ac.uk>
  */
-#ifndef MPTCP_SCHEDULER_ROUND_ROBIN_H
-#define MPTCP_SCHEDULER_ROUND_ROBIN_H
+#ifndef MPTCP_SCHEDULER_FASTEST_RTT_H
+#define MPTCP_SCHEDULER_FASTEST_RTT_H
 
 
 #include "ns3/mptcp-scheduler.h"
 #include "ns3/object.h"
 #include "ns3/ptr.h"
-#include "ns3/mptcp-scheduler-round-robin.h"
+#include "ns3/mptcp-scheduler-fastest-rtt.h"
 #include <vector>
 #include <list>
 
@@ -36,17 +36,15 @@ namespace ns3
 class MpTcpSocketBase;
 class MpTcpSubflow;
 
-class MpTcpSchedulerRoundRobin
-//: public Object
-: public MpTcpScheduler
+class MpTcpSchedulerFastestRTT : public MpTcpScheduler
 {
 
 public:
   static TypeId
   GetTypeId (void);
 
-  MpTcpSchedulerRoundRobin();
-  virtual ~MpTcpSchedulerRoundRobin ();
+  MpTcpSchedulerFastestRTT();
+  virtual ~MpTcpSchedulerFastestRTT ();
 
 
   void SetMeta(Ptr<MpTcpSocketBase> metaSock);
@@ -64,12 +62,13 @@ public:
    * subflowId: pair(start,size)
    *
    * TODO should take into account backup priorities of subflows
-  */
+   */
   virtual bool GenerateMapping(int& activeSubflowArrayId, SequenceNumber64& dsn, uint16_t& length);
+
   /**
-  */
-  // TODO
-  // chooseSubflowForRetransmit
+   * \return -1 if could not find a valid subflow, the subflow id otherwise
+   */
+  virtual int FindFastestSubflowWithFreeWindow() const;
 
   /**
   Return Index of subflow to use
@@ -77,7 +76,7 @@ public:
   virtual Ptr<MpTcpSubflow> GetSubflowToUseForEmptyPacket();
 
 protected:
-  uint8_t  m_lastUsedFlowId;        //!< keep track of last used subflow
+//  uint8_t  m_lastUsedFlowId;        //!< keep track of last used subflow
   Ptr<MpTcpSocketBase> m_metaSock;  //!<
 };
 

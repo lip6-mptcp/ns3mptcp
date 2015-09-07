@@ -49,17 +49,17 @@ class Node;
  */
 /**
  * \ingroup ipv4StaticRouting
- * 
+ *
  * \brief Static routing protocol for IP version 4 stacks.
  *
  * This class provides a basic set of methods for inserting static
  * unicast and multicast routes into the Ipv4 routing system.
- * This particular protocol is designed to be inserted into an 
+ * This particular protocol is designed to be inserted into an
  * Ipv4ListRouting protocol but can be used also as a standalone
  * protocol.
- * 
- * The Ipv4StaticRouting class inherits from the abstract base class 
- * Ipv4RoutingProtocol that defines the interface methods that a routing 
+ *
+ * The Ipv4StaticRouting class inherits from the abstract base class
+ * Ipv4RoutingProtocol that defines the interface methods that a routing
  * protocol must support.
  *
  * \see Ipv4RoutingProtocol
@@ -103,9 +103,9 @@ public:
  *
  * \see Ipv4Address
  */
-  void AddNetworkRouteTo (Ipv4Address network, 
-                          Ipv4Mask networkMask, 
-                          Ipv4Address nextHop, 
+  virtual void AddNetworkRouteTo (Ipv4Address network,
+                          Ipv4Mask networkMask,
+                          Ipv4Address nextHop,
                           uint32_t interface,
                           uint32_t metric = 0);
 
@@ -120,8 +120,8 @@ public:
  *
  * \see Ipv4Address
  */
-  void AddNetworkRouteTo (Ipv4Address network, 
-                          Ipv4Mask networkMask, 
+  virtual void AddNetworkRouteTo (Ipv4Address network,
+                          Ipv4Mask networkMask,
                           uint32_t interface,
                           uint32_t metric = 0);
 
@@ -136,8 +136,8 @@ public:
  *
  * \see Ipv4Address
  */
-  void AddHostRouteTo (Ipv4Address dest, 
-                       Ipv4Address nextHop, 
+  void AddHostRouteTo (Ipv4Address dest,
+                       Ipv4Address nextHop,
                        uint32_t interface,
                        uint32_t metric = 0);
 /**
@@ -150,7 +150,7 @@ public:
  *
  * \see Ipv4Address
  */
-  void AddHostRouteTo (Ipv4Address dest, 
+  void AddHostRouteTo (Ipv4Address dest,
                        uint32_t interface,
                        uint32_t metric = 0);
 /**
@@ -159,8 +159,8 @@ public:
  * This method tells the routing system what to do in the case where a specific
  * route to a destination is not found.  The system forwards packets to the
  * specified node in the hope that it knows better how to route the packet.
- * 
- * If the default route is set, it is returned as the selected route from 
+ *
+ * If the default route is set, it is returned as the selected route from
  * LookupStatic irrespective of destination address if no specific route is
  * found.
  *
@@ -172,7 +172,7 @@ public:
  * \see Ipv4Address
  * \see Ipv4StaticRouting::Lookup
  */
-  void SetDefaultRoute (Ipv4Address nextHop, 
+  virtual void SetDefaultRoute (Ipv4Address nextHop,
                         uint32_t interface,
                         uint32_t metric = 0);
 
@@ -189,7 +189,7 @@ public:
  * \brief Get the default route with lowest metric from the static routing table.
  *
  * \return If the default route is set, a pointer to that Ipv4RoutingTableEntry is
- * returned, otherwise an empty routing table entry is returned. 
+ * returned, otherwise an empty routing table entry is returned.
 *  If multiple default routes exist, the one with lowest metric is returned.
  *
  * \see Ipv4RoutingTableEntry
@@ -242,7 +242,7 @@ public:
  * output network interface indices over which packets matching the conditions
  * are sent.
  *
- * Typically there are two main types of multicast routes:  routes of the 
+ * Typically there are two main types of multicast routes:  routes of the
  * first kind are used during forwarding.  All of the conditions must be
  * explicitly provided.  The second kind of routes are used to get packets off
  * of a local node.  The difference is in the input interface.  Routes for
@@ -251,25 +251,25 @@ public:
  * by the index Ipv4RoutingProtocol::INTERFACE_ANY.
  *
  * For routes off of a local node wildcards may be used in the origin and
- * multicast group addresses.  The wildcard used for Ipv4Adresses is that 
+ * multicast group addresses.  The wildcard used for Ipv4Adresses is that
  * address returned by Ipv4Address::GetAny () -- typically "0.0.0.0".  Usage
  * of a wildcard allows one to specify default behavior to varying degrees.
  *
- * For example, making the origin address a wildcard, but leaving the 
+ * For example, making the origin address a wildcard, but leaving the
  * multicast group specific allows one (in the case of a node with multiple
  * interfaces) to create different routes using different output interfaces
  * for each multicast group.
  *
  * If the origin and multicast addresses are made wildcards, you have created
- * essentially a default multicast address that can forward to multiple 
+ * essentially a default multicast address that can forward to multiple
  * interfaces.  Compare this to the actual default multicast address that is
  * limited to specifying a single output interface for compatibility with
  * existing functionality in other systems.
- * 
+ *
  * \param origin The Ipv4Address of the origin of packets for this route.  May
  * be Ipv4Address:GetAny for open groups.
  * \param group The Ipv4Address of the multicast group or this route.
- * \param inputInterface The input network interface index over which to 
+ * \param inputInterface The input network interface index over which to
  * expect packets destined for this route.  May be
  * Ipv4RoutingProtocol::INTERFACE_ANY for packets of local origin.
  * \param outputInterfaces A vector of network interface indices used to specify
@@ -287,9 +287,9 @@ public:
  *
  * This is the multicast equivalent of the unicast version SetDefaultRoute.
  * We tell the routing system what to do in the case where a specific route
- * to a destination multicast group is not found.  The system forwards 
+ * to a destination multicast group is not found.  The system forwards
  * packets out the specified interface in the hope that "something out there"
- * knows better how to route the packet.  This method is only used in 
+ * knows better how to route the packet.  This method is only used in
  * initially sending packets off of a host.  The default multicast route is
  * not consulted during forwarding -- exact routes must be specified using
  * AddMulticastRoute for that case.
@@ -297,7 +297,7 @@ public:
  * Since we're basically sending packets to some entity we think may know
  * better what to do, we don't pay attention to "subtleties" like origin
  * address, nor do we worry about forwarding out multiple  interfaces.  If the
- * default multicast route is set, it is returned as the selected route from 
+ * default multicast route is set, it is returned as the selected route from
  * LookupStatic irrespective of origin or multicast group if another specific
  * route is not found.
  *
@@ -320,9 +320,9 @@ public:
 /**
  * \brief Get a route from the static multicast routing table.
  *
- * Externally, the multicast static routing table appears simply as a table 
+ * Externally, the multicast static routing table appears simply as a table
  * with n entries.
- * 
+ *
  * \param i The index (into the routing table) of the multicast route to
  * retrieve.
  * \return If route \e i is set, a pointer to that Ipv4MulticastRoutingTableEntry is
@@ -336,7 +336,7 @@ public:
 /**
  * \brief Remove a route from the static multicast routing table.
  *
- * Externally, the multicast static routing table appears simply as a table 
+ * Externally, the multicast static routing table appears simply as a table
  * with n entries.
  * This method causes the multicast routing table to be searched for the first
  * route that matches the parameters and removes it.
@@ -365,7 +365,7 @@ public:
 /**
  * \brief Remove a route from the static multicast routing table.
  *
- * Externally, the multicast static routing table appears simply as a table 
+ * Externally, the multicast static routing table appears simply as a table
  * with n entries.
  *
  * \param index The index (into the multicast routing table) of the route to

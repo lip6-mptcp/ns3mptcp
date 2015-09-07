@@ -44,7 +44,7 @@ class TcpL4Protocol;
 class MpTcpPathIdManager;
 class MpTcpSubflow;
 //class MpTcpSchedulerRoundRobin;
-class MpTcpCongestionControl;
+//class MpTcpCongestionControl;
 class TcpOptionMpTcpDSS;
 class TcpOptionMpTcpJoin;
 class OutputStreamWrapper;
@@ -148,7 +148,7 @@ public:
    * \see Socket::Set
    */
   virtual void
-  SetSubflowAcceptCallback(Callback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & > connectionRequest,
+  SetSubflowAcceptCallback(Callback<bool, Ptr<MpTcpSocketBase>, const Address &, const Address & > connectionRequest,
                            Callback<void, Ptr<MpTcpSubflow> > connectionCreated
                            );
 
@@ -161,13 +161,13 @@ public:
 //  SetJoinCreatedCallback(Callback<void, Ptr<MpTcpSubflow> >);
 
   /**
-   *
+   * Triggers callback registered by SetSubflowAcceptCallback
    */
   void
   NotifySubflowCreated(Ptr<MpTcpSubflow> sf);
 
   /**
-   *
+   * Triggers callback registered by SetSubflowConnectCallback
    */
   void
   NotifySubflowConnected(Ptr<MpTcpSubflow> sf);
@@ -177,11 +177,14 @@ public:
    * It detects such events by tracing its subflow m_state.
    *
    */
-//  virtual void
-//  OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
+  virtual void
+  OnSubflowNewCwnd(std::string context, uint32_t oldCwnd, uint32_t newCwnd);
 
   /**
    * Initiates a new subflow with MP_JOIN
+   *
+   * Wrapper that just creates a subflow, bind it to a specific address
+   * and then establishes the connection
    */
   virtual int
   ConnectNewSubflow(const Address &local, const Address &remote);
@@ -212,17 +215,6 @@ public:
 
   void
   DumpRxBuffers(Ptr<MpTcpSubflow> sf) const;
-  /**
-  ONLY TEMPORARY
-  Used to export a whole range of statistics to csv files (filenames hardcoded).
-  This would likely need a rework before upstream, for instance to allow
-  enabling/disabling
-  **/
-//  virtual void
-//  SetupMetaTracing(std::string prefix);
-//  virtual void
-//  SetupSubflowTracing(Ptr<MpTcpSubflow> sf);
-
 
 //  void
 //  ProcessWait(Ptr<Packet> packet, const TcpHeader& tcpHeader);
@@ -376,6 +368,24 @@ public:
   virtual void SendRST(void);
 
   /**
+   * The connection is considered fully established
+   * when it can create new subflows, i.e., when it received
+   * a first dss ack
+   */
+  virtual bool FullyEstablished() const;
+
+  /**
+   * This retriggers Connection success callback
+   * You have to check in the callback if it fully estalbished or not
+   */
+  virtual void BecomeFullyEstablished();
+
+  /** TODO superseed into TcpSocketBase
+  Here it sends MP_FIN
+   */
+  virtual void SendFin();
+
+  /**
   public equivalent ?
   * \brief
   * \param srcAddr Address to bind to. In theory Can be an InetSocketAddress or an Inet6SocketAddress
@@ -385,6 +395,7 @@ public:
 
   /**
    * Initiate
+   * TODO rename into SetupSubflow ?
    */
   virtual void AddSubflow(Ptr<MpTcpSubflow> sf);
 
@@ -402,9 +413,19 @@ public:
   uint64_t GetPeerKey() const;
 
   /**
-  \brief Generated during
+  \brief Generated during the initial 3 WHS
   */
   uint64_t GetLocalKey() const;
+
+  /**
+   * \return Hash of the local key
+   */
+  uint32_t GetLocalToken() const;
+
+  /**
+   * \return Hash of the peer key
+   */
+  uint32_t GetPeerToken() const;
 
     /**
   For now it looks there is no way to know that an ip interface went up so we will assume until
@@ -436,20 +457,29 @@ public: // public variables
    *
    * \return
    */
-  virtual uint32_t GetToken() const;
+//  virtual uint32_t GetToken() const;
 
 
-
+  // TODO can be removed
   virtual void
-  CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
+  CompleteFork(Ptr<const Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress);
 
 protected: // protected methods
 
   friend class Tcp;
   friend class MpTcpSubflow;
-
   /**
-    *
+   * Expects InetXSocketAddress
+   */
+  virtual bool NotifyJoinRequest (const Address &from, const Address & toAddress);
+  /**
+   * Expects Ipv4 (6 not supported yet)
+   */
+  bool OwnIP(const Address& address) const;
+  /**
+    * Should be called after having sent a dataFIN
+    * Should send a RST on all subflows in state Other
+    * and a FIN for Established subflows
     */
   virtual void CloseAllSubflows();
 
@@ -678,7 +708,10 @@ protected: // protected variables
   virtual void UpdateTxBuffer();
 
   friend class TcpL4Protocol;
+  // TODO make it so this is not necessary
+  // like putting m_nextTxSequence in MpTcpScheduler and make it friend ?
   friend class MpTcpSchedulerRoundRobin;
+  friend class MpTcpSchedulerFastestRTT;
 
 
   /**
@@ -687,6 +720,7 @@ protected: // protected variables
   **/
   virtual Ipv4EndPoint*
   NewSubflowRequest(
+    Ptr<const Packet> p,
     const TcpHeader & header,
     const Address & fromAddress,
     const Address & toAddress,
@@ -718,10 +752,11 @@ protected: // protected variables
 //  virtual void OnRemAddress();
 
 public:
-  std::string m_tracePrefix;      //!< help naming csv files, TODO should be removed
-  int m_prefixCounter;      //!< TODO remove and put in a helper
+//  std::string m_tracePrefix;      //!< help naming csv files, TODO should be removed
+//  int m_prefixCounter;      //!< TODO remove and put in a helper
 
 protected:
+  virtual void CreateScheduler(TypeId schedulerTypeId);
 
   // TODO rename since will track local too.
   Ptr<MpTcpPathIdManager> m_remotePathIdManager;  //!< Keep track of advertised ADDR id advertised by remote endhost
@@ -731,7 +766,7 @@ protected:
   TODO the scheduler is so closely
   Rename into MpTcpScheduler
   ***/
-  Ptr<MpTcpSchedulerRoundRobin> m_scheduler;  //!<
+  Ptr<MpTcpScheduler> m_scheduler;  //!<
 
   // TODO make private ? check what it does
   // should be able to rmeove one
@@ -739,15 +774,14 @@ protected:
 
 private:
   // TODO rename into m_localKey  and move tokens into subflow (maybe not even needed)
-  uint64_t m_localKey;    //!< Store local host token, generated during the 3-way handshake
-  uint32_t m_localToken;  //!< Generated from key
+//  uint64_t m_localKey;    //!< Store local host token, generated during the 3-way handshake
+//  uint32_t m_localToken;  //!< Generated from key
 
   uint64_t m_peerKey; //!< Store remote host token
   uint32_t m_peerToken;
 
   bool     m_doChecksum;  //!< Compute the checksum. Negociated during 3WHS. Unused
 
-public:
   bool     m_receivedDSS;  //!< True if we received at least one DSS
 
 private:
@@ -768,12 +802,15 @@ private:
   Callback<void, Ptr<MpTcpSubflow> > m_subflowConnectionFailure;     //!< connection failed callback
 //  Callback<void, Ptr<Socket> >                   m_normalClose;          //!< connection closed callback
 //  Callback<void, Ptr<Socket> >                   m_errorClose;           //!< connection closed due to errors callback
-  Callback<bool, Ptr<MpTcpSubflow>, const Address &, const Address & >       m_joinRequest;    //!< connection request callback
+  Callback<bool, Ptr<MpTcpSocketBase>, const Address &, const Address & >       m_joinRequest;    //!< connection request callback
   Callback<void, Ptr<MpTcpSubflow> >    m_subflowCreated; //!< connection created callback
 
 // , const Address &, bool master
 //  Callback<void, Ptr<MpTcpSubflow> >    m_subflowConnectionSucceeded; //!< connection created callback
 
+    //!
+    TypeId m_subflowTypeId;
+    TypeId m_schedulerTypeId;
 };
 
 }   //namespace ns3

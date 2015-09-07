@@ -326,21 +326,36 @@ MP_JOIN Option for third ACK:
 +---------------------------------------------------------------+
 \endverbatim
 
-To sum up a subflow 3WHS:
+To sum up a subflow 3WHS :
 \verbatim
-
-   |             |   SYN + MP_JOIN(Token-B, R-A)  |
-   |             |------------------------------->|
-   |             |<-------------------------------|
-   |             | SYN/ACK + MP_JOIN(HMAC-B, R-B) |
-   |             |                                |
-   |             |     ACK + MP_JOIN(HMAC-A)      |
-   |             |------------------------------->|
-   |             |<-------------------------------|
-   |             |             ACK                |
+Host A                          Host B
+ |   SYN + MP_JOIN(Token-B, R-A)  |
+ |------------------------------->|
+ |<-------------------------------|
+ | SYN/ACK + MP_JOIN(HMAC-B, R-B) |
+ |                                |
+ |     ACK + MP_JOIN(HMAC-A)      |
+ |------------------------------->|
+ |<-------------------------------|
+ |             ACK                |
 
 HMAC-A = HMAC(Key=(Key-A+Key-B), Msg=(R-A+R-B))
 HMAC-B = HMAC(Key=(Key-B+Key-A), Msg=(R-B+R-A))
+\endverbatim
+or
+\verbatim
+  Host A                                  Host B
+  ------                                  ------
+  MP_JOIN               ->
+  [B's token, A's nonce,
+   A's Address ID, flags]
+                        <-                MP_JOIN
+                                          [B's HMAC, B's nonce,
+                                           B's Address ID, flags]
+  ACK + MP_JOIN         ->
+  [A's HMAC]
+
+                        <-                ACK
 \endverbatim
 **/
 class TcpOptionMpTcpJoin : public TcpOptionMpTcp<TcpOptionMpTcpMain::MP_JOIN>
@@ -419,6 +434,7 @@ public:
 
   /**
    * \brief Set token computed from peer's key
+   * Used in the SYN message of the MP_JOIN 3WHS
    */
   virtual void
   SetPeerToken (const uint32_t& token);

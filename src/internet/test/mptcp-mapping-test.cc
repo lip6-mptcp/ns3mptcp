@@ -205,7 +205,7 @@ MpTcpMappingContainerTestCase::DoRun()
 
   map2.SetHeadDSN( SequenceNumber64(60) );
   map2.SetMappingSize(10);
-  map2.MapToSSN( map0.TailSSN()+1);
+  map2.MapToSSN( map0.TailSSN()+ map1.GetLength());
 
 //      con0.AddMapping(map0);
   MpTcpMapping ret, overlap;
@@ -228,11 +228,11 @@ MpTcpMappingContainerTestCase::DoRun()
   NS_TEST_EXPECT_MSG_EQ(con0.FirstUnmappedSSN(ssn), true, "An empty container can't return the unmapped ssn");
   NS_TEST_EXPECT_MSG_EQ(ssn, map0.TailSSN()+1, "Now that there is a mapping, it should be able to return a result");
 
-  for(SequenceNumber32 i=0; i < map0.TailSSN(); ++i)
-  {
-    NS_TEST_EXPECT_MSG_EQ(con0.GetMappingForSSN(map0.HeadSSN(), ret), true, "Now that there is a mapping, it should be able to return a result");
+//  for(SequenceNumber32 i(0); i < map0.TailSSN(); ++i)
+//  {
+    NS_TEST_EXPECT_MSG_EQ(con0.GetMappingForSSN(map0.TailSSN(), ret), true, "Now that there is a mapping, it should be able to return a result");
     NS_TEST_EXPECT_MSG_EQ(ret, map0, "The returnd mapping should be equal to the one inserted");
-  }
+//  }
 
   NS_TEST_EXPECT_MSG_EQ(con0.DiscardMapping(map1), false, "This mapping was not registered");
   NS_TEST_EXPECT_MSG_EQ(con0.DiscardMapping(map0), true, "This mapping was registered");
@@ -243,9 +243,12 @@ MpTcpMappingContainerTestCase::DoRun()
   // TODO do a test to check that we get all
 
   // tests with 2 non contiguous mappings
-  NS_TEST_EXPECT_MSG_EQ(con1.AddMapping(map0), true, ""),
-  NS_TEST_EXPECT_MSG_EQ(con1.AddMapping(map2), true, ""),
+  NS_TEST_EXPECT_MSG_EQ(con1.AddMapping(map0), true, "");
+  NS_TEST_EXPECT_MSG_EQ(con1.AddMapping(map2), true, "");
 
+  NS_TEST_EXPECT_MSG_EQ(con1.GetMappingForSSN(map0.TailSSN() , ret), true, "This ssn should exist in the container");
+  NS_TEST_EXPECT_MSG_EQ(con1.GetMappingForSSN(map1.HeadSSN(), ret), false, "This ssn should not exist in the container");
+//  NS_TEST_EXPECT_MSG_EQ(con1.AddMapping(map1), true, "");
 //  con1.AddMapping(map0);
 
 

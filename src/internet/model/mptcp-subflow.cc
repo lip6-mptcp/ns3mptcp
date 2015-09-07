@@ -45,7 +45,7 @@
 #include <algorithm>
 #include <openssl/sha.h>
 
-NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
+
 
 /*
 #define DISABLE_MEMBER(retType,member) retType \
@@ -55,6 +55,8 @@ NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
 */
 
 namespace ns3 {
+
+NS_LOG_COMPONENT_DEFINE("MpTcpSubflow");
 
 NS_OBJECT_ENSURE_REGISTERED(MpTcpSubflow);
 
@@ -80,14 +82,8 @@ MpTcpSubflow::GetTypeId(void)
 {
   static TypeId tid = TypeId("ns3::MpTcpSubflow")
       .SetParent<TcpSocketBase>()
-//      .AddConstructor<MpTcpSubflow>()
-      // TODO should be inherited
-//      .AddTraceSource("CongestionWindow",
-//          "The congestion control window to trace.",
-//           MakeTraceSourceAccessor(&MpTcpSubflow::m_cWnd))
-//      .AddTraceSource("SSThreshold",
-//          "The Slow Start Threshold.",
-//           MakeTraceSourceAccessor(&MpTcpSubflow::m_ssThresh))
+      .SetGroupName ("Internet")
+      .AddConstructor<MpTcpSubflow>()
     ;
   return tid;
 }
@@ -115,23 +111,16 @@ GetMapping(const Ptr<const TcpOptionMpTcpDSS> dss)
 TypeId
 MpTcpSubflow::GetInstanceTypeId(void) const
 {
-  return GetTypeId();
+  return MpTcpSubflow::GetTypeId();
 }
 
-//bool
+
 void
 MpTcpSubflow::SetMeta(Ptr<MpTcpSocketBase> metaSocket)
 {
   NS_ASSERT(metaSocket);
-//  NS_ASSERT(m_state == CLOSED);
   NS_LOG_FUNCTION(this);
   m_metaSocket = metaSocket;
-
-  // kinda hackish
-//  m_TxMappings.m_txBuffer = &m_txBuffer;
-//  m_RxMappings.m_rxBuffer = &m_rxBuffer;
-
-//  return true;
 }
 
 void
@@ -265,8 +254,8 @@ If copied from a legacy socket, then it's a master socket
 */
 MpTcpSubflow::MpTcpSubflow(const TcpSocketBase& sock)
     : TcpSocketBase(sock),
-    m_masterSocket(true),
-    m_dssFlags(0)
+    m_dssFlags(0),
+    m_masterSocket(true)
 
 {
     NS_LOG_FUNCTION (this << &sock);
@@ -344,15 +333,16 @@ MpTcpSubflow::Send(Ptr<Packet> p, uint32_t flags)
   int ret = TcpSocketBase::Send(p, flags);
 
 
-//  if(ret > 0)
-//  {
+  if(ret > 0)
+  {
 //      // Check that the packet is covered by mapping
 //      // compute ssnHead and tail
 //      SequenceNumber32 ssnTail = m_txBuffer->TailSequence();
-//      SequenceNumber32 ssnHead = m_txBuffer->TailSequence() - p->Size();
-//      NS_ASSERT(CheckRangeIsCoveredByMapping(ssnHead, ssnTail));
+      MpTcpMapping temp;
+      SequenceNumber32 ssnHead = m_txBuffer->TailSequence() - p->GetSize();
+      NS_ASSERT(m_TxMappings.GetMappingForSSN(ssnHead, temp));
 //      return ret;
-//  }
+  }
 
   return ret;
 }
@@ -567,7 +557,7 @@ MpTcpSubflow::CheckRangeIsCoveredByMapping(SequenceNumber32 ssnHead, SequenceNum
 void
 MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
 {
-
+  NS_LOG_FUNCTION (this << header <<  p);
   // TODO here we should decide if we call AppendMapping or not and with which value
 
 
@@ -610,16 +600,31 @@ MpTcpSubflow::SendPacket(TcpHeader header, Ptr<Packet> p)
  *
  */
 uint32_t
-MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32_t length)
+MpTcpSubflow::SendDataPacket(TcpHeader& header, SequenceNumber32 ssnHead, uint32_t maxSize)
 {
-  NS_LOG_FUNCTION(this << "Sending packet starting at SSN [" << ssnHead.GetValue() << "] with len=" << length);
+  NS_LOG_FUNCTION(this << "Sending packet starting at SSN [" << ssnHead.GetValue() << "] with len=" << maxSize);
+  //! if we send data...
+//  if(p->GetSize() && !IsInfiniteMappingEnabled())
+//  {
 
+      MpTcpMapping mapping;
+      // TODO
+      bool result = m_TxMappings.GetMappingForSSN(ssnHead, mapping);
+      if(!result)
+      {
+        m_TxMappings.Dump();
+        NS_FATAL_ERROR("Could not find mapping associated to ssn");
+      }
+//      NS_ASSERT_MSG(mapping.TailSSN() >= ssnHead +p->GetSize() -1, "mapping should cover the whole packet" );
+
+      AppendDSSMapping(mapping);
+    ///============================
+
+//  }
 //  #error TODO copy some commands from TcpSocketBase
 
-
-
   // Here we set the maxsize to the size of the mapping
-  return TcpSocketBase::SendDataPacket(header, ssnHead, length);
+  return TcpSocketBase::SendDataPacket(header, ssnHead, std::min( (int)maxSize,mapping.TailSSN()-ssnHead+1));
 }
 
 
@@ -639,7 +644,7 @@ MpTcpSubflow::Retransmit(void)
 {
   NS_LOG_FUNCTION (this);
 
-  TcpSocketBase::Retransmit();
+//  TcpSocketBase::Retransmit();
 #if 0
   NS_LOG_LOGIC (this << " ReTxTimeout Expired at time " << Simulator::Now ().GetSeconds ()
   << "Exiting Fast recovery  (previously set to " << m_inFastRec << ")");
@@ -689,25 +694,12 @@ void
 MpTcpSubflow::DoRetransmit()
 {
   NS_LOG_FUNCTION(this);
-  // TODO maybe this call should go to DoRetransmit
-  GetMeta()->OnSubflowRetransmit(this);
 
-  // TODO this can't work, we need to regenerate the DSS and embed it
-//  TcpSocketBase::DoRetransmit();
-  /**
-  We want to send mappings only
-  **/
-//  MpTcpMapping mapping;
-//  if(!m_TxMappings.GetMappingForSSN(FirstUnackedSeq(), mapping))
-////  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
-//  {
-//    m_TxMappings.Dump();
-//    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << FirstUnackedSeq() << "]. Should be impossible");
-//  }
+  GetMeta()->OnSubflowRetransmit(this);
 
   TcpSocketBase::DoRetransmit();
   #if 0
-  NS_LOG_FUNCTION (this);
+//  NS_LOG_FUNCTION (this);
   // Retransmit SYN packet
   if (m_state == SYN_SENT)
     {
@@ -744,6 +736,7 @@ MpTcpSubflow::DoRetransmit()
   if(!m_TxMappings.GetMappingForSSN(FirstUnackedSeq(), mapping))
 //  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
   {
+    NS_LOG_UNCOND("Rx mappings");
     m_TxMappings.Dump();
     NS_FATAL_ERROR("Could not associate a mapping to ssn [" << FirstUnackedSeq() << "]. Should be impossible");
   }
@@ -860,16 +853,14 @@ MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
   if(sendDataAck)
   {
       // TODO replace with member function to keep isolation
-      uint32_t dack = GetMeta()->m_rxBuffer->NextRxSequence().GetValue();
+      uint32_t dack = GetMeta()->GetRxBuffer()->NextRxSequence().GetValue();
       dss->SetDataAck( dack );
   }
 
   // If no mapping set but datafin set , we have to create the mapping from scratch
   if( sendDataFin && !(m_dssFlags & TcpOptionMpTcpDSS::DSNMappingPresent))
   {
-    // TODO replace with member function to keep isolation
 
-    // TODO map to ssn
     m_dssMapping.MapToSSN(SequenceNumber32(0));
     m_dssMapping.SetHeadDSN(SEQ64TO32(GetMeta()->m_txBuffer->TailSequence() ));
     m_dssMapping.SetMappingSize(1);
@@ -881,10 +872,6 @@ MpTcpSubflow::AddMpTcpOptionDSS(TcpHeader& header)
   if(m_dssFlags & TcpOptionMpTcpDSS::DSNMappingPresent)
   {
 
-
-      // TODO don't send  mapping for every subsequent packet
-      // New prototype
-      //SetMapping (uint64_t& headDsn, uint32_t& headSsn, uint16_t& length, const bool& trunc_to_32bits = true);
       dss->SetMapping(m_dssMapping.HeadDSN().GetValue(), m_dssMapping.HeadSSN().GetValue(),
                             m_dssMapping.GetLength(), sendDataFin);
    }
@@ -899,25 +886,12 @@ MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
     // TODO look for the mapping
     if((header.GetFlags () & TcpHeader::SYN))
     {
-//         if token not generated yet
-//        if(m_mptcpLocalKey == 0)
-//        {
-//            !
-//            m_mptcpLocalKey = GenerateUniqueMpTcpKey();
-//        }
-        // Append the MPTCP capable option
-//        Ptr<TcpOptionMpTcpCapable> mpc = CreateObject<TcpOptionMpTcpCapable>();
-//        mpc->SetSenderKey( m_mptcpLocalKey );
-//        header.AppendOption(mpc);
-        //!
-        // TODO assert on the state ?
+
         AddOptionMpTcp3WHS(header);
-//        break;
     }
     // as long as we've not received an ack from the peer we
     // send an MP_CAPABLE with both keys
-    // TODO create a member function that returns if multipath is available
-    else if(!GetMeta()->m_receivedDSS)
+    else if(!GetMeta()->FullyEstablished())
     {
         AddOptionMpTcp3WHS(header);
     }
@@ -932,147 +906,11 @@ MpTcpSubflow::AddMpTcpOptions (TcpHeader& header)
 
 }
 
-/**
-I ended up duplicating this code to update the meta r_Wnd, which would have been hackish otherwise
-TODO to remove
-**/
-#if 0
-void
-MpTcpSubflow::DoForwardUp(Ptr<Packet> packet, Ipv4Header header, uint16_t port, Ptr<Ipv4Interface> incomingInterface)
-{
-  NS_LOG_FUNCTION(this);
-  //m_rWnd = tcpHeader.GetWindowSize();
-
-
-  NS_LOG_FUNCTION(this);
-
-  NS_LOG_LOGIC ("Socket " << this << " forward up " <<
-      m_endPoint->GetPeerAddress () <<
-      ":" << m_endPoint->GetPeerPort () <<
-      " to " << m_endPoint->GetLocalAddress () <<
-      ":" << m_endPoint->GetLocalPort ());
-  Address fromAddress = InetSocketAddress(header.GetSource(), port);
-  Address toAddress = InetSocketAddress(header.GetDestination(), m_endPoint->GetLocalPort());
-
-  //NS_LOG_INFO("Before: " << packet->GetSize());
-  // Peel off TCP header and do validity checking
-  TcpHeader tcpHeader;
-  packet->RemoveHeader(tcpHeader);
-  if (tcpHeader.GetFlags() & TcpHeader::ACK)
-  {
-    EstimateRtt(tcpHeader);
-  }
-//  ReadOptions(tcpHeader);
-
-  GetMeta()->ProcessMpTcpOptions(tcpHeader, this);
-
-  //NS_LOG_INFO("After cuttingHeader: " << packet->GetSize());
-  // Update Rx window size, i.e. the flow control window
-//  TODO this will be done in meta
-//  if (m_rWnd.Get() == 0 && tcpHeader.GetWindowSize() != 0)
-//    { // persist probes end
-//      NS_LOG_LOGIC (this << " Leaving zerowindow persist state");
-//      m_persistEvent.Cancel();
-//    }
-
-//  m_rWnd = tcpHeader.GetWindowSize();
-//  GetMeta()->m_rWnd = tcpHeader.GetWindowSize();
-
-  /*  Update of receive window:
-
-  If we are in master socket, in SYN_SENT or SYN_RCVD state then the connection should not be qualified
-  as an mptcp connection yet, so we are allowed to save the receive window.
-  When the connection qualifies as MPTCP, we copy the receive window value into the meta.
-
-  As soon as the connection qualifies as an MPTCP connection, then there is only one possible way to update
-  the receiver window, as explained in http://www.rfc-editor.org/rfc/rfc6824.txt :
-      "The sender remembers receiver window advertisements from the
-     receiver.  It should only update its local receive window values when
-     the largest sequence number allowed (i.e., DATA_ACK + receive window)
-     increases, on the receipt of a DATA_ACK. "
-  */
-  if(IsMaster() && (m_state == SYN_SENT || m_state == SYN_RCVD) ) {
-      NS_LOG_LOGIC("Connection does not qualify as MPTCP yet so we can update receive window");
-//      GetMeta()->SetRemoteWindow(tcpHeader.GetWindowSize());
-        m_rWnd = tcpHeader.GetWindowSize();
-  }
-
-
-
-  // Discard fully out of range data packets
-  if (packet->GetSize() && OutOfRange(tcpHeader.GetSequenceNumber(), tcpHeader.GetSequenceNumber() + packet->GetSize()))
-    {
-      NS_LOG_LOGIC ("At state " << TcpStateName[m_state] <<
-          " received packet of seq [" << tcpHeader.GetSequenceNumber () <<
-          ":" << tcpHeader.GetSequenceNumber () + packet->GetSize () <<
-          ") out of range [" << m_rxBuffer->NextRxSequence () << ":" <<
-          m_rxBuffer->MaxRxSequence () << ")");
-      // Acknowledgement should be sent for all unacceptable packets (RFC793, p.69)
-      if (m_state == ESTABLISHED && !(tcpHeader.GetFlags() & TcpHeader::RST))
-        {
-          SendEmptyPacket(TcpHeader::ACK);
-        }
-      return;
-    }
-
-  // TCP state machine code in different process functions
-  // C.f.: tcp_rcv_state_process() in tcp_input.c in Linux kernel
-  switch (m_state)
-    {
-  case ESTABLISHED:
-    ProcessEstablished(packet, tcpHeader);
-    break;
-  case LISTEN:
-    ProcessListen(packet, tcpHeader, fromAddress, toAddress);
-    break;
-  case TIME_WAIT:
-    // Do nothing
-    break;
-  case CLOSED:
-    // Send RST if the incoming packet is not a RST
-    if ((tcpHeader.GetFlags() & ~(TcpHeader::PSH | TcpHeader::URG)) != TcpHeader::RST)
-      { // Since m_endPoint is not configured yet, we cannot use SendRST here
-        TcpHeader h;
-        h.SetFlags(TcpHeader::RST);
-        h.SetSequenceNumber(m_nextTxSequence);
-        h.SetAckNumber(m_rxBuffer->NextRxSequence());
-        h.SetSourcePort(tcpHeader.GetDestinationPort());
-        h.SetDestinationPort(tcpHeader.GetSourcePort());
-        h.SetWindowSize(AdvertisedWindowSize());
-        AddOptions(h);
-        m_tcp->SendPacket(Create<Packet>(), h, header.GetDestination(), header.GetSource(), m_boundnetdevice);
-      }
-    break;
-  case SYN_SENT:
-    ProcessSynSent(packet, tcpHeader);
-    break;
-  case SYN_RCVD:
-    ProcessSynRcvd(packet, tcpHeader, fromAddress, toAddress);
-    break;
-  case FIN_WAIT_1:
-  case FIN_WAIT_2:
-  case CLOSE_WAIT:
-    ProcessWait(packet, tcpHeader);
-    break;
-  case CLOSING:
-    ProcessClosing(packet, tcpHeader);
-    break;
-  case LAST_ACK:
-    ProcessLastAck(packet, tcpHeader);
-    break;
-  default: // mute compiler
-    break;
-    }
-
-}
-#endif // 0
 
 void
 MpTcpSubflow::ProcessClosing(Ptr<Packet> packet, const TcpHeader& tcpHeader)
 {
   NS_LOG_FUNCTION (this << tcpHeader);
-
-//  ProcessOptions()
 
   return TcpSocketBase::ProcessClosing(packet,tcpHeader);
 }
@@ -1097,9 +935,13 @@ MpTcpSubflow::DeallocateEndPoint(void)
 
 
 void
-MpTcpSubflow::CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress)
+MpTcpSubflow::CompleteFork(Ptr<const Packet> p, const TcpHeader& h, const Address& fromAddress, const Address& toAddress)
 {
   NS_LOG_INFO( this << "Completing fork of MPTCP subflow");
+
+
+  GetMeta()->GenerateUniqueMpTcpKey();
+
   // Get port and address from peer (connecting host)
   // TODO upstream ns3 should assert that to and from Address are of the same kind
   TcpSocketBase::CompleteFork(p, h, fromAddress, toAddress);
@@ -1111,6 +953,7 @@ MpTcpSubflow::CompleteFork(Ptr<Packet> p, const TcpHeader& h, const Address& fro
        NS_LOG_LOGIC("Setting meta endpoint to " << m_endPoint
                     << " (old endpoint=" << GetMeta()->m_endPoint << " )");
        GetMeta()->m_endPoint = m_endPoint;
+
     }
 }
 
@@ -1219,6 +1062,7 @@ MpTcpSubflow::ProcessSynSent(Ptr<Packet> packet, const TcpHeader& tcpHeader)
       else
       {
         /**
+        Host A                                             Host B
                |             |   SYN + MP_JOIN(Token-B, R-A)  |
                |             |------------------------------->|
                |             |<-------------------------------|
@@ -1337,7 +1181,7 @@ MpTcpSubflow::ProcessOptionMpTcpCapable(const Ptr<const TcpOptionMpTcpMain> opti
 //        }
 //        NS_ASSERT_MSG( GetTcpOption(tcpHeader, mpcRcvd), "There must be an MP_CAPABLE option in the SYN Packet" );
 
-    // TODO depending on the state
+    // TODO check it depending on the state
     GetMeta()->SetPeerKey( mpcRcvd->GetSenderKey() );
 
     // TODO add it to the manager too
@@ -1427,10 +1271,15 @@ void
 MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
 {
   //NS_ASSERT(m_state == SYN_SENT || m_state == SYN_RCVD);
-  NS_LOG_FUNCTION(this << hdr);
+  NS_LOG_FUNCTION(this << hdr << hdr.FlagsToString(hdr.GetFlags()));
 
   if( IsMaster() )
   {
+//    if(GetMeta()->GetLocalKey() == 0)
+//    {
+//
+//    }
+
     //! Use an MP_CAPABLE option
     Ptr<TcpOptionMpTcpCapable> mpc =  CreateObject<TcpOptionMpTcpCapable>();
     switch(hdr.GetFlags())
@@ -1465,7 +1314,7 @@ MpTcpSubflow::AddOptionMpTcp3WHS(TcpHeader& hdr) const
 //          result =
 //          MpTcpSocketBase::GenerateTokenForKey( MPTCP_SHA1, GetMeta()->GetRemoteKey(), token, idsn );
 
-          join->SetPeerToken(GetMeta()->m_peerToken);
+          join->SetPeerToken(GetMeta()->GetPeerToken());
           join->SetNonce(0);
         }
         break;
@@ -2120,8 +1969,9 @@ MpTcpSubflow::ExtractAtMostOneMapping(uint32_t maxSize, bool only_full_mapping, 
 //  if(!m_RxMappings.TranslateSSNtoDSN(headSSN, dsn))
   {
 //      NS_LOG_DEBUG("Could not find a mapping for headSSN=" << headSSN );
+
       m_RxMappings.Dump();
-    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
+      NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
 //    NS_FATAL_ERROR("Could not associate a mapping to ssn [" << headSSN << "]. Should be impossible");
   }
   NS_LOG_DEBUG("Extracting mapping " << mapping);
@@ -2749,14 +2599,12 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
 {
   NS_LOG_FUNCTION (this << dss << " from subflow ");
 
-  if(!GetMeta()->m_receivedDSS )
+  if(!GetMeta()->FullyEstablished() )
   {
     NS_LOG_LOGIC("First DSS received !");
-    GetMeta()->m_receivedDSS = true;
 
-    // Wrong, one should be able to send this a lot before
-    // should be called only on client side
-//    GetMeta()->ConnectionSucceeded();
+    GetMeta()->BecomeFullyEstablished();
+
   }
 
   //! datafin case handled at the start of the function
@@ -2768,7 +2616,13 @@ MpTcpSubflow::ProcessOptionMpTcpDSSEstablished(const Ptr<const TcpOptionMpTcpDSS
 //      AddPeerMapping(m);
       // Add peer mapping
       bool ok = m_RxMappings.AddMapping( m );
-      NS_ASSERT(ok);
+      if(!ok)
+      {
+        NS_LOG_WARN("Could not insert mapping: already received ?");
+        NS_LOG_UNCOND("Dumping Rx mappings...");
+        m_RxMappings.Dump();
+//        NS_FATAL_ERROR("Insert failed");
+      }
   }
 
 //  #if 0
