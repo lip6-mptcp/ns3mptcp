@@ -1024,7 +1024,7 @@ protected:
 
   // Options
 //  bool    m_mptcpAllow;           //!< Window Scale option enabled
-  bool    m_mptcpEnabled;         //!< Window Scale option enabled
+  bool        m_mptcpEnabled;         //!< Window Scale option enabled
   uint64_t    m_mptcpLocalKey;        //!< MPTCP key
   uint32_t    m_mptcpLocalToken;      //!< Hash of the key
 

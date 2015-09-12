@@ -91,7 +91,8 @@ TcpSocketBase::GetTypeId (void)
             //      MakeBooleanAccessor (&TcpSocketBase::SetQosSupported,&RegularWifiMac::GetQosSupported)
                    MakeBooleanAccessor (&TcpSocketBase::m_nullIsn),
                    MakeBooleanChecker ())
-    .AddAttribute ("EnableMpTcp", "Enable or disable MPTCP support",
+    .AddAttribute ("EnableMpTcp",
+                   "Enable or disable MPTCP support",
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_mptcpEnabled),
                    MakeBooleanChecker ())
